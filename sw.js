@@ -4,8 +4,8 @@
  * これにより「古い app.js が残って不具合」を避けつつ、電波が無い場所でも
  * 直近のリスト画面を開けるようにする。
  */
-const CACHE = "ctl-cache-v7";
-const CORE = ["./", "./index.html", "./app.js", "./styles.css", "./icon.svg", "./icon-pop.svg", "./manifest.webmanifest", "./icons/icon-192.png"];
+const CACHE = "ctl-cache-v8";
+const CORE = ["./", "./index.html", "./app.js", "./icons.js", "./styles.css", "./icon.svg", "./icon-pop.svg", "./manifest.webmanifest", "./icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

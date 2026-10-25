@@ -5510,3 +5510,34 @@ div.battle-poster {
   from { transform: translateY(16px); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
+
+/* 単色の線画アイコン（icons.js が絵文字から置き換え） */
+.ic {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.18em;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.tab-ic .ic,
+.help-way-ic .ic,
+.help-feature-ic .ic,
+.achv-icon .ic,
+.achv-toast-icon .ic,
+.recovery-icon .ic,
+.soc-poster-fallback .ic {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  stroke-width: 1.8;
+}
+.help-way-ic,
+.help-feature-ic,
+.achv-icon,
+.stat-insight-icon {
+  color: var(--accent);
+}
+.achv-badge.is-locked .achv-icon {
+  color: var(--text-dim);
+}
