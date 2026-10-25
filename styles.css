@@ -4321,6 +4321,22 @@ div.battle-poster {
   color: var(--text-dim);
 }
 
+.battle-unwatched {
+  display: block;
+  margin: 6px auto 0;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.battle-unwatched:hover {
+  color: var(--text);
+}
+
 .battle-actions {
   display: flex;
   justify-content: center;

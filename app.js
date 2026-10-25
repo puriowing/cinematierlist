@@ -7545,6 +7545,17 @@
       return card;
     },
 
+    // 未鑑賞の作品は「観たい」へ移し、二択の対象から外す
+    unwatched(m) {
+      this.items = this.items.filter((x) => x !== m);
+      this.origin.delete(m);
+      moveMovie(m.id, "watchlist");
+      toast(`「${m.title}」を 🔖 観たい に移動しました`);
+      if (this.items.length >= 2) { this.nextPair(); return; }
+      if (this.count > 0) this.finish();
+      else { this.teardown(); closeModal("battleModal"); }
+    },
+
     stageText() {
       const left = this.unplaced().length;
       return left ? `未分類を振り分け中（残り <b>${left}</b> 本）` : "ティア分けを見直し中";
@@ -7568,8 +7579,16 @@
         `<button id="battleFinish" class="btn btn-primary">終了してティアに反映</button>` +
         `<button class="btn btn-ghost" data-close="battleModal">やめる</button>` +
         `</div>`;
-      document.getElementById("battleSlotA").appendChild(this.buildCard(this.cur.a, "a"));
-      document.getElementById("battleSlotB").appendChild(this.buildCard(this.cur.b, "b"));
+      [["battleSlotA", this.cur.a, "a"], ["battleSlotB", this.cur.b, "b"]].forEach(([id, m, side]) => {
+        const slot = document.getElementById(id);
+        slot.appendChild(this.buildCard(m, side));
+        const nw = document.createElement("button");
+        nw.className = "battle-unwatched";
+        nw.textContent = "まだ観ていない";
+        nw.title = "「観たい」に移して、二択から外します";
+        nw.addEventListener("click", () => this.unwatched(m));
+        slot.appendChild(nw);
+      });
       document.getElementById("battleTie").addEventListener("click", () => this.vote("tie"));
       document.getElementById("battleSkip").addEventListener("click", () => this.vote("skip"));
       document.getElementById("battleFinish").addEventListener("click", () => this.finish());
