@@ -1767,6 +1767,10 @@ body.theme-pop .quick-add .btn {
   justify-content: space-between;
   padding: 18px 20px;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-elev);
+  z-index: 4;
 }
 
 .modal-header h3 {
