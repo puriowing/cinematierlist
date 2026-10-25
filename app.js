@@ -538,6 +538,7 @@
     state.tiers.forEach((tier) => {
       const row = document.createElement("div");
       row.className = "tier-row" + (tier.collapsed ? " collapsed" : "");
+      row.dataset.tierId = tier.id;
 
       const label = document.createElement("div");
       label.className = "tier-label";
@@ -577,7 +578,82 @@
     // ティアの一番下に「観たい（ウォッチリスト）」ゾーンを表示する。
     // ティアへ振り分けるのと同じドラッグ／タップ操作で、ここへも振り分けられる。
     renderWatchlistRow();
+    renderTierOverview();
   }
+
+  function renderTierOverview() {
+    const nav = document.getElementById("tierOverview");
+    if (!nav) return;
+    const tiers = state.tiers.map((t) => ({ id: t.id, label: t.label, color: t.color, n: visibleItems(t.items).length }));
+    const wlN = visibleItems(state.watchlist || []).length;
+    const total = tiers.reduce((a, t) => a + t.n, 0);
+    const chip = (t, extra = "") =>
+      `<button type="button" class="to-chip${extra}" data-target="${escapeHtml(t.id)}" title="${escapeHtml(t.label)}：${t.n}本">` +
+      `<span class="to-sw"${t.color ? ` style="background:${t.color}"` : ""}></span>` +
+      `<span class="to-name">${escapeHtml(t.label)}</span><span class="to-n">${t.n}</span></button>`;
+    nav.innerHTML =
+      `<div class="to-head"><span class="to-sum">${tiers.length}ティア・${total}本${hasFilter() || searchQuery ? "（絞り込み中）" : ""}</span>` +
+      `<div class="to-chips">${tiers.map((t) => chip(t)).join("")}${chip({ id: "watchlist", label: "🔖 観たい", n: wlN }, " to-chip-wl")}</div></div>` +
+      `<div class="to-bar">${tiers.map((t) =>
+        `<span class="to-seg${t.n ? "" : " is-empty"}" data-target="${escapeHtml(t.id)}" style="background:${t.color};flex-grow:${t.n}" title="${escapeHtml(t.label)}：${t.n}本（${total ? Math.round((t.n / total) * 100) : 0}%）"></span>`
+      ).join("")}</div>`;
+    nav.querySelectorAll("[data-target]").forEach((b) =>
+      b.addEventListener("click", () => scrollToTier(b.dataset.target))
+    );
+    updateTierOverviewActive();
+  }
+
+  function tierRowEl(id) {
+    if (id === "watchlist") return el.tierRows.querySelector(".tier-row-watchlist");
+    return [...el.tierRows.querySelectorAll(".tier-row[data-tier-id]")].find((r) => r.dataset.tierId === id);
+  }
+
+  function tierOverviewOffset() {
+    const head = document.querySelector(".app-header");
+    const nav = document.getElementById("tierOverview");
+    return (head ? head.offsetHeight : 0) + (nav ? nav.offsetHeight : 0) + 8;
+  }
+
+  function scrollToTier(id) {
+    const row = tierRowEl(id);
+    if (!row) return;
+    tierJumpTarget = id;
+    const y = row.getBoundingClientRect().top + window.scrollY - tierOverviewOffset();
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+
+  function updateTierOverviewActive() {
+    const nav = document.getElementById("tierOverview");
+    if (!nav) return;
+    const head = document.querySelector(".app-header");
+    nav.style.top = (head ? head.offsetHeight : 0) + "px";
+    const line = tierOverviewOffset() + 40;
+    let current = null;
+    el.tierRows.querySelectorAll(".tier-row").forEach((r) => {
+      if (r.getBoundingClientRect().top <= line) current = r.classList.contains("tier-row-watchlist") ? "watchlist" : r.dataset.tierId;
+    });
+    const first = el.tierRows.querySelector(".tier-row");
+    if (first && first.getBoundingClientRect().top > line) current = null;
+    if (tierJumpTarget && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = tierJumpTarget;
+    nav.querySelectorAll(".to-chip").forEach((c) => {
+      const on = c.dataset.target === current;
+      c.classList.toggle("is-active", on);
+      if (on && c.parentElement.scrollWidth > c.parentElement.clientWidth) {
+        const p = c.parentElement;
+        const left = c.offsetLeft - p.offsetLeft;
+        if (left < p.scrollLeft || left + c.offsetWidth > p.scrollLeft + p.clientWidth) p.scrollTo({ left: left - 24, behavior: "smooth" });
+      }
+    });
+  }
+
+  let tierOverviewRaf = 0;
+  let tierJumpTarget = null;
+  ["wheel", "touchmove", "keydown"].forEach((ev) => window.addEventListener(ev, () => { tierJumpTarget = null; }, { passive: true }));
+  window.addEventListener("scroll", () => {
+    if (tierOverviewRaf) return;
+    tierOverviewRaf = requestAnimationFrame(() => { tierOverviewRaf = 0; updateTierOverviewActive(); });
+  }, { passive: true });
+  window.addEventListener("resize", () => updateTierOverviewActive());
 
   // 観たいゾーン（ティア末尾の特別な行）
   function renderWatchlistRow() {

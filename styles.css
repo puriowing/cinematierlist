@@ -5727,3 +5727,123 @@ body.theme-pop .collapse-toggle {
 .collapse-toggle.is-collapsed .ic {
   transform: rotate(-90deg);
 }
+
+/* ---------- ティア構成バー ---------- */
+.tier-overview {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px 12px 10px;
+  margin-bottom: 14px;
+}
+
+.to-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.to-sum {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.to-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.to-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.to-chip:hover { border-color: var(--accent); }
+
+.to-chip.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.to-sw {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.to-chip-wl .to-sw {
+  background: repeating-linear-gradient(45deg, #6b7a8f, #6b7a8f 3px, #61707f 3px, #61707f 6px);
+}
+
+.to-name {
+  font-weight: 700;
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.to-n {
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.to-chip-wl {
+  border-style: dashed;
+  margin-left: 4px;
+}
+
+.to-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.to-seg {
+  flex-basis: 0;
+  min-width: 6px;
+  cursor: pointer;
+}
+
+.to-seg.is-empty {
+  flex-grow: 0 !important;
+  width: 6px;
+  opacity: 0.3;
+}
+
+@media (max-width: 720px) {
+  .tier-overview { padding: 6px 8px 8px; margin-bottom: 10px; }
+  .to-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .to-chips::-webkit-scrollbar { display: none; }
+  .to-sum { font-size: 11px; }
+}
