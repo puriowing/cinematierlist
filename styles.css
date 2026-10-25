@@ -4172,29 +4172,6 @@ div.wl-poster {
   margin: 0 0 14px;
 }
 
-.battle-scope {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-
-.battle-radio {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-elev-2);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.battle-radio input {
-  accent-color: var(--accent);
-}
-
 .battle-progress {
   text-align: center;
   font-size: 13px;

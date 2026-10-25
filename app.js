@@ -7366,30 +7366,30 @@
       const body = document.getElementById("battleBody");
       if (!body) return;
       const poolN = state.pool.length;
-      const allN = allMovies().length;
+      const tieredN = allMovies().length - poolN;
+      const flow = poolN && tieredN
+        ? `まず<b>未分類の${poolN}本</b>を出題してティアに振り分け、そのあと<b>今のティア分けの見直し</b>に進みます。`
+        : poolN
+          ? `<b>未分類の${poolN}本</b>を出題して、好きな順にティアへ振り分けます。`
+          : `<b>今のティア分けの見直し</b>をします。はっきり差がついた作品だけが入れ替わります。`;
       body.innerHTML =
-        `<p class="battle-lead">2作品が表示されるので、<b>好きな方をタップ</b>するだけ。何回か繰り返すと、その結果をもとに自動でティアに振り分けます。ドラッグより速く、ゲーム感覚で整理できます。</p>` +
-        `<div class="battle-scope">` +
-        `<label class="battle-radio"><input type="radio" name="battleScope" value="pool" ${poolN >= 2 ? "checked" : "disabled"}/><span>未分類のみ（${poolN}本）</span></label>` +
-        `<label class="battle-radio"><input type="radio" name="battleScope" value="all" ${poolN >= 2 ? "" : "checked"}/><span>すべての作品（${allN}本）</span></label>` +
-        `</div>` +
-        `<p class="hint">※ 途中でやめても、それまでの結果だけで振り分けできます。振り分けの対象は「二択に出た作品」だけで、出ていない作品は今のティアのまま残ります。<br>※ ティアに入っている作品は今のティアを出発点にし、各ティアの本数も今のまま保ちます。はっきり差がついた作品だけが入れ替わります。</p>` +
+        `<p class="battle-lead">2作品が表示されるので、<b>好きな方をタップ</b>するだけ。${flow}</p>` +
+        `<p class="hint">※ いつやめても、それまでの結果だけで反映できます。二択に出ていない作品は動きません。各ティアの本数も今のまま保ちます。</p>` +
         `<div class="settings-actions">` +
         `<button id="battleStartBtn" class="btn btn-primary">二択を始める</button>` +
         `<button class="btn btn-ghost" data-close="battleModal">閉じる</button>` +
         `</div>`;
       const startBtn = document.getElementById("battleStartBtn");
       if (startBtn) startBtn.addEventListener("click", () => {
-        const sel = body.querySelector('input[name="battleScope"]:checked');
-        this.start(sel ? sel.value : "all");
+        this.start();
       });
       body.querySelectorAll("[data-close]").forEach((b) =>
         b.addEventListener("click", () => closeModal(b.dataset.close))
       );
     },
 
-    start(scope) {
-      const src = scope === "pool" ? state.pool.slice() : allMovies();
+    start() {
+      const src = allMovies();
       if (src.length < 2) { toast("二択をするには2本以上必要です"); return; }
       this.items = src.slice();
       this.rating = new Map();
@@ -7419,13 +7419,18 @@
     },
 
     nextPair() {
-      const items = this.items;
-      // 出場回数が少ないものを軸に、レーティングの近い相手を選ぶ
+      // 振り分けが済んでいない未分類作品を優先して出題し、ティアの作品を物差しにして比べる
+      const unplaced = this.unplaced();
+      const items = unplaced.length ? unplaced : this.items;
       let minPlays = Infinity;
       items.forEach((m) => { const p = this.plays.get(m.id); if (p < minPlays) minPlays = p; });
       const pool = items.filter((m) => this.plays.get(m.id) === minPlays);
-      const a = pool[Math.floor(Math.random() * pool.length)];
-      const others = items.filter((m) => m.id !== a.id);
+      // 未分類は1本ずつ順番に（途中の作品があればそれを続ける）
+      const a = unplaced.length
+        ? unplaced.reduce((x, y) => (this.plays.get(y.id) > this.plays.get(x.id) ? y : x))
+        : pool[Math.floor(Math.random() * pool.length)];
+      const anchors = this.items.filter((m) => m.id !== a.id && this.origin.has(m));
+      const others = unplaced.length && anchors.length ? anchors : this.items.filter((m) => m.id !== a.id);
       others.sort((x, y) =>
         Math.abs(this.rating.get(x.id) - this.rating.get(a.id)) -
         Math.abs(this.rating.get(y.id) - this.rating.get(a.id))
@@ -7442,6 +7447,16 @@
       this.renderPlay();
     },
 
+    unplaced() {
+      return this.items.filter((m) => !this.origin.has(m) && this.plays.get(m.id) < this.PLACE_PLAYS);
+    },
+    PLACE_PLAYS: 8,
+
+    // 未分類の作品は最初の数回だけ点数を大きく動かし、早く居場所が決まるようにする
+    kOf(m) {
+      return this.origin.has(m) ? 32 : Math.max(32, 200 / (1 + this.votes.get(m.id)));
+    },
+
     vote(choice) {
       if (!this.cur) return;
       const { a, b } = this.cur;
@@ -7454,12 +7469,11 @@
       const Ra = this.rating.get(a.id), Rb = this.rating.get(b.id);
       const Ea = 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
       const Eb = 1 - Ea;
-      const K = 32;
       let Sa;
       if (choice === "tie") Sa = 0.5;
       else Sa = choice === a.id ? 1 : 0;
-      this.rating.set(a.id, Ra + K * (Sa - Ea));
-      this.rating.set(b.id, Rb + K * ((1 - Sa) - Eb));
+      this.rating.set(a.id, Ra + this.kOf(a) * (Sa - Ea));
+      this.rating.set(b.id, Rb + this.kOf(b) * ((1 - Sa) - Eb));
       this.plays.set(a.id, this.plays.get(a.id) + 1);
       this.plays.set(b.id, this.plays.get(b.id) + 1);
       this.votes.set(a.id, this.votes.get(a.id) + 1);
@@ -7507,11 +7521,16 @@
       return card;
     },
 
+    stageText() {
+      const left = this.unplaced().length;
+      return left ? `未分類を振り分け中（残り <b>${left}</b> 本）` : "ティア分けを見直し中";
+    },
+
     renderPlay() {
       const body = document.getElementById("battleBody");
       if (!body || !this.cur) return;
       body.innerHTML =
-        `<div class="battle-progress">これまで <b>${this.count}</b> 回 ・ 好きな方をタップ（キーボードの ←/→、スキップは Space）</div>` +
+        `<div class="battle-progress">${this.stageText()} ・ これまで <b>${this.count}</b> 回 ・ 好きな方をタップ（キーボードの ←/→、スキップは Space）</div>` +
         `<div class="battle-arena">` +
         `<div id="battleSlotA"></div>` +
         `<div class="battle-vs">VS</div>` +
