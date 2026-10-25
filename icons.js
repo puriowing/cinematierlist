@@ -105,6 +105,8 @@
     family: '<circle cx="7" cy="6" r="2.6"/><circle cx="17" cy="6" r="2.6"/><circle cx="12" cy="12.5" r="2"/><path d="M2.5 20a4.5 4.5 0 0 1 4.5-5.5M21.5 20a4.5 4.5 0 0 0-4.5-5.5M8.5 21a3.5 3.5 0 0 1 7 0"/>',
     disc: '<circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="2.5"/>',
     badge: '<path d="M12 2.5 14.6 4.4 17.8 4.3 18.8 7.4 21.3 9.4 20.3 12.5 21.3 15.6 18.8 17.6 17.8 20.7 14.6 20.6 12 22.5 9.4 20.6 6.2 20.7 5.2 17.6 2.7 15.6 3.7 12.5 2.7 9.4 5.2 7.4 6.2 4.3 9.4 4.4z"/>',
+    sort: '<path d="m7 4-3.5 3.5M7 4l3.5 3.5M7 4v16M17 20l-3.5-3.5M17 20l3.5-3.5M17 20V4"/>',
+    external: '<path d="M14 3.5h6.5V10M20.5 3.5 11 13M18 14v5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 19V7.5A1.5 1.5 0 0 1 5.5 6h5"/>',
     coin: '<circle cx="12" cy="12" r="9.5"/><path d="M15 8.5c-.6-.9-1.7-1.5-3-1.5-1.9 0-3.2 1-3.2 2.5 0 3.3 6.4 1.7 6.4 5 0 1.5-1.4 2.5-3.2 2.5-1.4 0-2.6-.6-3.2-1.6M12 5v2M12 17v2"/>',
     dot: '<path d="M12 4.5 19.5 12 12 19.5 4.5 12z"/>',
   };
@@ -129,7 +131,7 @@
     briefcase: "💼", news: "📰", scale: "⚖", door: "🚪🕳", drop: "💧", dna: "🧬", cloud: "☁",
     anchor: "⚓", trident: "🔱", bow: "🏹", fist: "✊👊🥊🥋", rainbow: "🌈", tent: "🎪",
     snowman: "🧸⛄🎈", city: "🏙🌆", road: "🛣", hourglass: "⏳⌛", family: "👨‍👩‍👧",
-    disc: "📀💿", badge: "🆓🈁🅰🟣", coin: "💰🪙",
+    disc: "📀💿", badge: "🆓🈁🅰🟣", coin: "💰🪙", sort: "↕⇅", external: "↗",
   };
 
   const MAP = new Map();
@@ -144,7 +146,7 @@
     `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
   const medal = (n) => svg(`<circle cx="12" cy="12" r="9.5"/><text x="12" y="16.2" text-anchor="middle" font-size="11.5" font-weight="800" fill="currentColor" stroke="none" font-family="Montserrat,sans-serif">${n}</text>`);
 
-  const KEEP_TEXT = new Set(["↔", "↕", "↖", "↗", "↘", "↙", "↩", "↪", "©", "®", "™", "‼", "⁉", "▶", "◀", "▪", "▫", "◻", "◼", "Ⓜ", "★", "☆", "〰", "〽", "㊗", "㊙", "‼"]);
+  const KEEP_TEXT = new Set(["↔", "↖", "↘", "↙", "↩", "↪", "©", "®", "™", "‼", "⁉", "▶", "◀", "▪", "▫", "◻", "◼", "Ⓜ", "★", "☆", "〰", "〽", "㊗", "㊙", "‼"]);
   const RE = /[\u{1F1E6}-\u{1F1FF}]{2}|\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*/gu;
   const TEST = /[\u{1F1E6}-\u{1F1FF}]|\p{Extended_Pictographic}/u;
 
