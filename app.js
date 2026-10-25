@@ -60,6 +60,7 @@
   function filterLabel(f) {
     if (f.type === "year") return f.value + "年";
     if (f.type === "kind") return KIND_LABEL[f.value] || f.value;
+    if (f.type === "nitaku") return "二択で動いた作品";
     return f.value;
   }
   // 登録作品のタイトル検索クエリ（正規化済み）。テーマ絞り込みと AND で併用する
@@ -688,6 +689,15 @@
       card.appendChild(badge);
     }
 
+    if (movie.nitaku) {
+      const nb = document.createElement("div");
+      nb.className = "movie-nitaku-badge";
+      nb.textContent = "二択";
+      const d = new Date(movie.nitaku.at);
+      nb.title = `${d.getMonth() + 1}/${d.getDate()} 二択で「${movie.nitaku.from}」から移動`;
+      card.appendChild(nb);
+    }
+
     const remove = document.createElement("button");
     remove.className = "movie-remove";
     remove.textContent = "✕";
@@ -1128,6 +1138,7 @@
 
     const idx = found.from.indexOf(found.movie);
     if (idx > -1) found.from.splice(idx, 1);
+    if (found.from !== target) delete found.movie.nitaku;
 
     if (beforeId) {
       const beforeIdx = target.findIndex((m) => m.id === beforeId);
@@ -2890,6 +2901,7 @@
     if (type === "award") return movieCollections(movie).includes(value);
     if (type === "kind") return movie.kind === value;
     if (type === "userTheme") return (movie.userThemes || []).includes(value);
+    if (type === "nitaku") return !!movie.nitaku;
     return true;
   }
 
@@ -7367,6 +7379,7 @@
       if (!body) return;
       const poolN = state.pool.length;
       const tieredN = allMovies().length - poolN;
+      const marked = nitakuMarked().length;
       const flow = poolN && tieredN
         ? `まず<b>未分類の${poolN}本</b>を出題してティアに振り分け、そのあと<b>今のティア分けの見直し</b>に進みます。`
         : poolN
@@ -7375,11 +7388,22 @@
       body.innerHTML =
         `<p class="battle-lead">2作品が表示されるので、<b>好きな方をタップ</b>するだけ。${flow}</p>` +
         `<p class="hint">※ いつやめても、それまでの結果だけで反映できます。二択に出ていない作品は動きません。各ティアの本数も今のまま保ちます。</p>` +
+        (marked ? `<div class="nitaku-note">これまでに二択で動いて、まだ確認していない作品が <b>${marked}本</b> あります。` +
+          `<button id="nitakuShowBtn2" class="btn btn-ghost btn-sm">表示する</button>` +
+          `<button id="nitakuClearBtn" class="btn btn-ghost btn-sm">目印をすべて消す</button></div>` : "") +
         `<div class="settings-actions">` +
         `<button id="battleStartBtn" class="btn btn-primary">二択を始める</button>` +
         `<button class="btn btn-ghost" data-close="battleModal">閉じる</button>` +
         `</div>`;
       const startBtn = document.getElementById("battleStartBtn");
+      const show2 = document.getElementById("nitakuShowBtn2");
+      if (show2) show2.addEventListener("click", () => { closeModal("battleModal"); showNitakuOnly(); });
+      const clr = document.getElementById("nitakuClearBtn");
+      if (clr) clr.addEventListener("click", () => {
+        if (!window.confirm(`${marked}本の「二択」の目印を消します。ティアは変わりません。よろしいですか？`)) return;
+        clearNitakuMarks();
+        this.renderStart();
+      });
       if (startBtn) startBtn.addEventListener("click", () => {
         this.start();
       });
@@ -7597,17 +7621,67 @@
       // まず対象作品をすべて現在地から取り除いてから、ランク順に配分する
       ranked.forEach(removeByRef);
       ranked.forEach((m) => tiers[dest.get(m)].items.push(m));
+      // ティアが変わった作品に目印を付ける（手で動かすまで残る）。もとのティアに戻ったら目印を外す
+      const changes = [];
+      ranked.forEach((m) => {
+        const o = this.origin.has(m) ? this.origin.get(m) : -1;
+        const d = dest.get(m);
+        if (o === d) return;
+        const fromLabel = o >= 0 ? tiers[o].label : "未分類";
+        const first = m.nitaku ? m.nitaku.from : fromLabel;
+        if (first === tiers[d].label) delete m.nitaku;
+        else m.nitaku = { from: first, at: Date.now() };
+        changes.push({ m, from: fromLabel, to: d });
+      });
       this.teardown();
-      closeModal("battleModal");
       updateThemeButton();
       updateFilterInfo();
       render();
-      toast(`⚖️ ${this.count}回の二択の結果を ${n}本に反映しました`);
+      this.renderResult(changes);
+    },
+
+    renderResult(changes) {
+      const body = document.getElementById("battleBody");
+      if (!body) return;
+      const rows = state.tiers.map((t, i) => {
+        const list = changes.filter((c) => c.to === i);
+        if (!list.length) return "";
+        return `<div class="nitaku-res-row"><span class="nitaku-res-tier" style="background:${t.color}">${escapeHtml(t.label)}</span>` +
+          `<div class="nitaku-res-items">${list.map((c) =>
+            `<span class="nitaku-res-item">${escapeHtml(c.m.title)}<small>${escapeHtml(c.from)}から</small></span>`).join("")}</div></div>`;
+      }).join("");
+      body.innerHTML =
+        `<p class="battle-lead">${this.count}回の二択の結果、<b>${changes.length}本</b>のティアが変わりました。</p>` +
+        (changes.length
+          ? `<div class="nitaku-res">${rows}</div>` +
+            `<p class="hint">※ 動いた作品には「二択」の目印が付きます。手でティアを動かすと目印は消えます。</p>`
+          : "") +
+        `<div class="settings-actions">` +
+        (changes.length ? `<button id="nitakuShowBtn" class="btn btn-primary">二択で動いた作品だけ表示</button>` : "") +
+        `<button class="btn btn-ghost" data-close="battleModal">閉じる</button>` +
+        `</div>`;
+      const show = document.getElementById("nitakuShowBtn");
+      if (show) show.addEventListener("click", () => { closeModal("battleModal"); showNitakuOnly(); });
+      body.querySelectorAll("[data-close]").forEach((b) =>
+        b.addEventListener("click", () => closeModal(b.dataset.close))
+      );
     },
   };
 
   function openBattleModal() {
     battle.open();
+  }
+
+  function nitakuMarked() { return allMovies().filter((m) => m.nitaku); }
+
+  function showNitakuOnly() {
+    if (!hasFilterVal("nitaku", "1")) applyThemeFilter("nitaku:1");
+  }
+
+  function clearNitakuMarks() {
+    nitakuMarked().forEach((m) => delete m.nitaku);
+    if (hasFilterVal("nitaku", "1")) applyThemeFilter("nitaku:1");
+    else render();
   }
 
   function openModal(id) {
