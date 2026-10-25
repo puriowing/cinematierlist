@@ -890,6 +890,8 @@
     openModal("addMovieModal");
     const s = document.getElementById("movieSearchInput");
     if (s) s.focus();
+    // 「おすすめ」は時間がかかるので、ウィンドウを開いた時点で裏で準備しておく
+    if (!recommendFilms.length && !recBuilding) setTimeout(() => buildRecommendations(), 300);
   }
 
   // =======================================================================
@@ -4334,6 +4336,44 @@
   const recDetailCache = new Map();   // filmarksId -> details
   let recShown = new Set();
   let recRunId = 0;
+  let recBuilding = 0;
+  const REC_CACHE_KEY = "movieTierList.recCache.v1";
+  const REC_CACHE_TTL = 7 * 24 * 3600 * 1000;
+  let recCacheLoaded = false;
+
+  // 人物の作品一覧・作品詳細を端末に7日間保存し、次回以降の表示を速くする
+  function recLoadCache() {
+    if (recCacheLoaded) return;
+    recCacheLoaded = true;
+    try {
+      const c = JSON.parse(localStorage.getItem(REC_CACHE_KEY) || "{}");
+      const now = Date.now();
+      Object.entries(c.persons || {}).forEach(([k, v]) => { if (now - v.t < REC_CACHE_TTL) recPersonCache.set(k, v.f); });
+      Object.entries(c.details || {}).forEach(([k, v]) => { if (now - v.t < REC_CACHE_TTL) recDetailCache.set(k, v.d); });
+      recCacheTimes = c;
+    } catch (e) {}
+  }
+  let recCacheTimes = {};
+
+  function recSaveCache() {
+    try {
+      const now = Date.now();
+      const old = recCacheTimes || {};
+      const persons = {}, details = {};
+      recPersonCache.forEach((f, k) => {
+        if (f) persons[k] = { t: (old.persons && old.persons[k] && old.persons[k].t) || now, f };
+      });
+      [...recDetailCache.entries()].slice(-500).forEach(([k, d]) => {
+        if (!d) return;
+        details[k] = {
+          t: (old.details && old.details[k] && old.details[k].t) || now,
+          d: { directors: d.directors || [], cast: (d.cast || []).slice(0, 6), genreIds: d.genreIds || [], rating: d.rating || 0 },
+        };
+      });
+      recCacheTimes = { persons, details };
+      localStorage.setItem(REC_CACHE_KEY, JSON.stringify(recCacheTimes));
+    } catch (e) {}
+  }
   const recNorm = (s) => String(s || "").replace(/[\s　・･.]/g, "").toLowerCase();
 
   // ティア順位で重み付けした人物スコア。上位ティアほど高く、下位ティアはマイナス。
@@ -4378,7 +4418,9 @@
       const list = d.results || [];
       // 同姓同名・部分一致を避けるため、名前が完全一致する人物を優先
       const p = list.find((x) => recNorm(x.name) === recNorm(name));
-      if (p) films = await filmarksPersonFilms(p.id);
+      if (p) films = (await filmarksPersonFilms(p.id)).map((f) => ({
+        id: f.id, title: f.title, year: f.year || "", date: f.date || "", poster: f.poster || "",
+      }));
     }
     recPersonCache.set(name, films);
     return films;
@@ -4398,7 +4440,13 @@
   }
 
   async function buildRecommendations() {
+    recBuilding++;
+    try { await buildRecommendationsNow(); } finally { recBuilding--; }
+  }
+
+  async function buildRecommendationsNow() {
     const runId = ++recRunId;
+    recLoadCache();
     const status = document.getElementById("recommendStatus");
     const grid = document.getElementById("recommendGrid");
     const actions = document.getElementById("recommendActions");
@@ -4440,7 +4488,7 @@
             status.textContent = `あなたの好みから候補を集めています… ${done}/${prof.people.length}`;
         }
       };
-      await Promise.all([worker(), worker(), worker()]);
+      await Promise.all(Array.from({ length: 5 }, worker));
       if (runId !== recRunId) return;
 
       const thisYear = new Date().getFullYear();
@@ -4464,11 +4512,40 @@
       let pool = [...cands.values()].filter((c) => !recShown.has(c.film.filmarksId));
       if (pool.length < 20) { recShown = new Set(); pool = [...cands.values()]; }
       pool.sort((a, b) => b.base - a.base);
-      pool = pool.slice(0, 90);
-      status.textContent = "候補の作品情報を確認しています…";
-      await recFetchDetails(pool.map((c) => c.film.filmarksId));
-      if (runId !== recRunId) return;
+      pool = pool.slice(0, 60);
+      const jitter = new Map(pool.map((c) => [c.film.filmarksId, 0.85 + Math.random() * 0.3]));
+      const missing = pool.some((c) => !recDetailCache.has(c.film.filmarksId));
+      if (missing) {
+        // 詳細の確認を待たずに、まずは仮の順位で表示しておく
+        recommendFilms = recScore(pool, prof, jitter).slice(0, 40);
+        renderRecommend();
+        status.textContent = `${recommendFilms.length}件の候補を表示中（評価・出演の確認中…まもなく並び替わります）`;
+        await recFetchDetails(pool.map((c) => c.film.filmarksId));
+        if (runId !== recRunId) return;
+      }
 
+      recommendFilms = recScore(pool, prof, jitter).slice(0, 40);
+      recommendFilms.forEach((f) => recShown.add(f.filmarksId));
+      recSaveCache();
+
+      if (!recommendFilms.length) {
+        status.textContent = "新しい候補が見つかりませんでした（すでに多く登録済みかもしれません）。";
+        renderRecommend();
+        return;
+      }
+      status.textContent = `${recommendFilms.length}件の候補（好みに近い順）。観た作品をタップして選び、まとめて追加できます。「候補を更新」で別の作品を表示します。`;
+      renderRecommend();
+    } catch (e) {
+      if (e.message === "NO_SERVER")
+        status.innerHTML =
+          "候補の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+      else status.textContent = "候補の取得に失敗しました。少し時間をおいて再度お試しください。";
+    } finally {
+      if (btn && runId === recRunId) btn.disabled = false;
+    }
+  }
+
+  function recScore(pool, prof, jitter) {
       const scored = pool.map((c) => {
         const d = recDetailCache.get(c.film.filmarksId);
         let score = 0;
@@ -4492,7 +4569,7 @@
           if (d.rating) score *= Math.min(1.4, Math.max(0.4, (d.rating - 2.8) / 1.0));
           else score *= 0.5;
         }
-        score *= 0.85 + Math.random() * 0.3;
+        score *= jitter.get(c.film.filmarksId) || 1;
         reasons.sort((a, b) => b.w - a.w);
         const rating = d && d.rating ? `★${d.rating.toFixed(1)}` : "";
         return {
@@ -4501,44 +4578,32 @@
           _score: score,
         };
       }).filter((f) => f._score > 0);
-
-      recommendFilms = scored.sort((a, b) => b._score - a._score).slice(0, 40);
-      recommendFilms.forEach((f) => recShown.add(f.filmarksId));
-
-      if (!recommendFilms.length) {
-        status.textContent = "新しい候補が見つかりませんでした（すでに多く登録済みかもしれません）。";
-        return;
-      }
-      status.textContent = `${recommendFilms.length}件の候補（好みに近い順）。観た作品をタップして選び、まとめて追加できます。「候補を更新」で別の作品を表示します。`;
-      renderRecommend();
-    } catch (e) {
-      if (e.message === "NO_SERVER")
-        status.innerHTML =
-          "候補の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
-      else status.textContent = "候補の取得に失敗しました。少し時間をおいて再度お試しください。";
-    } finally {
-      if (btn && runId === recRunId) btn.disabled = false;
-    }
+      return scored.sort((a, b) => b._score - a._score);
   }
 
   function renderRecommend() {
     const grid = document.getElementById("recommendGrid");
     const actions = document.getElementById("recommendActions");
+    const picked = new Set(collectPicked(grid).map((f) => f.filmarksId));
     grid.innerHTML = "";
     const list = recommendFilms.filter((f) => !movieExists({ filmarksId: f.filmarksId, title: f.title }));
     if (!list.length) {
       actions.style.display = "none";
       return;
     }
-    list.forEach((f) =>
-      grid.appendChild(
-        makePickCard(f, {
-          subtitle: (f.year ? f.year + " ・ " : "") + f.reason,
-          onToggle: () => setPickBtn("recommendAddBtn", "recommendGrid"),
-        })
-      )
-    );
-    actions.style.display = "flex";
+    list.forEach((f) => {
+      const card = makePickCard(f, {
+        subtitle: (f.year ? f.year + " ・ " : "") + f.reason,
+        onToggle: () => setPickBtn("recommendAddBtn", "recommendGrid"),
+      });
+      if (picked.has(f.filmarksId)) {
+        card.classList.add("picked");
+        card.querySelector(".pick-badge").textContent = "✓ 選択中";
+      }
+      grid.appendChild(card);
+    });
+    const tab = document.querySelector('.tab[data-tab="recommend"]');
+    actions.style.display = tab && tab.classList.contains("active") ? "flex" : "none";
     setPickBtn("recommendAddBtn", "recommendGrid");
   }
 
@@ -5682,8 +5747,15 @@
   }
 
   // 未登録・重複なしの候補が minSize 件になるまでページを辿って集める（人気順を維持）
-  async function fmFillQueue(ctrl, minSize) {
+  // 同じセッションへの補充は直列化（先読みと「もっと見る」が同じページを取り合わないように）
+  function fmFillQueue(ctrl, minSize) {
     const s = ctrl.session;
+    const run = (s.busy || Promise.resolve()).then(() => fmFillQueueNow(s, ctrl, minSize));
+    s.busy = run.catch(() => {});
+    return run;
+  }
+
+  async function fmFillQueueNow(s, ctrl, minSize) {
     const added = [];
     while (s.queue.length + added.length < minSize && s.hasMore) {
       const data = await fmFetchRange(ctrl, s.col, s.nextPage, FM_BATCH_PAGES);
@@ -5738,16 +5810,20 @@
     );
     fmUpdateMoreBtn(ctrl);
     status.textContent = `「${col.label}」の作品を取得中…`;
+    const session = ctrl.session;
     try {
-      await fmFillQueue(ctrl, FM_POOL_MIN);
+      await fmFillQueue(ctrl, FM_TARGET);
     } catch (e) {
       status.innerHTML = e.message === "NO_SERVER" ? ctrl.hint : "取得に失敗しました: " + e.message;
       return;
     }
-    ctrl.films = ctrl.session.queue.splice(0, FM_TARGET);
+    if (ctrl.session !== session) return;
+    ctrl.films = session.queue.splice(0, FM_TARGET);
     fmUpdateStatus(ctrl);
     fmRender(ctrl, 0);
     fmUpdateMoreBtn(ctrl);
+    // 「もっと見る」用の続きは表示後に裏で先読みしておく
+    fmFillQueue(ctrl, FM_TARGET).then(() => { if (ctrl.session === session) fmUpdateMoreBtn(ctrl); }, () => {});
   }
 
   async function fmLoadMore(ctrl) {
@@ -5845,31 +5921,47 @@
     const total = col.titles.length;
     const batch = ctx.queue.splice(0, COLLECTION_BATCH);
     let serverDown = false;
-    for (const t of batch) {
-      const title = typeof t === "string" ? t : t.title;
-      const year = typeof t === "object" ? t.year : "";
-      let results = [];
-      try {
-        results = await searchFilmarks(title);
-      } catch (e) {
-        if (e.message === "NO_SERVER") { serverDown = true; break; }
+    // 6件ずつ並列に照合し、リスト順を保ったまま揃った分から表示する
+    const found = new Array(batch.length);
+    let shown = 0, next = 0;
+    const flush = () => {
+      while (shown < batch.length && found[shown]) {
+        const film = found[shown++];
+        ctx.films.push(film);
+        grid.appendChild(
+          makePickCard(film, {
+            subtitle: film.year || "",
+            onToggle: () => setPickBtn(ctx.addBtnId, ctx.gridId),
+          })
+        );
       }
-      let m = pickPosterMatch(results, title, year);
-      if (!m && results[0]) m = results[0];
-      // 年が指定されている作品（受賞作リストなど）は、日本公開年やリメイク版に
-      // 引きずられないよう、指定された製作年を優先して表示する
-      const film = m
-        ? { title: m.title || title, poster: m.poster || "", year: year || m.year || "", filmarksId: m.filmarksId, collection: col.label }
-        : { title, poster: "", year: year || "", collection: col.label };
-      ctx.films.push(film);
-      grid.appendChild(
-        makePickCard(film, {
-          subtitle: film.year || "",
-          onToggle: () => setPickBtn(ctx.addBtnId, ctx.gridId),
-        })
-      );
       status.textContent = `「${col.label}」を照合中… ${ctx.films.length}/${total}`;
-    }
+    };
+    const worker = async () => {
+      while (next < batch.length && !serverDown) {
+        const i = next++;
+        const t = batch[i];
+        const title = typeof t === "string" ? t : t.title;
+        const year = typeof t === "object" ? t.year : "";
+        let results = [];
+        try {
+          results = await searchFilmarks(title);
+        } catch (e) {
+          if (e.message === "NO_SERVER") { serverDown = true; return; }
+        }
+        if (ctx.col !== col) return;
+        let m = pickPosterMatch(results, title, year);
+        if (!m && results[0]) m = results[0];
+        // 年が指定されている作品（受賞作リストなど）は、日本公開年やリメイク版に
+        // 引きずられないよう、指定された製作年を優先して表示する
+        found[i] = m
+          ? { title: m.title || title, poster: m.poster || "", year: year || m.year || "", filmarksId: m.filmarksId, collection: col.label }
+          : { title, poster: "", year: year || "", collection: col.label };
+        flush();
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    if (ctx.col !== col) return;
     if (serverDown) {
       status.innerHTML =
         "照合にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
@@ -7492,7 +7584,7 @@
     else if (name === "genre") initGenreUI();
     else if (name === "award") initAwardUI();
     else if (name === "person") { if (!document.getElementById("personSuggest").children.length) renderPersonSuggest(); }
-    else if (name === "recommend" && !recommendFilms.length) buildRecommendations();
+    else if (name === "recommend" && !recommendFilms.length && !recBuilding) buildRecommendations();
   }
 
   function renderSearchResults(results) {

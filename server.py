@@ -73,8 +73,8 @@ def _poster_url(url):
 # 環境変数で調整可能: FETCH_MIN_GAP（秒）, FETCH_MAX_CONCURRENCY, FETCH_CACHE=0 で無効
 # ---------------------------------------------------------------------------
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cache")
-FETCH_MIN_GAP = float(os.environ.get("FETCH_MIN_GAP", "0.3"))       # 同一ホストへの最小間隔
-FETCH_MAX_CONCURRENCY = int(os.environ.get("FETCH_MAX_CONCURRENCY", "4"))
+FETCH_MIN_GAP = float(os.environ.get("FETCH_MIN_GAP", "0.1"))       # 同一ホストへの最小間隔
+FETCH_MAX_CONCURRENCY = int(os.environ.get("FETCH_MAX_CONCURRENCY", "6"))
 FETCH_CACHE = os.environ.get("FETCH_CACHE", "1") != "0"
 _rate_lock = threading.Lock()
 _last_req = {}                                    # host -> 最終リクエスト時刻
@@ -149,6 +149,20 @@ def _fetch(url, use_cache=True):
     if use_cache:
         _cache_write(url, text)
     return text
+
+
+def _prefetch(urls):
+    """複数ページを並列に取得してキャッシュに載せておく（後続の逐次処理を速くする）。"""
+    urls = [u for u in urls if _cache_read(u) is None]
+    if len(urls) < 2:
+        return
+    def one(u):
+        try:
+            _fetch(u)
+        except Exception:  # noqa: BLE001
+            pass
+    with ThreadPoolExecutor(max_workers=FETCH_MAX_CONCURRENCY) as ex:
+        list(ex.map(one, urls))
 
 
 # 画質・上映形式・言語違いだけの再上映版（4K/リマスター/IMAX/吹替 等）は選択肢から外す。
@@ -266,6 +280,7 @@ def filmarks_year(year, start=1, pages=3):
     results = []
     seen = set()
     has_more = True
+    _prefetch([f"https://filmarks.com/list/year/{decade}/{year}?view=list" + ("" if pg == 1 else f"&page={pg}") for pg in range(start, start + pages)])
     for page in range(start, start + pages):
         url = f"https://filmarks.com/list/year/{decade}/{year}?view=list"
         if page > 1:
@@ -374,6 +389,7 @@ def filmarks_genre(genre_id, start=1, pages=3):
     results = []
     seen = set()
     has_more = True
+    _prefetch([f"https://filmarks.com/list/genre/{genre_id}" + ("" if pg == 1 else f"?page={pg}") for pg in range(start, start + pages)])
     for page in range(start, start + pages):
         url = f"https://filmarks.com/list/genre/{genre_id}"
         if page > 1:
@@ -410,6 +426,7 @@ def filmarks_coming(start=1, pages=4):
     results = []
     seen = set()
     has_more = True
+    _prefetch(["https://filmarks.com/list/coming" + ("" if pg == 1 else f"?page={pg}") for pg in range(start, start + pages)])
     for page in range(start, start + pages):
         url = "https://filmarks.com/list/coming"
         if page > 1:
@@ -455,6 +472,7 @@ def filmarks_award(path, start=1, pages=3):
     results = []
     seen = set()
     has_more = True
+    _prefetch([f"https://filmarks.com/list/award/{path}" + ("" if pg == 1 else f"?page={pg}") for pg in range(start, start + pages)])
     for page in range(start, start + pages):
         url = f"https://filmarks.com/list/award/{path}"
         if page > 1:
@@ -866,8 +884,11 @@ def filmarks_person_movies(person_id, max_pages=8):
             items.append({"id": it["id"], "title": it["title"], "year": yr,
                           "date": it.get("date", ""),
                           "poster": it["poster"], "role": "", "url": it["url"]})
-        if new == 0:
+        if new == 0 or f"page={page + 1}" not in html_text:
             break
+        if page in (1, 4):
+            base = f"https://filmarks.com/people/{person_id}/movies?page="
+            _prefetch([base + str(p) for p in range(page + 1, min(page + 4, max_pages) + 1)])
     return items
 
 
