@@ -1,0 +1,4 @@
+data/
+_debug_state.json
+__pycache__/
+.DS_Store

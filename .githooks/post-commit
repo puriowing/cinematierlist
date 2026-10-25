@@ -1,0 +1,2 @@
+#!/bin/sh
+git push -q origin HEAD:main >/dev/null 2>&1 &
