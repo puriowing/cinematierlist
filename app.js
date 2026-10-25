@@ -721,7 +721,7 @@
 
   function buildMovieCard(movie) {
     const card = document.createElement("div");
-    card.className = "movie-card";
+    card.className = "movie-card" + (justAddedIds.has(movie.id) ? " just-added" : "");
     card.draggable = true;
     card.dataset.id = movie.id;
 
@@ -878,6 +878,7 @@
 
   function addFilmsToWatchlist(films) {
     let count = 0;
+    justAddedIds = new Set();
     films.forEach((f) => {
       if (movieExists(f) || watchlistExists(f)) return;
       const m = { title: f.title, poster: f.poster || "", year: f.year || "" };
@@ -885,7 +886,9 @@
       if (f.tmdbId) m.tmdbId = f.tmdbId;
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
-      state.watchlist.push({ id: uid(), ...m });
+      const id = uid();
+      justAddedIds.add(id);
+      state.watchlist.push({ id, ...m });
       count++;
     });
     if (count) render();
@@ -2942,9 +2945,9 @@
     const picked = collectPicked(document.getElementById("filmGrid"));
     const c = addFilms(picked);
     if (c) {
-      toast(addTarget === "watchlist" ? `🔖 ${c}本を観たいリストに追加しました` : `${c}本を追加しました`);
       picked.forEach((f) => personPicked.delete(f.filmarksId));
       renderFilmGrid();
+      notifyBulkAdded("personAddBtn", "filmGrid", c);
     }
   }
 
@@ -4240,6 +4243,7 @@
   function addFilms(films) {
     if (addTarget === "watchlist") return addFilmsToWatchlist(films);
     let count = 0;
+    justAddedIds = new Set();
     films.forEach((f) => {
       if (movieExists(f)) return;
       const m = { title: f.title, poster: f.poster || "", year: f.year || "" };
@@ -4248,16 +4252,61 @@
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
       removeFromWatchlistByMatch(m);
-      state.pool.push({ id: uid(), ...m });
+      const id = uid();
+      justAddedIds.add(id);
+      state.pool.push({ id, ...m });
       count++;
     });
     if (count) render();
     return count;
   }
 
+  let justAddedIds = new Set();
+  let justAddedTimer = 0;
+
+  function notifyBulkAdded(btnId, gridId, c) {
+    const toWl = addTarget === "watchlist";
+    const dest = toWl ? "観たい" : "未分類";
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      clearTimeout(btn._doneT);
+      btn.classList.add("is-done");
+      btn.disabled = true;
+      btn.textContent = `✓ ${c}本を${dest}に追加しました`;
+      btn._doneT = setTimeout(() => {
+        btn.classList.remove("is-done");
+        setPickBtn(btnId, gridId);
+      }, 2200);
+    }
+    toast(`✓ ${c}本を「${dest}」に追加しました`, {
+      label: "閉じて確認する",
+      onClick: () => {
+        closeModal("addMovieModal");
+        if (toWl) {
+          state.watchlistCollapsed = false;
+        } else {
+          state.poolCollapsed = false;
+        }
+        render();
+        const target = toWl ? el.tierRows.querySelector(".tier-row-watchlist") : document.querySelector(".pool");
+        if (target) {
+          const head = document.querySelector(".app-header");
+          const y = target.getBoundingClientRect().top + window.scrollY - (head ? head.offsetHeight : 0) - 12;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      },
+    });
+    clearTimeout(justAddedTimer);
+    justAddedTimer = setTimeout(() => {
+      justAddedIds = new Set();
+      document.querySelectorAll(".movie-card.just-added").forEach((c) => c.classList.remove("just-added"));
+    }, 12000);
+  }
+
   function setPickBtn(btnId, gridId) {
     const n = collectPicked(document.getElementById(gridId)).length;
     const btn = document.getElementById(btnId);
+    if (btn._doneT) { clearTimeout(btn._doneT); btn._doneT = 0; btn.classList.remove("is-done"); }
     btn.textContent = n ? `選んだ${n}本を追加` : "観た作品をタップで選択";
     btn.disabled = n === 0;
   }
@@ -4442,12 +4491,12 @@
     const picked = collectPicked(document.getElementById("recallGrid"));
     const c = addFilms(picked);
     if (c) {
-      toast(`${c}本を追加しました`);
       // 追加済みは候補から除去して残りを再描画
       const added = new Set(picked.map((p) => normTitle(p.title)));
       recallSession.pool = recallSession.pool.filter((f) => !added.has(normTitle(f.title)));
       renderRecallFull();
       updateRecallStatus();
+      notifyBulkAdded("recallAddBtn", "recallGrid", c);
       updateRecallMoreBtn();
     }
   }
@@ -4755,8 +4804,8 @@
   function bulkAddRecommend() {
     const c = addFilms(collectPicked(document.getElementById("recommendGrid")));
     if (c) {
-      toast(`${c}本を追加しました`);
       renderRecommend();
+      notifyBulkAdded("recommendAddBtn", "recommendGrid", c);
     }
   }
 
@@ -6017,12 +6066,12 @@
     const picked = collectPicked(document.getElementById(ctrl.gridId));
     const c = addFilms(picked);
     if (c) {
-      toast(`${c}本を追加しました`);
       const added = new Set(picked.map((p) => normTitle(p.title)));
       ctrl.films = ctrl.films.filter((f) => !added.has(normTitle(f.title)));
       fmRender(ctrl, 0);
       fmUpdateStatus(ctrl);
       fmUpdateMoreBtn(ctrl);
+      notifyBulkAdded(ctrl.addBtnId, ctrl.gridId, c);
     }
   }
 
@@ -6145,8 +6194,8 @@
   function bulkAddCollection(ctx = COLLECTION_CTX) {
     const c = addFilms(collectPicked(document.getElementById(ctx.gridId)));
     if (c) {
-      toast(`${c}本を追加しました`);
       renderCollectionGrid(ctx);
+      notifyBulkAdded(ctx.addBtnId, ctx.gridId, c);
     }
   }
 

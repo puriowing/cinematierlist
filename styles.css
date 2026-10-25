@@ -5847,3 +5847,31 @@ body.theme-pop .collapse-toggle {
   .to-chips::-webkit-scrollbar { display: none; }
   .to-sum { font-size: 11px; }
 }
+
+/* ---------- 一括追加の完了表示 ---------- */
+.btn.is-done,
+.btn.is-done:disabled {
+  background: #22a06b !important;
+  border-color: #22a06b !important;
+  color: #fff !important;
+  opacity: 1 !important;
+  animation: add-done-pop 0.35s ease-out;
+}
+
+@keyframes add-done-pop {
+  0% { transform: scale(0.94); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.movie-card.just-added {
+  outline: 3px solid #22a06b;
+  outline-offset: 2px;
+  border-radius: 10px;
+  animation: just-added-glow 1.2s ease-in-out 3;
+}
+
+@keyframes just-added-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(34, 160, 107, 0.35); }
+}
