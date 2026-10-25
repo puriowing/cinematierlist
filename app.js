@@ -10,6 +10,9 @@
 (function () {
   "use strict";
 
+  const COLLAPSE_ICON =
+    '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
   const STORAGE_KEY = "movieTierList.v1";
   const SETTINGS_KEY = "movieTierList.settings.v1";
   const ACHV_KEY = "movieTierList.achievements.v1";
@@ -532,7 +535,7 @@
       label.className = "tier-label";
       label.style.background = tier.color;
       label.innerHTML =
-        `<button class="collapse-toggle" title="折りたたみ / 展開">${tier.collapsed ? "▶" : "▼"}</button>` +
+        `<button class="collapse-toggle${tier.collapsed ? " is-collapsed" : ""}" title="折りたたみ / 展開">${COLLAPSE_ICON}</button>` +
         `<span class="tier-label-text">${escapeHtml(tier.label)}</span>` +
         `<span class="tier-count">${visibleItems(tier.items).length}</span>` +
         `<button class="tier-sort" title="このティアを並び替え（登録順 / あいうえお順）">↕</button>` +
@@ -579,7 +582,7 @@
     const label = document.createElement("div");
     label.className = "tier-label tier-label-watchlist";
     label.innerHTML =
-      `<button class="collapse-toggle" title="折りたたみ / 展開">${collapsed ? "▶" : "▼"}</button>` +
+      `<button class="collapse-toggle${collapsed ? " is-collapsed" : ""}" title="折りたたみ / 展開">${COLLAPSE_ICON}</button>` +
       `<span class="tier-label-text">🔖 観たい</span>` +
       `<span class="tier-count">${visibleItems(wl).length}</span>`;
     label.querySelector(".collapse-toggle").addEventListener("click", (e) => {
@@ -613,7 +616,10 @@
   function renderPool() {
     const toggle = document.getElementById("poolCollapse");
     const countEl = document.getElementById("poolCount");
-    if (toggle) toggle.textContent = state.poolCollapsed ? "▶" : "▼";
+    if (toggle) {
+      toggle.innerHTML = COLLAPSE_ICON;
+      toggle.classList.toggle("is-collapsed", !!state.poolCollapsed);
+    }
     if (countEl) countEl.textContent = visibleItems(state.pool).length;
 
     el.poolItems.innerHTML = "";

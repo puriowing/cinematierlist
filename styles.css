@@ -5598,3 +5598,32 @@ body.sheet-open {
 .theme-panel-sheet .theme-option {
   min-height: 44px;
 }
+
+/* 折りたたみボタン：背景なしの細いシェブロン。閉じているときは右向き */
+.collapse-toggle,
+body.theme-studio .collapse-toggle,
+body.theme-pop .collapse-toggle {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 15px;
+  transition: opacity 0.15s, background 0.15s;
+}
+.tier-label .collapse-toggle {
+  color: rgba(0, 0, 0, 0.6);
+}
+.collapse-toggle:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+.collapse-toggle .ic {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+.collapse-toggle.is-collapsed .ic {
+  transform: rotate(-90deg);
+}
