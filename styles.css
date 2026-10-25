@@ -1644,6 +1644,11 @@ body.theme-pop .quick-add .btn {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* 二択機能は休止中のため目印も隠す */
+.movie-nitaku-badge {
+  display: none;
+}
+
 .movie-nitaku-badge.is-unseen {
   background: rgba(0, 0, 0, 0.62);
 }

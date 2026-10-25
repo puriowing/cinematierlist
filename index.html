@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261026e" />
+  <link rel="stylesheet" href="styles.css?v=20261026f" />
 </head>
 <body>
   <header class="app-header">
@@ -31,7 +31,7 @@
     </div>
     <div class="header-actions">
       <button id="helpBtn" class="btn btn-ghost" title="使い方・ティアリストの作り方">❓<span class="btn-label"> 使い方</span></button>
-      <button id="battleBtn" class="btn btn-ghost" title="二択で自動ティア分け">⚖️<span class="btn-label"> 二択</span></button>
+      <button id="battleBtn" class="btn btn-ghost" style="display:none" title="二択で自動ティア分け">⚖️<span class="btn-label"> 二択</span></button>
       <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
       <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
       <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
@@ -118,7 +118,7 @@
 
   <nav id="tabbar" class="tabbar" aria-label="メインメニュー">
     <button type="button" class="tbar-btn is-active" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">ランク</span></button>
-    <button type="button" class="tbar-btn" data-proxy="battleBtn"><span class="tab-ic">⚖️</span><span class="tab-tx">二択</span></button>
+    <button type="button" class="tbar-btn" data-proxy="battleBtn" style="display:none"><span class="tab-ic">⚖️</span><span class="tab-tx">二択</span></button>
     <button type="button" class="tbar-btn" data-proxy="socialBtn"><span class="tab-ic">🌐</span><span class="tab-tx">みんな</span></button>
     <button type="button" class="tbar-btn" data-proxy="statsBtn"><span class="tab-ic">📊</span><span class="tab-tx">統計</span></button>
     <button type="button" class="tbar-btn" data-proxy="authBtn"><span class="tab-ic">👤</span><span class="tab-tx">マイページ</span></button>
@@ -461,7 +461,7 @@
           <div class="help-card-head"><span class="help-num">5</span><h4>もっと楽しむ機能</h4></div>
           <div class="help-card-body">
             <div class="help-features">
-              <div class="help-feature"><span class="help-feature-ic">⚖️</span><div><b>二択</b><p>2作品を見比べて選ぶだけで自動ティア分け。二択に出た作品だけが動きます。</p></div></div>
+              <div class="help-feature" style="display:none"><span class="help-feature-ic">⚖️</span><div><b>二択</b><p>2作品を見比べて選ぶだけで自動ティア分け。二択に出た作品だけが動きます。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🔖</span><div><b>観たい</b><p>一覧の一番下のゾーン。ティアと同じ操作で「あとで観る」を管理。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🎬</span><div><b>作品情報</b><p>公開年・ジャンル・監督などの確認/修正、コメント（感想）の記入。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">📊</span><div><b>統計</b><p>年代・ジャンル・監督など、登録作品の傾向をグラフで。</p></div></div>
@@ -788,6 +788,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261026g"></script>
+  <script src="app.js?v=20261026h"></script>
 </body>
 </html>
