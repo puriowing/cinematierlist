@@ -7313,6 +7313,8 @@
     items: [],
     rating: new Map(),
     plays: new Map(),
+    votes: new Map(),
+    origin: new Map(),
     count: 0,
     cur: null,
     lastKey: "",
@@ -7342,7 +7344,7 @@
         `<label class="battle-radio"><input type="radio" name="battleScope" value="pool" ${poolN >= 2 ? "checked" : "disabled"}/><span>未分類のみ（${poolN}本）</span></label>` +
         `<label class="battle-radio"><input type="radio" name="battleScope" value="all" ${poolN >= 2 ? "" : "checked"}/><span>すべての作品（${allN}本）</span></label>` +
         `</div>` +
-        `<p class="hint">※ 途中でやめても、それまでの結果だけで振り分けできます。振り分けの対象は「実際に対戦した作品」だけで、対戦していない作品は今のティアのまま残ります。</p>` +
+        `<p class="hint">※ 途中でやめても、それまでの結果だけで振り分けできます。振り分けの対象は「実際に対戦した作品」だけで、対戦していない作品は今のティアのまま残ります。<br>※ ティアに入っている作品は今のティアを出発点にし、各ティアの本数も今のまま保ちます。はっきり差がついた作品だけが入れ替わります。</p>` +
         `<div class="settings-actions">` +
         `<button id="battleStartBtn" class="btn btn-primary">対戦を始める</button>` +
         `<button class="btn btn-ghost" data-close="battleModal">閉じる</button>` +
@@ -7363,9 +7365,19 @@
       this.items = src.slice();
       this.rating = new Map();
       this.plays = new Map();
+      this.votes = new Map();
+      this.origin = new Map();
       this.count = 0;
       this.lastKey = "";
-      this.items.forEach((m) => { this.rating.set(m.id, 1000); this.plays.set(m.id, 0); });
+      // 今のティアを出発点にする（上のティアほど高い点。1段の差＝100点）
+      const T = state.tiers.length;
+      state.tiers.forEach((t, i) => t.items.forEach((m) => this.origin.set(m, i)));
+      this.items.forEach((m) => {
+        const o = this.origin.has(m) ? this.origin.get(m) : -1;
+        this.rating.set(m.id, o >= 0 ? 1000 + ((T - 1) / 2 - o) * 100 : 1000);
+        this.plays.set(m.id, 0);
+        this.votes.set(m.id, 0);
+      });
       this.keyHandler = (e) => {
         if (document.getElementById("battleModal").classList.contains("hidden")) return;
         if (!this.cur) return;
@@ -7421,6 +7433,8 @@
       this.rating.set(b.id, Rb + K * ((1 - Sa) - Eb));
       this.plays.set(a.id, this.plays.get(a.id) + 1);
       this.plays.set(b.id, this.plays.get(b.id) + 1);
+      this.votes.set(a.id, this.votes.get(a.id) + 1);
+      this.votes.set(b.id, this.votes.get(b.id) + 1);
       this.count++;
       this.nextPair();
     },
@@ -7496,7 +7510,7 @@
       // 実際に対戦した作品だけを対象にする（対戦していない作品は今の場所のまま動かさない）。
       // こうしないと、少数だけ対戦して終了したときに、初期値レーティングのままの
       // 大量の作品まで均等割りされてしまい、既存のティア分けが崩れてしまう。
-      const played = this.items.filter((m) => (this.plays.get(m.id) || 0) > 0);
+      const played = this.items.filter((m) => (this.votes.get(m.id) || 0) > 0);
       if (this.count === 0 || played.length === 0) {
         toast("まだ対戦していません。好きな方を選んでみてください");
         return;
@@ -7506,7 +7520,23 @@
       const tiers = state.tiers;
       const T = tiers.length;
       if (!T) { toast("ティアがありません"); return; }
-      if (!window.confirm(`対戦した ${n}本を、結果に応じて ${T}段階のティアへ振り分けます。対戦していない作品はそのままです。よろしいですか？`)) return;
+      // 行き先を決める：ティアにあった作品は、各ティアの本数を保ったまま点数順に詰め直す。
+      // 未分類から来た作品は、点数がすぐ上の作品と同じティアへ入れる。
+      // すべて未分類から来た場合だけ、点数順に均等割りする。
+      const dest = new Map();
+      const tiered = ranked.filter((m) => this.origin.has(m));
+      if (tiered.length) {
+        const quota = tiers.map(() => 0);
+        tiered.forEach((m) => quota[Math.min(T - 1, this.origin.get(m))]++);
+        let t = 0;
+        tiered.forEach((m) => { while (quota[t] === 0) t++; quota[t]--; dest.set(m, t); });
+        let last = dest.get(tiered[0]);
+        ranked.forEach((m) => { if (dest.has(m)) last = dest.get(m); else dest.set(m, last); });
+      } else {
+        ranked.forEach((m, i) => dest.set(m, Math.min(T - 1, Math.floor((i * T) / n))));
+      }
+      const moved = ranked.filter((m) => this.origin.get(m) !== dest.get(m)).length;
+      if (!window.confirm(`対戦した ${n}本のうち ${moved}本のティアが変わります。対戦していない作品はそのままです。反映しますか？`)) return;
       // 参照で正確に取り除く（同一IDが混在していても取り違えない）
       const removeByRef = (m) => {
         for (const t of state.tiers) {
@@ -7518,10 +7548,7 @@
       };
       // まず対象作品をすべて現在地から取り除いてから、ランク順に配分する
       ranked.forEach(removeByRef);
-      ranked.forEach((m, i) => {
-        const tierIndex = Math.min(T - 1, Math.floor((i * T) / n));
-        tiers[tierIndex].items.push(m);
-      });
+      ranked.forEach((m) => tiers[dest.get(m)].items.push(m));
       this.teardown();
       closeModal("battleModal");
       updateThemeButton();
