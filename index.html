@@ -31,7 +31,7 @@
     </div>
     <div class="header-actions">
       <button id="helpBtn" class="btn btn-ghost" title="使い方・ティアリストの作り方">❓<span class="btn-label"> 使い方</span></button>
-      <button id="battleBtn" class="btn btn-ghost" title="対戦モードで自動ランク付け">⚔️<span class="btn-label"> 対戦</span></button>
+      <button id="battleBtn" class="btn btn-ghost" title="二択で自動ティア分け">⚖️<span class="btn-label"> 二択</span></button>
       <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
       <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
       <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
@@ -118,7 +118,7 @@
 
   <nav id="tabbar" class="tabbar" aria-label="メインメニュー">
     <button type="button" class="tbar-btn is-active" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">ランク</span></button>
-    <button type="button" class="tbar-btn" data-proxy="battleBtn"><span class="tab-ic">⚔️</span><span class="tab-tx">対戦</span></button>
+    <button type="button" class="tbar-btn" data-proxy="battleBtn"><span class="tab-ic">⚖️</span><span class="tab-tx">二択</span></button>
     <button type="button" class="tbar-btn" data-proxy="socialBtn"><span class="tab-ic">🌐</span><span class="tab-tx">みんな</span></button>
     <button type="button" class="tbar-btn" data-proxy="statsBtn"><span class="tab-ic">📊</span><span class="tab-tx">統計</span></button>
     <button type="button" class="tbar-btn" data-proxy="authBtn"><span class="tab-ic">👤</span><span class="tab-tx">マイページ</span></button>
@@ -461,7 +461,7 @@
           <div class="help-card-head"><span class="help-num">5</span><h4>もっと楽しむ機能</h4></div>
           <div class="help-card-body">
             <div class="help-features">
-              <div class="help-feature"><span class="help-feature-ic">⚔️</span><div><b>対戦</b><p>2作品を見比べて選ぶだけで自動ティア分け。対戦した作品だけが動きます。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">⚖️</span><div><b>二択</b><p>2作品を見比べて選ぶだけで自動ティア分け。二択に出た作品だけが動きます。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🔖</span><div><b>観たい</b><p>一覧の一番下のゾーン。ティアと同じ操作で「あとで観る」を管理。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🎬</span><div><b>作品情報</b><p>公開年・ジャンル・監督などの確認/修正、コメント（感想）の記入。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">📊</span><div><b>統計</b><p>年代・ジャンル・監督など、登録作品の傾向をグラフで。</p></div></div>
@@ -547,7 +547,7 @@
   <div id="battleModal" class="modal-overlay hidden">
     <div class="modal modal-wide">
       <div class="modal-header">
-        <h3>⚔️ 対戦モード</h3>
+        <h3>⚖️ 二択でティア分け</h3>
         <button class="modal-close" data-close="battleModal">✕</button>
       </div>
       <div id="battleBody" class="settings-body"></div>
@@ -788,6 +788,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261026b"></script>
+  <script src="app.js?v=20261026c"></script>
 </body>
 </html>

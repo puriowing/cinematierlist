@@ -7336,7 +7336,7 @@
   }
 
   // =======================================================================
-  // 対戦モード（2作品を見比べて「どっちが好き？」→ Elo でランク付け）
+  // 二択モード（2作品を見比べて「どっちが好き？」→ Elo でランク付け）
   // =======================================================================
   const battle = {
     items: [],
@@ -7373,9 +7373,9 @@
         `<label class="battle-radio"><input type="radio" name="battleScope" value="pool" ${poolN >= 2 ? "checked" : "disabled"}/><span>未分類のみ（${poolN}本）</span></label>` +
         `<label class="battle-radio"><input type="radio" name="battleScope" value="all" ${poolN >= 2 ? "" : "checked"}/><span>すべての作品（${allN}本）</span></label>` +
         `</div>` +
-        `<p class="hint">※ 途中でやめても、それまでの結果だけで振り分けできます。振り分けの対象は「実際に対戦した作品」だけで、対戦していない作品は今のティアのまま残ります。<br>※ ティアに入っている作品は今のティアを出発点にし、各ティアの本数も今のまま保ちます。はっきり差がついた作品だけが入れ替わります。</p>` +
+        `<p class="hint">※ 途中でやめても、それまでの結果だけで振り分けできます。振り分けの対象は「二択に出た作品」だけで、出ていない作品は今のティアのまま残ります。<br>※ ティアに入っている作品は今のティアを出発点にし、各ティアの本数も今のまま保ちます。はっきり差がついた作品だけが入れ替わります。</p>` +
         `<div class="settings-actions">` +
-        `<button id="battleStartBtn" class="btn btn-primary">対戦を始める</button>` +
+        `<button id="battleStartBtn" class="btn btn-primary">二択を始める</button>` +
         `<button class="btn btn-ghost" data-close="battleModal">閉じる</button>` +
         `</div>`;
       const startBtn = document.getElementById("battleStartBtn");
@@ -7390,7 +7390,7 @@
 
     start(scope) {
       const src = scope === "pool" ? state.pool.slice() : allMovies();
-      if (src.length < 2) { toast("対戦するには2本以上必要です"); return; }
+      if (src.length < 2) { toast("二択をするには2本以上必要です"); return; }
       this.items = src.slice();
       this.rating = new Map();
       this.plays = new Map();
@@ -7511,7 +7511,7 @@
       const body = document.getElementById("battleBody");
       if (!body || !this.cur) return;
       body.innerHTML =
-        `<div class="battle-progress">これまで <b>${this.count}</b> 回対戦 ・ 好きな方をタップ（キーボードの ←/→、スキップは Space）</div>` +
+        `<div class="battle-progress">これまで <b>${this.count}</b> 回 ・ 好きな方をタップ（キーボードの ←/→、スキップは Space）</div>` +
         `<div class="battle-arena">` +
         `<div id="battleSlotA"></div>` +
         `<div class="battle-vs">VS</div>` +
@@ -7541,7 +7541,7 @@
       // 大量の作品まで均等割りされてしまい、既存のティア分けが崩れてしまう。
       const played = this.items.filter((m) => (this.votes.get(m.id) || 0) > 0);
       if (this.count === 0 || played.length === 0) {
-        toast("まだ対戦していません。好きな方を選んでみてください");
+        toast("まだ1回も選んでいません。好きな方を選んでみてください");
         return;
       }
       const ranked = played.slice().sort((x, y) => this.rating.get(y.id) - this.rating.get(x.id));
@@ -7565,7 +7565,7 @@
         ranked.forEach((m, i) => dest.set(m, Math.min(T - 1, Math.floor((i * T) / n))));
       }
       const moved = ranked.filter((m) => this.origin.get(m) !== dest.get(m)).length;
-      if (!window.confirm(`対戦した ${n}本のうち ${moved}本のティアが変わります。対戦していない作品はそのままです。反映しますか？`)) return;
+      if (!window.confirm(`二択に出た ${n}本のうち ${moved}本のティアが変わります。出ていない作品はそのままです。反映しますか？`)) return;
       // 参照で正確に取り除く（同一IDが混在していても取り違えない）
       const removeByRef = (m) => {
         for (const t of state.tiers) {
@@ -7583,7 +7583,7 @@
       updateThemeButton();
       updateFilterInfo();
       render();
-      toast(`⚔️ ${this.count}回の対戦結果を ${n}本に反映しました`);
+      toast(`⚖️ ${this.count}回の二択の結果を ${n}本に反映しました`);
     },
   };
 
