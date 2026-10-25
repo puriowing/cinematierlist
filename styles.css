@@ -5541,3 +5541,60 @@ div.battle-poster {
 .achv-badge.is-locked .achv-icon {
   color: var(--text-dim);
 }
+
+/* テーマで絞り込み：スマホは下から出るシート */
+.theme-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(31, 29, 46, 0.35);
+}
+
+body.sheet-open {
+  overflow: hidden;
+}
+
+.theme-panel.theme-panel-sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: auto;
+  max-width: none;
+  max-height: 82dvh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px 22px 0 0;
+  padding: 6px 14px calc(14px + env(safe-area-inset-bottom));
+  animation: sheet-up 0.25s ease;
+}
+
+.theme-panel-sheet .theme-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 10px;
+  font-size: 15px;
+}
+
+.theme-panel-sheet .theme-sheet-close {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.theme-panel-sheet .theme-options {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.theme-panel-sheet .theme-option {
+  min-height: 44px;
+}

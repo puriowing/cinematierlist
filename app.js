@@ -2980,6 +2980,9 @@
     if (currentThemePanel) {
       currentThemePanel.remove();
       currentThemePanel = null;
+      const bd = document.querySelector(".theme-sheet-backdrop");
+      if (bd) bd.remove();
+      document.body.classList.remove("sheet-open");
       document.removeEventListener("mousedown", onDocClickForThemePanel, true);
     }
   }
@@ -3014,8 +3017,12 @@
     }
 
     const pop = document.createElement("div");
-    pop.className = "theme-panel";
+    const asSheet = window.matchMedia("(max-width: 768px)").matches;
+    pop.className = "theme-panel" + (asSheet ? " theme-panel-sheet" : "");
     pop.innerHTML =
+      (asSheet
+        ? `<div class="theme-sheet-head"><b>🎯 テーマで絞り込み</b><button type="button" class="theme-sheet-close">完了</button></div>`
+        : "") +
       `<div class="theme-active"></div>` +
       `<div class="theme-cats">` +
       cats
@@ -3224,10 +3231,24 @@
         themePanelCat = b.dataset.cat;
         pop.querySelectorAll(".theme-cat").forEach((x) => x.classList.toggle("active", x === b));
         renderOptions();
-        search.focus();
+        if (!asSheet) search.focus();
       });
     });
     search.addEventListener("input", renderOptions);
+
+    if (asSheet) {
+      const bd = document.createElement("div");
+      bd.className = "theme-sheet-backdrop";
+      bd.addEventListener("click", closeThemePanel);
+      document.body.appendChild(bd);
+      pop.querySelector(".theme-sheet-close").addEventListener("click", closeThemePanel);
+      document.body.appendChild(pop);
+      document.body.classList.add("sheet-open");
+      renderActiveChips();
+      renderOptions();
+      currentThemePanel = pop;
+      return;
+    }
 
     document.body.appendChild(pop);
     const r = anchorEl.getBoundingClientRect();
@@ -7912,6 +7933,7 @@
       }
       closeTierEditor();
       closeMoveMenu();
+      if (currentThemePanel && currentThemePanel.classList.contains("theme-panel-sheet")) return;
       closeThemePanel();
     }, true);
     document.addEventListener("keydown", (e) => {
