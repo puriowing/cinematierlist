@@ -1,0 +1,23 @@
+{
+  "id": "./",
+  "name": "Pickture",
+  "short_name": "Pickture",
+  "description": "鑑賞した映画をランク付けして、自分だけの映画ランキングを作れるツール",
+  "lang": "ja",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f3ff",
+  "theme_color": "#6d4aff",
+  "categories": ["entertainment", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "対戦でランク付け", "short_name": "対戦", "url": "./?open=battle", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "統計を見る", "short_name": "統計", "url": "./?open=stats", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

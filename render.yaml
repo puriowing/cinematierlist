@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: cinema-tier-list
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: "true"
+    startCommand: python3 server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: DATA_REPO
+        sync: false
+      - key: ALLOW_REGISTER
+        value: "1"

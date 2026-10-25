@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Pickture</title>
+  <meta name="description" content="鑑賞した映画をランク付けして、自分だけの映画ランキングを作れるツール" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#6d4aff" />
+  <link rel="icon" href="icon.svg?v=20261023a" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Pickture" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=20261025n" />
+</head>
+<body>
+  <header class="app-header">
+   <div class="header-inner">
+    <div class="brand">
+      <img class="logo" src="icon.svg?v=20261023a" alt="Pickture のアイコン" />
+      <div class="brand-text">
+        <h1 class="wordmark"><span class="wm-2">Pick</span><span class="wm-1">ture</span></h1>
+        <p class="subtitle">鑑賞した映画をランク付けしよう</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="helpBtn" class="btn btn-ghost" title="使い方・ティアリストの作り方">❓<span class="btn-label"> 使い方</span></button>
+      <button id="battleBtn" class="btn btn-ghost" title="対戦モードで自動ランク付け">⚔️<span class="btn-label"> 対戦</span></button>
+      <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
+      <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
+      <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
+      <button id="achvBtn" class="btn btn-ghost" title="実績を開く">🏅<span class="btn-label"> 実績</span></button>
+      <button id="authBtn" class="btn btn-primary" title="マイページ（アカウント・保存・設定）">👤 マイページ</button>
+    </div>
+   </div>
+  </header>
+
+  <main class="layout">
+    <!-- Recovery banner (shown when saved data seems lost but a backup exists) -->
+    <div id="recoveryBanner" class="recovery-banner hidden">
+      <span class="recovery-icon">♻️</span>
+      <span id="recoveryText" class="recovery-text"></span>
+      <span class="recovery-actions">
+        <button id="recoveryRestoreBtn" class="btn btn-primary btn-sm">復元する</button>
+        <button id="recoveryDismissBtn" class="btn btn-ghost btn-sm">閉じる</button>
+      </span>
+    </div>
+
+    <!-- Add bar（最初に目に入る位置に置く） -->
+    <section id="addBar" class="add-bar" aria-label="映画を追加">
+      <div id="welcomeSteps" class="welcome-steps">
+        <p class="welcome-title">観た映画をランク付けしてみよう</p>
+        <ol>
+          <li><b>1</b>映画を追加</li>
+          <li><b>2</b>ティアに分ける</li>
+          <li><b>3</b>シェアする</li>
+        </ol>
+      </div>
+      <form id="quickAddForm" class="quick-add">
+        <span class="quick-add-ic" aria-hidden="true">＋</span>
+        <input id="quickAddInput" type="search" placeholder="観た映画のタイトル" aria-label="追加する映画のタイトル" autocomplete="off" />
+        <button type="submit" class="btn btn-primary">追加</button>
+      </form>
+      <div class="quick-add-alt">
+        <span>タイトルが浮かばないときは</span>
+        <button type="button" class="chip-btn" data-open-tab="recall">🕰️ 公開年から思い出す</button>
+        <button type="button" class="chip-btn" data-open-tab="recommend">✨ おすすめから選ぶ</button>
+        <button type="button" id="addMovieBtn" class="chip-btn">その他の追加方法 ›</button>
+      </div>
+    </section>
+
+    <!-- Movie pool -->
+    <section class="pool" aria-label="未分類の映画">
+      <div class="pool-header">
+        <h2>
+          <button id="poolCollapse" class="collapse-toggle collapse-toggle-dark" title="折りたたみ / 展開">▼</button>
+          未分類 <span id="poolCount" class="pool-count"></span><span class="pool-sub">ここからティアへドラッグ（スマホはタップ）</span>
+        </h2>
+        <div class="pool-actions">
+          <button id="clearPoolBtn" class="btn btn-ghost" title="未分類の映画をすべて削除">未分類をクリア</button>
+        </div>
+      </div>
+      <div id="poolItems" class="pool-items" data-zone="pool"></div>
+      <p id="poolEmptyHint" class="empty-hint">追加した映画はここに入ります。</p>
+    </section>
+
+    <!-- Theme filter -->
+    <div class="filter-bar">
+      <span class="filter-label">🎯 テーマで絞り込み</span>
+      <button id="themeFilterBtn" class="btn btn-ghost btn-sm theme-filter-btn" title="テーマを選んで絞り込みます">すべて表示 ▾</button>
+      <button id="clearThemeBtn" class="btn btn-ghost btn-sm hidden" title="絞り込みを解除">✕ 解除</button>
+      <button id="rankThemeBtn" class="btn btn-primary btn-sm hidden" title="絞り込んだ作品に順位をつけます">🏆 ランキングをつける</button>
+      <button id="challengeCreateBtn" class="btn btn-ghost btn-sm challenge-btn hidden" title="このテーマで、みんなにティアリストを作ってもらうリンクを作ります">📣 お題にする</button>
+      <button id="shareThemeBtn" class="btn btn-ghost btn-sm share-theme-btn" title="SNS向けの共有画像を作ります">📤 シェア</button>
+      <input id="listSearchInput" class="movie-search-input" type="search" placeholder="🔍 登録作品を検索" aria-label="登録作品をタイトルで検索" />
+      <span id="filterInfo" class="filter-info"></span>
+    </div>
+
+    <div id="challengeBar" class="challenge-bar hidden"></div>
+
+    <!-- Tier board (exportable region) -->
+    <section id="tierBoard" class="tier-board" aria-label="Tier一覧">
+      <div id="tierExportTitle" class="tier-export-title" aria-hidden="true"></div>
+      <div id="tierRows" class="tier-rows"></div>
+    </section>
+
+    <div class="board-controls">
+      <button id="addTierBtn" class="btn btn-ghost">＋ ティアを追加</button>
+      <button id="resetTiersBtn" class="btn btn-ghost">ティアを初期化</button>
+    </div>
+
+  </main>
+
+  <nav id="tabbar" class="tabbar" aria-label="メインメニュー">
+    <button type="button" class="tbar-btn is-active" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">ランク</span></button>
+    <button type="button" class="tbar-btn" data-proxy="battleBtn"><span class="tab-ic">⚔️</span><span class="tab-tx">対戦</span></button>
+    <button type="button" class="tbar-btn" data-proxy="socialBtn"><span class="tab-ic">🌐</span><span class="tab-tx">みんな</span></button>
+    <button type="button" class="tbar-btn" data-proxy="statsBtn"><span class="tab-ic">📊</span><span class="tab-tx">統計</span></button>
+    <button type="button" class="tbar-btn" data-proxy="authBtn"><span class="tab-ic">👤</span><span class="tab-tx">マイページ</span></button>
+  </nav>
+
+
+  <button id="fabAdd" class="fab-add" aria-label="映画を追加" title="映画を追加">＋</button>
+
+  <!-- Add movie modal -->
+  <div id="addMovieModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>映画を追加</h3>
+        <button class="modal-close" data-close="addMovieModal">✕</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="search">🔍 検索して追加</button>
+        <button class="tab" data-tab="recall">🕰️ 公開年</button>
+        <button class="tab" data-tab="recommend">✨ おすすめ</button>
+        <button class="tab" data-tab="collection">📚 コレクション</button>
+        <button class="tab" data-tab="genre">🎬 ジャンル</button>
+        <button class="tab" data-tab="award">🏆 映画賞・映画祭</button>
+        <button class="tab" data-tab="person">👥 人物</button>
+        <button class="tab" data-tab="manual">✍️ 手動で追加</button>
+      </div>
+
+      <!-- Search tab -->
+      <div class="tab-panel active" data-panel="search">
+        <div class="search-row">
+          <input id="movieSearchInput" type="text" placeholder="映画のタイトルを入力（例: インセプション）" />
+          <button id="movieSearchBtn" class="btn btn-primary">検索</button>
+        </div>
+        <p id="searchStatus" class="search-status"></p>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+
+      <!-- Recall by release (公開) year tab -->
+      <div class="tab-panel" data-panel="recall">
+        <p class="hint" style="margin-top:0">
+          公開年を選ぶと、その年に日本で公開された作品を公開が早い順に一覧表示します。観た作品をタップして選び、まとめて追加できます。リバイバル上映はオリジナルの公開年で扱います。「もっと見る」でさらに続きを読み込めます（<code>python3 server.py</code> が必要）。
+        </p>
+        <div class="cal-controls">
+          <select id="recallYear" aria-label="公開年"></select>
+          <button id="recallShowBtn" class="btn btn-primary">この年の作品を見る</button>
+        </div>
+        <p id="recallStatus" class="search-status"></p>
+        <div id="recallGrid" class="search-results"></div>
+        <div id="recallMoreWrap" class="recall-more" style="display:none">
+          <button id="recallMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
+      <!-- Recommend tab -->
+      <div class="tab-panel" data-panel="recommend">
+        <p class="hint" style="margin-top:0">
+          登録済みの監督・出演者から、まだ入れていない作品を提案します（<code>python3 server.py</code> が必要）。
+        </p>
+        <div class="filmo-actions">
+          <button id="recommendRefreshBtn" class="btn btn-ghost btn-sm">🔄 候補を更新</button>
+        </div>
+        <p id="recommendStatus" class="search-status"></p>
+        <div id="recommendGrid" class="search-results"></div>
+      </div>
+
+      <!-- Collection tab -->
+      <div class="tab-panel" data-panel="collection">
+        <p class="hint" style="margin-top:0">
+          人気シリーズや名作スタジオの作品を、観たものだけチェックしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+        </p>
+        <div class="suggest-head">
+          <span class="suggest-label">おすすめのコレクション</span>
+          <button id="collectionShuffleBtn" class="btn btn-ghost btn-sm">🔀 ほかの候補</button>
+        </div>
+        <div class="search-row">
+          <input id="collectionSearchInput" type="text" placeholder="コレクション名で検索（例: ジブリ, マーベル, 007）" />
+        </div>
+        <div id="collectionList" class="collection-list"></div>
+        <p id="collectionStatus" class="search-status"></p>
+        <div id="collectionGrid" class="search-results"></div>
+        <div id="collectionMoreWrap" class="recall-more" style="display:none">
+          <button id="collectionMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
+      <!-- Genre tab -->
+      <div class="tab-panel" data-panel="genre">
+        <p class="hint" style="margin-top:0">
+          ジャンルを選ぶと、その人気作を数百件以上から表示します。観たものだけタップしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+        </p>
+        <div class="suggest-head">
+          <span class="suggest-label">🎬 ジャンルを選ぶ</span>
+        </div>
+        <div id="genreList" class="collection-list"></div>
+        <p id="genreStatus" class="search-status"></p>
+        <div id="genreGrid" class="search-results"></div>
+        <div id="genreMoreWrap" class="recall-more" style="display:none">
+          <button id="genreMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
+      <!-- Awards / festivals tab -->
+      <div class="tab-panel" data-panel="award">
+        <p class="hint" style="margin-top:0">
+          各映画賞・映画祭の受賞作から、観たものだけチェックしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+        </p>
+        <div class="suggest-head">
+          <span class="suggest-label">🏆 映画賞・映画祭を選ぶ</span>
+        </div>
+        <div id="awardList" class="collection-list"></div>
+        <p id="awardStatus" class="search-status"></p>
+        <div id="awardGrid" class="search-results"></div>
+        <div id="awardMoreWrap" class="recall-more" style="display:none">
+          <button id="awardMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
+      <!-- Person (bulk) tab -->
+      <div class="tab-panel" data-panel="person">
+        <p class="hint" style="margin-top:0">
+          俳優・監督名で検索し、出演作・監督作から観たものだけタップしてまとめて追加できます（<code>python3 server.py</code> での起動が必要）。
+        </p>
+        <div class="suggest-head">
+          <span class="suggest-label">おすすめの人物（タップで作品一覧へ）</span>
+          <button id="personShuffleBtn" class="btn btn-ghost btn-sm">🔀 ほかの候補</button>
+        </div>
+        <div id="personSuggest" class="collection-list"></div>
+        <div class="search-row">
+          <input id="personSearchInput" type="text" placeholder="俳優・監督名（例: トム・クルーズ）" />
+          <button id="personSearchBtn" class="btn btn-primary">検索</button>
+        </div>
+        <p id="personStatus" class="search-status"></p>
+
+        <!-- person picker -->
+        <div id="personResults" class="person-results"></div>
+
+        <!-- filmography view -->
+        <div id="personFilmography" class="hidden">
+          <div class="filmo-head">
+            <button id="personBackBtn" class="btn btn-ghost btn-sm">← 人物一覧へ</button>
+            <span id="personName" class="filmo-name"></span>
+          </div>
+          <div id="roleChips" class="role-chips"></div>
+          <div class="filmo-actions">
+            <button id="personSelectAllBtn" class="btn btn-ghost btn-sm">表示中をすべて選ぶ</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div id="filmGrid" class="search-results"></div>
+        </div>
+      </div>
+
+      <!-- Manual tab -->
+      <div class="tab-panel" data-panel="manual">
+        <label class="field">
+          <span>タイトル</span>
+          <input id="manualTitle" type="text" placeholder="映画のタイトル" />
+        </label>
+        <label class="field">
+          <span>ポスター画像URL（任意）</span>
+          <input id="manualPosterUrl" type="text" placeholder="https://..." />
+        </label>
+        <label class="field">
+          <span>または画像ファイルをアップロード（任意）</span>
+          <input id="manualPosterFile" type="file" accept="image/*" />
+        </label>
+        <div class="manual-preview">
+          <img id="manualPreviewImg" alt="プレビュー" />
+        </div>
+        <button id="manualAddBtn" class="btn btn-primary">追加する</button>
+      </div>
+
+      <div class="modal-footer">
+        <div class="footer-actions">
+          <div class="filmo-actions filmo-actions-footer" id="recallActions" style="display:none">
+            <button id="recallAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="recommendActions" style="display:none">
+            <button id="recommendAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="collectionActions" style="display:none">
+            <button id="collectionAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="genreActions" style="display:none">
+            <button id="genreAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="awardActions" style="display:none">
+            <button id="awardAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="personActions" style="display:none">
+            <button id="personAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost" data-close="addMovieModal">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Page (account + save + settings) -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>👤 マイページ</h3>
+        <button class="modal-close" data-close="settingsModal">✕</button>
+      </div>
+      <div class="settings-body mypage-body">
+        <div id="mpStatus" class="mp-status"></div>
+
+        <section class="mp-block">
+          <h4 class="mp-h">前の状態に戻す</h4>
+          <div id="backupList" class="backup-list"></div>
+        </section>
+
+        <details id="mpAccount" class="mp-fold">
+          <summary>アカウント<span id="mpAccountBadge" class="mp-badge"></span></summary>
+          <div class="mp-fold-body"><div id="authBody"></div></div>
+        </details>
+
+        <details class="mp-fold">
+          <summary>ファイルで書き出す・読み込む</summary>
+          <div class="mp-fold-body">
+            <div class="settings-actions">
+              <button id="exportDataBtn" class="btn btn-ghost btn-sm">💾 書き出す</button>
+              <button id="importDataBtn" class="btn btn-ghost btn-sm">📂 読み込む</button>
+              <input id="importDataFile" type="file" accept="application/json,.json" class="hidden" />
+            </div>
+            <p class="hint">手元に控えを残したいとき用です（.json）。ファイル名：<span id="listFileName" class="list-title-text">まだ書き出していません</span></p>
+          </div>
+        </details>
+
+        <details class="mp-fold">
+          <summary>表示設定</summary>
+          <div class="mp-fold-body">
+            <label class="field">
+              <span>デザイン / レイアウト</span>
+              <select id="themeSelect">
+                <option value="studio">スタジオ（新デザイン・シェルフ型）</option>
+                <option value="pop">ポップ（明るく丸いデザイン）</option>
+                <option value="classic">クラシック（従来・行型）</option>
+              </select>
+            </label>
+            <label class="field field-check">
+              <input id="compactCheck" type="checkbox" />
+              <span>コンパクト表示（ポスターを小さくして一覧性を上げる）</span>
+            </label>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- How-to / help modal -->
+  <div id="helpModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>❓ 使い方 — ティアリストの作り方</h3>
+        <button class="modal-close" data-close="helpModal">✕</button>
+      </div>
+      <div class="settings-body help-body">
+        <div class="help-hero">
+          <p class="help-hero-lead">鑑賞した映画をお気に入り度でランク分けして、自分だけの映画ランキングを作れるツールです。</p>
+          <div class="help-flow">
+            <span class="help-flow-item">🎬 映画を追加</span>
+            <span class="help-flow-arrow">→</span>
+            <span class="help-flow-item">🏆 ティアに振り分け</span>
+            <span class="help-flow-arrow">→</span>
+            <span class="help-flow-item">💾 保存・共有</span>
+          </div>
+        </div>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">1</span><h4>映画を追加する</h4></div>
+          <div class="help-card-body">
+            <p>未分類エリアの <b>「＋ 映画を追加」</b> を押すと追加ウィンドウが開きます。いろいろな探し方から選べます。</p>
+            <div class="help-ways">
+              <div class="help-way"><span class="help-way-ic">🔍</span><div class="help-way-txt"><b>検索</b><span>タイトルで探す</span></div></div>
+              <div class="help-way"><span class="help-way-ic">👤</span><div class="help-way-txt"><b>人物</b><span>監督・出演者の作品</span></div></div>
+              <div class="help-way"><span class="help-way-ic">📅</span><div class="help-way-txt"><b>公開年</b><span>年ごとに振り返る</span></div></div>
+              <div class="help-way"><span class="help-way-ic">🗂</span><div class="help-way-txt"><b>コレクション</b><span>シリーズ・テーマ別</span></div></div>
+              <div class="help-way"><span class="help-way-ic">🏆</span><div class="help-way-txt"><b>映画賞・映画祭</b><span>受賞・出品作</span></div></div>
+              <div class="help-way"><span class="help-way-ic">🎭</span><div class="help-way-txt"><b>ジャンル</b><span>コメディ・ドラマ等</span></div></div>
+              <div class="help-way"><span class="help-way-ic">✍️</span><div class="help-way-txt"><b>手動で追加</b><span>タイトル・画像を指定</span></div></div>
+            </div>
+            <p class="help-tip">候補を<b>タップで選択</b>して「選んだ◯本を追加」でまとめて登録。追加した映画はまず <b>「未分類」</b> に入ります。</p>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">2</span><h4>ティアに振り分ける</h4></div>
+          <div class="help-card-body">
+            <p>未分類やほかのティアの映画を、好きなランクへ移動します。</p>
+            <div class="help-methods">
+              <div class="help-method">
+                <span class="help-method-tag">PC</span>
+                <p><b>ドラッグ＆ドロップ</b><br>カードをつかんで入れたいティアの帯へ。同じティア内で落とす位置を変えれば並び順も変わります。</p>
+              </div>
+              <div class="help-method">
+                <span class="help-method-tag">スマホ</span>
+                <p><b>タップして選ぶ</b><br>カードをタップ→「どこに入れる？」から入れたいティアを選択。「未分類に戻す」「削除」もここから。</p>
+              </div>
+            </div>
+            <p class="help-tip">ティア一覧の一番下の <b>「🔖 観たい」</b> も同じ操作で振り分け可能。これから観たい作品はここへ入れ、観たら各ティアへ。</p>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">3</span><h4>ティアを編集する</h4></div>
+          <div class="help-card-body">
+            <ul class="help-list">
+              <li><b>名前・色の変更</b> — ティアの帯をクリックして編集。</li>
+              <li><b>並び替え</b> — 帯の <b>「↕」</b> で、そのティアを <b>登録順</b> / <b>あいうえお順</b> に整列。</li>
+              <li><b>折りたたみ</b> — 帯の「▼ / ▶」で表示を折りたたみ／展開。</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">4</span><h4>絞り込み・検索して見やすく</h4></div>
+          <div class="help-card-body">
+            <p>画面上部の <b>「🎯 テーマで絞り込み」</b> で、公開年・監督・出演者・ジャンル・映画賞・種別（邦画/洋画・実写/アニメ）や、自分で付けた <b>タグ</b> などの切り口だけを表示。右の検索ボックスでは登録作品をタイトルで探せます。</p>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">5</span><h4>もっと楽しむ機能</h4></div>
+          <div class="help-card-body">
+            <div class="help-features">
+              <div class="help-feature"><span class="help-feature-ic">⚔️</span><div><b>対戦</b><p>2作品を見比べて選ぶだけで自動ティア分け。対戦した作品だけが動きます。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">🔖</span><div><b>観たい</b><p>一覧の一番下のゾーン。ティアと同じ操作で「あとで観る」を管理。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">🎬</span><div><b>作品情報</b><p>公開年・ジャンル・監督などの確認/修正、コメント（感想）の記入。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">📊</span><div><b>統計</b><p>年代・ジャンル・監督など、登録作品の傾向をグラフで。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">🏅</span><div><b>実績</b><p>登録を進めると解除できるチャレンジ集。</p></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-card">
+          <div class="help-card-head"><span class="help-num">6</span><h4>保存・共有・同期</h4></div>
+          <div class="help-card-body">
+            <p>内容は<b>この端末に自動保存</b>。さらに <b>「👤 マイページ」</b> から次のことができます。</p>
+            <ul class="help-list">
+              <li><b>前の状態に戻す</b> — 自動で記録された過去の状態に戻せます。</li>
+              <li><b>アカウント</b> — ログインすると複数の端末で<b>自動同期</b>。</li>
+              <li><b>ファイルで書き出す・読み込む</b> — 手元に控えを残せます。</li>
+              <li>画像にしたいときは <b>📤 シェア</b> から（「ティア表」で全体を1枚に）。</li>
+            </ul>
+            <p class="help-tip">スマホで「ホーム画面に追加」すると、アプリのように起動できます（PWA対応）。</p>
+          </div>
+        </section>
+
+        <div class="help-cta">
+          <button id="helpStartBtn" class="btn btn-primary">さっそく映画を追加する</button>
+          <button class="btn btn-ghost" data-close="helpModal">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats dashboard modal -->
+  <div id="statsModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>📊 統計ダッシュボード</h3>
+        <button class="modal-close" data-close="statsModal">✕</button>
+      </div>
+      <div id="statsBody" class="settings-body stats-body"></div>
+    </div>
+  </div>
+
+  <!-- Upcoming recommendations modal (based on your stats) -->
+  <div id="upcomingModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>🔮 これから公開のおすすめ</h3>
+        <button class="modal-close" data-close="upcomingModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="up-intro">
+          <p class="hint" style="margin:0">
+            あなたのティアリストの傾向（監督・出演者・ジャンル・種別）をもとに、これから公開される作品からおすすめを提案します。各作品の「作品情報 ↗」で詳細を確認してから、観たいリストに追加できます（<code>python3 server.py</code> が必要）。
+          </p>
+          <button id="upcomingRefreshBtn" class="btn btn-ghost btn-sm">🔄 候補を更新</button>
+        </div>
+        <p id="upcomingStatus" class="search-status"></p>
+        <div id="upcomingGrid" class="up-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Community / friends modal -->
+  <div id="socialModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>🌐 みんな</h3>
+        <button class="modal-close" data-close="socialModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="soc-tabs">
+          <button class="soc-tab active" data-soc-tab="community">🌐 みんなのティア</button>
+          <button class="soc-tab" data-soc-tab="friends">🤝 友だちと比べる</button>
+          <button class="soc-tab" data-soc-tab="challenges">📣 お題</button>
+        </div>
+        <div id="socCommunity" class="soc-pane"></div>
+        <div id="socFriends" class="soc-pane hidden"></div>
+        <div id="socChallenges" class="soc-pane hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Battle (pairwise ranking) modal -->
+  <div id="battleModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>⚔️ 対戦モード</h3>
+        <button class="modal-close" data-close="battleModal">✕</button>
+      </div>
+      <div id="battleBody" class="settings-body"></div>
+    </div>
+  </div>
+
+  <!-- Achievements modal -->
+  <div id="achvModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>🏅 実績</h3>
+        <button class="modal-close" data-close="achvModal">✕</button>
+      </div>
+      <div id="achvBody" class="settings-body stats-body"></div>
+    </div>
+  </div>
+
+  <!-- Movie info editor modal -->
+  <div id="movieInfoModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>作品情報</h3>
+        <button class="modal-close" data-close="movieInfoModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="info-poster">
+          <img id="infoPosterImg" alt="ポスター" />
+          <div class="info-poster-actions">
+            <label class="field">
+              <span>ポスター画像をアップロード</span>
+              <input id="infoPosterFile" type="file" accept="image/*" />
+            </label>
+            <label class="field">
+              <span>またはポスター画像URL</span>
+              <input id="infoPosterUrl" type="text" placeholder="https://..." />
+            </label>
+          </div>
+        </div>
+        <div class="field info-community-field">
+          <span>🌐 みんなのティア</span>
+          <div id="infoCommunity" class="info-community"></div>
+        </div>
+        <div class="field info-watch-field">
+          <span>📺 いま観られる方法</span>
+          <div id="infoWatch" class="info-watch"></div>
+        </div>
+        <label class="field">
+          <span>タイトル</span>
+          <input id="infoTitle" type="text" />
+        </label>
+        <label class="field">
+          <span>公開年</span>
+          <input id="infoYear" type="text" inputmode="numeric" placeholder="例: 2016" />
+        </label>
+        <label class="field">
+          <span>種別</span>
+          <select id="infoKind">
+            <option value="">未設定</option>
+            <option value="jp_live">邦画実写</option>
+            <option value="foreign_live">洋画実写</option>
+            <option value="jp_anime">邦画アニメ</option>
+            <option value="foreign_anime">洋画アニメ</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>ジャンル</span>
+          <div id="infoGenres" class="info-genre-list"></div>
+        </div>
+        <label class="field">
+          <span>監督（カンマ区切り）</span>
+          <input id="infoDirectors" type="text" placeholder="例: クリストファー・ノーラン" />
+        </label>
+        <label class="field">
+          <span>出演者（カンマ区切り）</span>
+          <input id="infoCast" type="text" placeholder="例: レオナルド・ディカプリオ, 渡辺謙" />
+        </label>
+        <label class="field">
+          <span>タグ（カンマ区切り・自由）</span>
+          <input id="infoUserThemes" type="text" list="userThemeList" placeholder="例: 泣ける, デート向け, 人生ベスト" />
+          <datalist id="userThemeList"></datalist>
+        </label>
+        <label class="field">
+          <span>コメント・感想</span>
+          <textarea id="infoComment" rows="4" placeholder="この作品の感想やメモを自由に残せます"></textarea>
+        </label>
+        <p class="hint" style="margin-top:0">
+          保存するとこの内容が優先され、バックグラウンドの自動補完で上書きされなくなります。「タグ」は「🎯 テーマで絞り込み」に反映されます。
+        </p>
+        <div class="settings-actions">
+          <button id="infoSaveBtn" class="btn btn-primary">保存</button>
+          <button class="btn btn-ghost" data-close="movieInfoModal">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom theme create/edit modal -->
+  <div id="themeEditModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>🏷️ タグを作成 / 編集</h3>
+        <button class="modal-close" data-close="themeEditModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <label class="field">
+          <span>タグ名</span>
+          <input id="themeNameInput" list="themeNameList" placeholder="例: 泣ける、デート向け、人生ベスト" />
+          <datalist id="themeNameList"></datalist>
+        </label>
+        <p class="hint" style="margin-top:0">
+          このタグを付ける作品にチェックを付けてください。既存のタグ名を入力すると、その内容を編集できます。付けたタグは「🎯 テーマで絞り込み」から選べます。
+        </p>
+        <input id="themePickSearch" class="movie-search-input" type="search" placeholder="🔍 作品をタイトルで検索" />
+        <div class="theme-pick-toolbar">
+          <p id="themePickCount" class="theme-pick-count"></p>
+          <div class="theme-pick-sort">
+            <span>並び順</span>
+            <button type="button" class="tp-sort-btn active" data-sort="added" data-label="登録順"><span class="tp-sort-label">登録順</span><span class="tp-sort-arrow">↑</span></button>
+            <button type="button" class="tp-sort-btn" data-sort="title" data-label="あいうえお順"><span class="tp-sort-label">あいうえお順</span><span class="tp-sort-arrow"></span></button>
+          </div>
+        </div>
+        <div id="themePickList" class="theme-pick-list"></div>
+        <div class="settings-actions">
+          <button id="themeSaveBtn" class="btn btn-primary">保存</button>
+          <button id="themeDeleteBtn" class="btn btn-danger">このタグを削除</button>
+          <button class="btn btn-ghost" data-close="themeEditModal">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme ranking modal -->
+  <div id="rankingModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="rankingTitle">🏆 ランキング</h3>
+        <button class="modal-close" data-close="rankingModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <p class="hint" style="margin-top:0">
+          ドラッグ、または ↑ ↓ ボタンで順位を入れ替えられます。いちばん上が1位です。順位は絞り込みテーマごとに保存されます。
+        </p>
+        <div class="ranking-toolbar">
+          <button id="rankByTierBtn" class="btn btn-ghost btn-sm">⬇ ティア順に整列</button>
+          <button id="rankShuffleBtn" class="btn btn-ghost btn-sm">🔀 シャッフル</button>
+          <button id="rankShareBtn" class="btn btn-primary btn-sm">📤 SNSでシェア</button>
+          <button id="rankExportBtn" class="btn btn-ghost btn-sm">📷 画像として保存</button>
+        </div>
+        <div id="rankingExport" class="ranking-export">
+          <div id="rankingExportTitle" class="ranking-export-title" aria-hidden="true"></div>
+          <div id="rankingList" class="ranking-list"></div>
+        </div>
+        <div class="settings-actions">
+          <button id="rankingSaveBtn" class="btn btn-primary">保存</button>
+          <button class="btn btn-ghost" data-close="rankingModal">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SNS share modal -->
+  <div id="shareModal" class="modal-overlay hidden">
+    <div class="modal modal-wide share-modal">
+      <div class="modal-header">
+        <h3>📤 SNSでシェア</h3>
+        <button class="modal-close" data-close="shareModal">✕</button>
+      </div>
+      <div class="share-layout">
+        <div class="share-preview-wrap">
+          <div id="sharePreview" class="share-preview"></div>
+        </div>
+        <div class="share-side">
+          <p id="shareThemeNote" class="share-theme-note"></p>
+          <label class="share-field">
+            <span class="share-opt-label">タイトル</span>
+            <input id="shareTitleInput" type="text" maxlength="40" />
+          </label>
+          <div class="share-opt">
+            <span class="share-opt-label">内容</span>
+            <div class="share-seg" data-opt="mode">
+              <button type="button" data-v="best">🏆 ベスト</button>
+              <button type="button" data-v="tier">📊 ティア表</button>
+            </div>
+          </div>
+          <div class="share-opt" id="shareCountOpt">
+            <span class="share-opt-label">本数</span>
+            <div class="share-seg" data-opt="count">
+              <button type="button" data-v="3">3本</button>
+              <button type="button" data-v="5">5本</button>
+              <button type="button" data-v="10">10本</button>
+            </div>
+          </div>
+          <div class="share-opt">
+            <span class="share-opt-label">サイズ</span>
+            <div class="share-seg" data-opt="size">
+              <button type="button" data-v="story">縦長<small>ストーリーズ</small></button>
+              <button type="button" data-v="post">4:5<small>Instagram投稿</small></button>
+              <button type="button" data-v="wide">横長<small>X・LINE</small></button>
+            </div>
+          </div>
+          <div class="share-opt">
+            <span class="share-opt-label">デザイン</span>
+            <div class="share-seg" data-opt="style">
+              <button type="button" data-v="cream">クリーム</button>
+              <button type="button" data-v="dark">シアター</button>
+            </div>
+          </div>
+          <label class="share-field">
+            <span class="share-opt-label">投稿文</span>
+            <textarea id="shareText" rows="5"></textarea>
+          </label>
+          <div class="share-actions">
+            <button id="shareNativeBtn" class="btn btn-primary">📤 アプリで共有</button>
+            <button id="shareXBtn" class="btn btn-x">𝕏 でポスト</button>
+            <button id="shareSaveBtn" class="btn btn-ghost">⬇ 画像を保存</button>
+            <button id="shareCopyBtn" class="btn btn-ghost">📋 投稿文をコピー</button>
+          </div>
+          <p id="shareHint" class="share-hint"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Challenge (shared theme) modal -->
+  <div id="challengeModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>📣 お題</h3>
+        <button class="modal-close" data-close="challengeModal">✕</button>
+      </div>
+      <div id="challengeBody" class="settings-body"></div>
+    </div>
+  </div>
+
+  <!-- Tier settings popover template lives in JS -->
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+  <script src="app.js?v=20261025m"></script>
+</body>
+</html>
