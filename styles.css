@@ -1644,6 +1644,10 @@ body.theme-pop .quick-add .btn {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+.movie-nitaku-badge.is-unseen {
+  background: rgba(0, 0, 0, 0.62);
+}
+
 .movie-comment-badge {
   position: absolute;
   top: calc(var(--poster-h) - 24px);
@@ -4321,9 +4325,15 @@ div.battle-poster {
   color: var(--text-dim);
 }
 
+.battle-unwatched-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
 .battle-unwatched {
   display: block;
-  margin: 6px auto 0;
   padding: 2px 8px;
   border: none;
   background: none;

@@ -689,6 +689,13 @@
       card.appendChild(badge);
     }
 
+    if (movie.unseen) {
+      const ub = document.createElement("div");
+      ub.className = "movie-nitaku-badge is-unseen";
+      ub.textContent = "未鑑賞";
+      ub.title = "二択で「まだ観ていない」にした作品（ティアに入れると消えます）";
+      card.appendChild(ub);
+    }
     if (movie.nitaku) {
       const nb = document.createElement("div");
       nb.className = "movie-nitaku-badge";
@@ -1138,7 +1145,7 @@
 
     const idx = found.from.indexOf(found.movie);
     if (idx > -1) found.from.splice(idx, 1);
-    if (found.from !== target) delete found.movie.nitaku;
+    if (found.from !== target) { delete found.movie.nitaku; delete found.movie.unseen; }
 
     if (beforeId) {
       const beforeIdx = target.findIndex((m) => m.id === beforeId);
@@ -7377,8 +7384,8 @@
     renderStart() {
       const body = document.getElementById("battleBody");
       if (!body) return;
-      const poolN = state.pool.length;
-      const tieredN = allMovies().length - poolN;
+      const poolN = state.pool.filter((m) => !m.unseen).length;
+      const tieredN = allMovies().length - state.pool.length;
       const marked = nitakuMarked().length;
       const flow = poolN && tieredN
         ? `まず<b>未分類の${poolN}本</b>を出題してティアに振り分け、そのあと<b>今のティア分けの見直し</b>に進みます。`
@@ -7413,7 +7420,7 @@
     },
 
     start() {
-      const src = allMovies();
+      const src = allMovies().filter((m) => !m.unseen);
       if (src.length < 2) { toast("二択をするには2本以上必要です"); return; }
       this.items = src.slice();
       this.rating = new Map();
@@ -7545,12 +7552,19 @@
       return card;
     },
 
-    // 未鑑賞の作品は「観たい」へ移し、二択の対象から外す
-    unwatched(m) {
+    // 未鑑賞の作品を二択から外す。toWatchlist なら「観たい」へ、そうでなければ未分類に置いて目印を付ける
+    unwatched(m, toWatchlist) {
       this.items = this.items.filter((x) => x !== m);
       this.origin.delete(m);
-      moveMovie(m.id, "watchlist");
-      toast(`「${m.title}」を 🔖 観たい に移動しました`);
+      if (toWatchlist) {
+        moveMovie(m.id, "watchlist");
+        toast(`「${m.title}」を 🔖 観たい に移動しました`);
+      } else {
+        if (!state.pool.includes(m)) moveMovie(m.id, "pool");
+        m.unseen = true;
+        render();
+        toast(`「${m.title}」を未鑑賞として未分類に置きました`);
+      }
       if (this.items.length >= 2) { this.nextPair(); return; }
       if (this.count > 0) this.finish();
       else { this.teardown(); closeModal("battleModal"); }
@@ -7582,12 +7596,20 @@
       [["battleSlotA", this.cur.a, "a"], ["battleSlotB", this.cur.b, "b"]].forEach(([id, m, side]) => {
         const slot = document.getElementById(id);
         slot.appendChild(this.buildCard(m, side));
+        const row = document.createElement("div");
+        row.className = "battle-unwatched-row";
         const nw = document.createElement("button");
         nw.className = "battle-unwatched";
         nw.textContent = "まだ観ていない";
-        nw.title = "「観たい」に移して、二択から外します";
-        nw.addEventListener("click", () => this.unwatched(m));
-        slot.appendChild(nw);
+        nw.title = "未分類に置いたまま、二択に出さないようにします";
+        nw.addEventListener("click", () => this.unwatched(m, false));
+        const wl = document.createElement("button");
+        wl.className = "battle-unwatched";
+        wl.textContent = "🔖 観たい";
+        wl.title = "「観たい」に移して、二択から外します";
+        wl.addEventListener("click", () => this.unwatched(m, true));
+        row.append(nw, wl);
+        slot.appendChild(row);
       });
       document.getElementById("battleTie").addEventListener("click", () => this.vote("tie"));
       document.getElementById("battleSkip").addEventListener("click", () => this.vote("skip"));
