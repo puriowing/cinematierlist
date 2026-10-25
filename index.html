@@ -112,7 +112,6 @@
 
     <div class="board-controls">
       <button id="addTierBtn" class="btn btn-ghost">＋ ティアを追加</button>
-      <button id="resetTiersBtn" class="btn btn-ghost">ティアを初期化</button>
     </div>
 
   </main>
@@ -370,6 +369,16 @@
               <input id="compactCheck" type="checkbox" />
               <span>コンパクト表示（ポスターを小さくして一覧性を上げる）</span>
             </label>
+          </div>
+        </details>
+
+        <details class="mp-fold">
+          <summary>ティアの構成</summary>
+          <div class="mp-fold-body">
+            <p class="hint">ティアを S / A / B / C / D の5段に戻します。振り分けた作品はすべて「未分類」に戻ります（作品自体は消えません）。押した直後なら「元に戻す」で取り消せます。</p>
+            <div class="settings-actions">
+              <button id="resetTiersBtn" class="btn btn-ghost btn-sm btn-danger-outline">ティアを初期化する…</button>
+            </div>
           </div>
         </details>
       </div>

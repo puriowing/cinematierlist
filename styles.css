@@ -2913,6 +2913,23 @@ code {
   transition: opacity 0.25s, transform 0.25s;
 }
 
+.toast-action {
+  margin-left: 14px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent, var(--text));
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn.btn-danger-outline {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .toast.hidden {
   opacity: 0;
   pointer-events: none;

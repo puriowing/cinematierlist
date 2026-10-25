@@ -400,11 +400,18 @@
     }
   }
 
-  function toast(msg) {
+  function toast(msg, action) {
     el.toast.textContent = msg;
+    if (action) {
+      const b = document.createElement("button");
+      b.className = "toast-action";
+      b.textContent = action.label;
+      b.addEventListener("click", () => { el.toast.classList.add("hidden"); action.onClick(); });
+      el.toast.appendChild(b);
+    }
     el.toast.classList.remove("hidden");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.toast.classList.add("hidden"), 2200);
+    toast._t = setTimeout(() => el.toast.classList.add("hidden"), action ? 8000 : 2200);
   }
 
   // =======================================================================
@@ -2437,11 +2444,27 @@
   }
 
   function resetTiers() {
-    if (!confirm("ティア構成を初期化します（S/A/B/C/D）。振り分け済みの映画は未分類に戻ります。よろしいですか？")) return;
+    const ranked = state.tiers.reduce((n, t) => n + t.items.length, 0);
+    const msg = ranked
+      ? `ティアに振り分けた ${ranked}本がすべて「未分類」に戻り、ティアは S/A/B/C/D の5段になります。\n本当に初期化しますか？`
+      : "ティアを S/A/B/C/D の5段に戻します。よろしいですか？";
+    if (!confirm(msg)) return;
+    pushBackup(); // 初期化前の状態を「前の状態に戻す」にも残しておく
+    const before = JSON.parse(JSON.stringify({ tiers: state.tiers, pool: state.pool }));
     const all = state.tiers.flatMap((t) => t.items);
     state.pool.push(...all);
     state.tiers = JSON.parse(JSON.stringify(DEFAULT_TIERS));
     render();
+    closeModal("settingsModal");
+    toast("ティアを初期化しました", {
+      label: "元に戻す",
+      onClick: () => {
+        state.tiers = before.tiers;
+        state.pool = before.pool;
+        render();
+        toast("初期化を取り消しました");
+      },
+    });
   }
 
   let currentEditor = null;
