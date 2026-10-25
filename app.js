@@ -463,6 +463,14 @@
     ensureAddedStamps();
     if (mode === "title") {
       tier.items.sort((a, b) => titleSortKey(a).localeCompare(titleSortKey(b), "ja", { numeric: true }));
+    } else if (mode === "year" || mode === "yearDesc") {
+      const yr = (m) => parseInt(String(m.year || "").match(/\d{4}/)?.[0], 10) || 0;
+      const dir = mode === "year" ? 1 : -1;
+      tier.items.sort((a, b) => {
+        const ya = yr(a), yb = yr(b);
+        if (!ya || !yb) return (ya ? 0 : 1) - (yb ? 0 : 1);
+        return (ya - yb) * dir || titleSortKey(a).localeCompare(titleSortKey(b), "ja", { numeric: true });
+      });
     } else {
       tier.items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
     }
@@ -1329,12 +1337,14 @@
         e.stopPropagation();
         closeMoveMenu();
         sortTier(tier, mode);
-        toast(`「${tier.label}」を${mode === "title" ? "あいうえお順" : "登録順"}に並び替えました`);
+        toast(`「${tier.label}」を${labelText.replace(/（.*）/, "")}${mode === "yearDesc" ? "（新しい順）" : mode === "year" ? "（古い順）" : ""}に並び替えました`);
       });
       pop.appendChild(b);
     };
     mk("登録順（古い → 新しい）", "added");
     mk("あいうえお順（タイトル）", "title");
+    mk("製作年順（古い → 新しい）", "year");
+    mk("製作年順（新しい → 古い）", "yearDesc");
 
     document.body.appendChild(pop);
     const r = anchorEl.getBoundingClientRect();
