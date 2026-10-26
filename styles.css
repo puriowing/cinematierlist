@@ -5917,12 +5917,13 @@ body.theme-pop .collapse-toggle {
 /* テーマで絞り込み：スマホは1行に最小化 */
 @media (max-width: 768px) {
   body .filter-bar {
-    gap: 6px;
-    padding: 0;
-    background: none;
-    border: none;
-    box-shadow: none;
-    margin-bottom: 12px;
+    gap: 8px;
+    padding: 10px 12px 10px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    margin: 4px 0 16px;
   }
 
   body .filter-bar .filter-label {
