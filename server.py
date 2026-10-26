@@ -545,6 +545,84 @@ def filmarks_search(query, limit=20):
     return results
 
 
+# ドラマ・アニメ（シリーズ単位で登録）。ID は "d<シリーズ>-<代表シーズン>" / "a<…>-<…>"
+SERIES_PATH = {"drama": "dramas", "anime": "animes"}
+SERIES_PREFIX = {"drama": "d", "anime": "a"}
+RE_SERIES_FID = re.compile(r"^([da])(\d+)-(\d+)$")
+RE_FM_S_SERIES = re.compile(r"(drama|anime)_series_id&quot;:(\d+),&quot;(?:drama|anime)_season_id&quot;:(\d+)")
+RE_FM_S_POSTER_ANY = re.compile(
+    r'<img alt="[^"]*"[^>]*?src="(https://[^"]+cloudfront[^"]+/variants/[^"]+)"'
+)
+RE_FM_S_DATE = re.compile(r"公開日：</h4><span>(\d{4})年(\d{2})月(\d{2})日")
+
+
+def _series_url(fid):
+    m = RE_SERIES_FID.match(str(fid or ""))
+    if not m:
+        return ""
+    path = "dramas" if m.group(1) == "d" else "animes"
+    return f"https://filmarks.com/{path}/{m.group(2)}/{m.group(3)}"
+
+
+def _filmarks_ld_season(html_text):
+    for m in RE_LD_JSON.finditer(html_text):
+        try:
+            data = json.loads(m.group(1))
+        except Exception:  # noqa: BLE001
+            continue
+        for obj in (data if isinstance(data, list) else [data]):
+            if isinstance(obj, dict) and obj.get("@type") == "TVSeason":
+                return obj
+    return None
+
+
+def filmarks_series_search(query, media, limit=20):
+    """Filmarks のドラマ／アニメ検索。シーズンをシリーズごとにまとめ、
+    最初のシーズンを代表にしてシリーズ名・開始年・ポスターを返す。"""
+    q = urllib.parse.quote(query, safe="")
+    html_text = _fetch(f"https://filmarks.com/search/{SERIES_PATH[media]}?q={q}")
+    groups = {}
+    for chunk in html_text.split('class="js-cassette"')[1:]:
+        sm = RE_FM_S_SERIES.search(chunk)
+        tm = RE_FM_S_TITLE.search(chunk)
+        if not sm or not tm:
+            continue
+        series, season = sm.group(2), sm.group(3)
+        dm = RE_FM_S_DATE.search(chunk)
+        pm = RE_FM_S_POSTER_ANY.search(chunk)
+        g = groups.setdefault(series, [])
+        if any(s["season"] == season for s in g):
+            continue
+        g.append({"season": season, "title": _clean(tm.group(1)),
+                  "date": "".join(dm.groups()) if dm else "99999999",
+                  "poster": pm.group(1) if pm else ""})
+    reps = []
+    for series, seasons in list(groups.items())[:limit]:
+        rep = min(seasons, key=lambda s: s["date"])
+        reps.append((series, rep, len(seasons)))
+    urls = [f"https://filmarks.com/{SERIES_PATH[media]}/{s}/{r['season']}" for s, r, _ in reps]
+    _prefetch(urls)
+    results = []
+    for (series, rep, n), url in zip(reps, urls):
+        title, year = rep["title"], "" if rep["date"].startswith("9999") else rep["date"][:4]
+        try:
+            ld = _filmarks_ld_season(_fetch(url)) or {}
+            sr = ld.get(media + "Series") or {}
+            title = (sr.get("title") or "").strip() or title
+            sd = sr.get("startDate") or ""
+            if re.match(r"\d{4}", sd):
+                year = sd[:4]
+        except Exception:  # noqa: BLE001
+            pass
+        results.append({
+            "id": f"{SERIES_PREFIX[media]}{series}-{rep['season']}",
+            "title": title, "year": year,
+            "poster": _poster_url(rep["poster"]), "url": url,
+            "media": media, "seasons": n,
+        })
+    return results
+
+
 # 作品ページ内のジャンルリンク（/list/genre/<id>）からジャンルIDを拾う
 RE_FM_MOVIE_GENRE = re.compile(r'/list/genre/(\d+)"')
 
@@ -637,10 +715,13 @@ def filmarks_movie_details(movie_id):
     empty = {"directors": [], "cast": [], "year": "", "country": "",
              "jp": False, "anime": False, "genres": [], "genreIds": [],
              "rating": 0, "ratingCount": 0}
+    sm = RE_SERIES_FID.match(str(movie_id))
     try:
-        html_text = _fetch(f"https://filmarks.com/movies/{movie_id}")
+        html_text = _fetch(_series_url(movie_id) if sm else f"https://filmarks.com/movies/{movie_id}")
     except Exception:  # noqa: BLE001
         return empty
+    if sm:
+        return _series_details(html_text, "drama" if sm.group(1) == "d" else "anime", empty)
     ld = _filmarks_ld_movie(html_text) or {}
     directors = _names(ld.get("director"))
     cast = _names(ld.get("actor"))[:8]
@@ -672,6 +753,34 @@ def filmarks_movie_details(movie_id):
             "country": country, "jp": jp, "anime": anime,
             "genres": genres, "genreIds": gids,
             "rating": rating, "ratingCount": rating_count}
+
+
+def _series_details(html_text, media, empty):
+    ld = _filmarks_ld_season(html_text)
+    if not ld:
+        return empty
+    countries = [c.get("name") for c in (ld.get("countries") or [])
+                 if isinstance(c, dict) and c.get("name")]
+    genres = ld.get("genres") or []
+    if isinstance(genres, str):
+        genres = [genres]
+    if media == "anime" and "アニメ" not in genres:
+        genres = genres + ["アニメ"]
+    sd = (ld.get(media + "Series") or {}).get("startDate") or ld.get("releaseDate") or ""
+    agg = ld.get("aggregateRating") or {}
+    try:
+        rating = float(agg.get("ratingValue") or 0)
+    except (TypeError, ValueError):
+        rating = 0
+    try:
+        rating_count = int(agg.get("ratingCount") or agg.get("reviewCount") or 0)
+    except (TypeError, ValueError):
+        rating_count = 0
+    return {"directors": _names(ld.get("director")), "cast": _names(ld.get("actor"))[:8],
+            "year": sd[:4] if re.match(r"\d{4}", sd) else "",
+            "country": countries[0] if countries else "", "jp": "日本" in countries,
+            "anime": media == "anime", "genres": genres, "genreIds": [],
+            "rating": rating, "ratingCount": rating_count, "media": media}
 
 
 def batch_filmarks_details(ids):
@@ -813,6 +922,8 @@ def theater_status(title, year="", fid=""):
     """いま映画館で上映中かを返す。
     返り値: {"showing": bool, "url": 上映館ページURL}"""
     fid = str(fid or "")
+    if RE_SERIES_FID.match(fid):
+        return {"showing": False, "url": ""}
     try:
         idx = filmarks_now_index()
     except Exception:  # noqa: BLE001
@@ -935,6 +1046,8 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 DATA_REPO = os.environ.get("DATA_REPO", "")
 REMOTE_ON = bool(GITHUB_TOKEN and DATA_REPO)
 ALLOW_REGISTER = os.environ.get("ALLOW_REGISTER", "1") != "0"
+# 参加者数・評価数などの実数は、ここに書いたユーザー名（カンマ区切り）にだけ返す
+ADMIN_USERS = {x.strip().lower() for x in os.environ.get("ADMIN_USERS", "").split(",") if x.strip()}
 _remote_sha = {}
 _remote_pending = set()
 _remote_cv = threading.Condition()
@@ -1220,6 +1333,10 @@ def _community_agg(exclude_uid=None, keys=None):
     return out
 
 
+def _hide_counts(agg):
+    return {k: {kk: vv for kk, vv in v.items() if kk != "count"} for k, v in agg.items()}
+
+
 def _user_by_share(token):
     if not token:
         return None
@@ -1393,7 +1510,7 @@ def _clean_challenge_movies(raw):
     return out
 
 
-def _challenge_view(ch, pid=None):
+def _challenge_view(ch, pid=None, admin=False):
     keys = [m["key"] for m in ch["movies"]]
     entries = ch.get("entries") or {}
     agg = {}
@@ -1414,12 +1531,16 @@ def _challenge_view(ch, pid=None):
             diff = sum(abs(mine["ratings"][k] - owner["ratings"][k]) for k in common) / len(common)
             match = max(0, min(100, round((1 - diff - 0.5) / 0.5 * 100)))
     recent = sorted(entries.items(), key=lambda kv: -kv[1].get("at", 0))
-    return {"id": ch["id"], "title": ch["title"], "note": ch.get("note", ""), "movies": ch["movies"],
+    view = {"id": ch["id"], "title": ch["title"], "note": ch.get("note", ""), "movies": ch["movies"],
             "creator": ch.get("creator") or "名無しさん", "createdAt": ch.get("createdAt"),
             "ownerRatings": owner.get("ratings") or {}, "stats": stats,
             "participants": len(entries), "names": [e.get("name") or "名無しさん" for _, e in recent[:30]],
             "isOwner": bool(pid) and pid == ch.get("ownerPid"),
             "mine": (mine or {}).get("ratings"), "match": match}
+    if not admin:
+        view["stats"] = _hide_counts(stats)
+        del view["participants"]
+    return view
 
 
 def _entry_ratings(raw, keys):
@@ -1475,6 +1596,15 @@ class Handler(SimpleHTTPRequestHandler):
     def _current_uid(self):
         tok = self._cookies().get("session")
         return _verify_token(tok) if tok else None
+
+    def _is_admin(self):
+        uid = self._current_uid()
+        if not uid or not ADMIN_USERS:
+            return False
+        with _data_lock:
+            users = _load_users()
+        u = next((v for v in users.values() if v.get("id") == uid), None)
+        return bool(u) and (u.get("username") or "").lower() in ADMIN_USERS
 
     def _read_json_body(self):
         try:
@@ -1538,7 +1668,10 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             users = _load_users()
         u = next((v for v in users.values() if v.get("id") == uid), None)
-        self._send_private_json({"user": {"username": u["username"]} if u else None})
+        user = {"username": u["username"]} if u else None
+        if user and (u["username"] or "").lower() in ADMIN_USERS:
+            user["admin"] = True
+        self._send_private_json({"user": user})
 
     def _h_get_list(self):
         uid = self._current_uid()
@@ -1635,6 +1768,8 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             _ensure_ratings()
             agg = _community_agg(exclude_uid=uid, keys=keys)
+        if not self._is_admin():
+            agg = _hide_counts(agg)
         self._send_private_json({"map": agg, "min": COMMUNITY_MIN})
 
     def _h_community_top(self, limit):
@@ -1649,7 +1784,13 @@ class Handler(SimpleHTTPRequestHandler):
             d = dict(_meta_cache.get(k) or {})
             d.update({"key": k}, **a)
             items.append(d)
-        self._send_private_json({"items": items, "min": COMMUNITY_MIN, "raters": raters})
+        res = {"items": items, "min": COMMUNITY_MIN}
+        if self._is_admin():
+            res["raters"] = raters
+        else:
+            for d in items:
+                d.pop("count", None)
+        self._send_private_json(res)
 
     def _h_compare(self, token):
         data = self._read_json_body() or {}
@@ -1688,7 +1829,7 @@ class Handler(SimpleHTTPRequestHandler):
             ch["entries"][pid] = {"name": name, "ratings": ratings, "at": ch["createdAt"]}
         with _data_lock:
             _save_challenge(ch)
-        self._send_private_json(_challenge_view(ch, pid))
+        self._send_private_json(_challenge_view(ch, pid, self._is_admin()))
 
     def _h_challenge_get(self, cid, pid):
         with _data_lock:
@@ -1696,7 +1837,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not ch:
             self._send_private_json({"error": "not_found"}, 404)
             return
-        self._send_private_json(_challenge_view(ch, pid if PID_RE.match(pid or "") else None))
+        self._send_private_json(_challenge_view(ch, pid if PID_RE.match(pid or "") else None, self._is_admin()))
 
     def _h_challenge_entry(self, cid):
         data = self._read_json_body() or {}
@@ -1720,7 +1861,7 @@ class Handler(SimpleHTTPRequestHandler):
             entries[pid] = {"name": _s(data.get("name"), 24) or "名無しさん", "ratings": ratings,
                             "at": int(time.time() * 1000)}
             _save_challenge(ch)
-        self._send_private_json(_challenge_view(ch, pid))
+        self._send_private_json(_challenge_view(ch, pid, self._is_admin()))
 
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
@@ -1813,10 +1954,14 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/filmarks/search":
             params = urllib.parse.parse_qs(parsed.query)
             query = (params.get("q") or [""])[0].strip()
+            media = (params.get("media") or [""])[0].strip()
             if not query:
                 self._send_json({"error": "empty_query", "results": []}, 400)
                 return
             try:
+                if media in SERIES_PATH:
+                    self._send_json({"results": filmarks_series_search(query, media)})
+                    return
                 self._send_json({"results": filmarks_search(query)})
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
@@ -1968,7 +2113,7 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/filmarks/details":
             params = urllib.parse.parse_qs(parsed.query)
             raw = (params.get("ids") or [""])[0].strip()
-            ids = [x for x in raw.split(",") if x.isdigit()]
+            ids = [x for x in raw.split(",") if x.isdigit() or RE_SERIES_FID.match(x)]
             if not ids:
                 self._send_json({"error": "no_ids", "results": {}}, 400)
                 return

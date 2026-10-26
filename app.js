@@ -1690,6 +1690,9 @@
     return t ? `<span class="soc-tier" style="background:${escapeHtml(t.color || "#cfcfcf")}">${escapeHtml(t.label)}</span>` : "";
   }
   function score10(s) { return (s * 10).toFixed(1); }
+  function adminCount(n, pre = "", post = "") {
+    return currentUser && currentUser.admin && n != null ? `${pre}${n}人${post}` : "";
+  }
 
   function histHtml(hist) {
     const total = hist.reduce((a, b) => a + b, 0) || 1;
@@ -1702,7 +1705,7 @@
     return `<div class="soc-sum">` +
       `<span class="soc-score"><b>${score10(c.avg)}</b><small>/10</small></span>` +
       `<span class="soc-sum-txt">あなたのティアでいうと ${tierChip(c.avg)}` +
-      `<small>${c.count}人の平均${mine != null ? " ・ あなた " + tierChip(mine) : ""}</small></span>` +
+      `<small>みんなの平均${adminCount(c.count, "（", "）")}${mine != null ? " ・ あなた " + tierChip(mine) : ""}</small></span>` +
       `</div>` + histHtml(c.hist);
   }
 
@@ -1825,11 +1828,11 @@
 
     html += `<h4 class="soc-h">🏆 みんなの高評価ランキング</h4>`;
     if (!items.length) {
-      html += `<p class="soc-empty">まだ表示できる作品がありません。同じ作品を${min}人以上が評価すると、ここにランキングが出ます（現在の参加者：${top.data.raters}人）。</p>`;
+      html += `<p class="soc-empty">まだ表示できる作品がありません。同じ作品を${min}人以上が評価すると、ここにランキングが出ます${adminCount(top.data.raters, "（現在の参加者：", "）")}。</p>`;
     } else {
       html += `<div class="soc-list">` + items.map((m, i) => socRow(m,
         `<div class="soc-line"><span class="soc-score soc-score-sm"><b>${score10(m.avg)}</b><small>/10</small></span>` +
-        `<small class="soc-dim">${m.count}人</small>${histHtml(m.hist)}</div>` +
+        `<small class="soc-dim">${adminCount(m.count)}</small>${histHtml(m.hist)}</div>` +
         `<div class="soc-line">${mine[m.key] != null ? `<small class="soc-dim">あなた</small> ${tierChip(mine[m.key])}` : socWatchBtn(m)}</div>`,
         i + 1)).join("") + `</div>`;
     }
@@ -1837,7 +1840,7 @@
     if (mineHigh.length || mineLow.length) {
       const gapRow = (g) => socRow(g,
         `<div class="soc-line"><small class="soc-dim">あなた</small> ${tierChip(g.mine)}` +
-        `<small class="soc-dim">みんな</small> ${tierChip(g.c.avg)}<small class="soc-dim">${score10(g.c.avg)}点・${g.c.count}人</small></div>`);
+        `<small class="soc-dim">みんな</small> ${tierChip(g.c.avg)}<small class="soc-dim">${score10(g.c.avg)}点${adminCount(g.c.count, "・")}</small></div>`);
       html += `<h4 class="soc-h">🔀 あなたとみんなで評価が分かれた作品</h4><div class="soc-cols">` +
         `<div><p class="soc-sub">あなたは高評価・みんなは低め</p>${mineHigh.map(gapRow).join("") || `<p class="soc-empty">なし</p>`}</div>` +
         `<div><p class="soc-sub">みんなは高評価・あなたは低め</p>${mineLow.map(gapRow).join("") || `<p class="soc-empty">なし</p>`}</div>` +
@@ -2345,7 +2348,7 @@
       `<div class="ch-hero"><span class="ch-from">${escapeHtml(ch.creator)} さんからのお題</span>` +
       `<h4 class="ch-title">${escapeHtml(ch.title)}</h4>` +
       (ch.note ? `<p class="ch-note">“${escapeHtml(ch.note)}”</p>` : "") +
-      `<p class="soc-dim">全 <b>${ch.movies.length}</b> 本 ・ 参加 <b>${ch.participants}</b> 人</p></div>` +
+      `<p class="soc-dim">全 <b>${ch.movies.length}</b> 本${ch.participants != null ? ` ・ 参加 <b>${ch.participants}</b> 人` : ""}</p></div>` +
       `<p class="hint">観た作品にチェックを入れたまま「このお題で作る」を押すと、あなたのティアリストに追加され、このお題の作品だけが表示されます。</p>` +
       `<div class="ch-pickbar"><span id="chPickCount"></span>` +
       `<button type="button" id="chAll" class="mp-link">すべて選択</button><button type="button" id="chNone" class="mp-link">すべて外す</button></div>` +
@@ -2425,12 +2428,12 @@
     const mine = ch.mine || challengeRatings(ch.movies);
     const sent = !!ch.mine;
     const rated = ch.movies.filter((m) => ch.stats[m.key])
-      .sort((a, b) => ch.stats[b.key].avg - ch.stats[a.key].avg || ch.stats[b.key].count - ch.stats[a.key].count);
+      .sort((a, b) => ch.stats[b.key].avg - ch.stats[a.key].avg || (ch.stats[b.key].count || 0) - (ch.stats[a.key].count || 0));
     const unrated = ch.movies.filter((m) => !ch.stats[m.key]);
     let html =
       `<div class="ch-hero"><span class="ch-from">${ch.isOwner ? "あなたのお題" : `${creator} さんからのお題`}</span>` +
       `<h4 class="ch-title">${escapeHtml(ch.title)}</h4>` +
-      `<p class="soc-dim">全 <b>${ch.movies.length}</b> 本 ・ 参加 <b>${ch.participants}</b> 人` +
+      `<p class="soc-dim">全 <b>${ch.movies.length}</b> 本${ch.participants != null ? ` ・ 参加 <b>${ch.participants}</b> 人` : ""}` +
       (ch.names.length ? `<br><small>${ch.names.map(escapeHtml).join("、")}</small>` : "") + `</p></div>`;
     if (!ch.isOwner) {
       html += `<div class="ch-actions">` +
@@ -2453,7 +2456,7 @@
     } else {
       html += `<div class="soc-list">` + rated.map((m, i) => {
         const st = ch.stats[m.key];
-        const chips = `<div class="soc-line"><small class="soc-dim">みんな</small> ${tierChip(st.avg)}<small class="soc-dim">${st.count}人</small>` +
+        const chips = `<div class="soc-line"><small class="soc-dim">みんな</small> ${tierChip(st.avg)}<small class="soc-dim">${adminCount(st.count)}</small>` +
           (mine[m.key] != null ? ` <small class="soc-dim">あなた</small> ${tierChip(mine[m.key])}` : "") +
           (hasOwner && !ch.isOwner && ch.ownerRatings[m.key] != null ? ` <small class="soc-dim">${creator}</small> ${tierChip(ch.ownerRatings[m.key])}` : "") +
           `</div>`;

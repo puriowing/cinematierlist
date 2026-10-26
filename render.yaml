@@ -15,5 +15,7 @@ services:
         sync: false
       - key: DATA_REPO
         sync: false
+      - key: ADMIN_USERS
+        sync: false
       - key: ALLOW_REGISTER
         value: "1"
