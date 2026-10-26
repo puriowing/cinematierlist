@@ -6198,7 +6198,8 @@
     document.querySelectorAll(`[data-panel="${ctx.panel}"] .collection-chip`).forEach((x) =>
       x.classList.toggle("active", x.dataset.col === col.id)
     );
-    updateCollectionMoreBtn(ctx);
+    const moreWrap = document.getElementById(ctx.moreWrapId);
+    if (moreWrap) moreWrap.style.display = "none";
     showLoading(grid, `「${col.label}」の作品を照合中…`);
     try { await loadMoreCollection(ctx); } finally { if (ctx.col === col) clearLoading(grid); }
   }
@@ -6225,6 +6226,7 @@
     let shown = 0, next = 0;
     const flush = () => {
       while (shown < batch.length && found[shown]) {
+        clearLoading(grid);
         const film = found[shown++];
         ctx.films.push(film);
         grid.appendChild(
