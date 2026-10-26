@@ -770,11 +770,19 @@
       // CORS対応のプロキシ(/api/img)経由で1度だけ再試行し、それでも駄目なら
       // タイトルのフォールバックにする。
       img.crossOrigin = "anonymous";
+      let retries = 0;
       img.addEventListener("error", () => {
         const src = img.getAttribute("src") || "";
         if (!img.dataset.proxied && src && !src.startsWith("data:") && !src.includes("/api/img")) {
           img.dataset.proxied = "1";
           img.src = "/api/img?u=" + encodeURIComponent(src);
+          return;
+        }
+        // 追加直後はプロキシの混雑などで一時的に失敗しやすいので、間をあけて再試行する
+        if (retries < 3 && !src.startsWith("data:")) {
+          const n = ++retries;
+          const base = src.replace(/[&?]r=\d+$/, "");
+          setTimeout(() => { if (img.isConnected) img.src = base + (base.includes("?") ? "&" : "?") + "r=" + n; }, 1500 * n * n);
           return;
         }
         const fb = buildFallback(movie.title);
@@ -1398,6 +1406,17 @@
     return tier ? tier.id : null;
   }
 
+  // タップ直後の慣性スクロールや、横スクロール・数pxの揺れでメニューが閉じないようにする
+  function closeMoveMenuOnScroll(target) {
+    if (!currentMenu) return;
+    if (target && target.nodeType === 1 && currentMenu.contains(target)) return;
+    if (Date.now() - (currentMenu._openAt || 0) < 500) return;
+    const isPage = !target || target === document || target === document.documentElement || target === document.body;
+    if (isPage && Math.abs(window.scrollY - (currentMenu._openY || 0)) < 40) return;
+    if (!isPage && !(target.contains && currentMenu._anchor && target.contains(currentMenu._anchor))) return;
+    closeMoveMenu();
+  }
+
   function openMoveMenu(movie, anchorEl) {
     closeMoveMenu();
     const zone = currentZoneOf(movie.id);
@@ -1456,6 +1475,18 @@
       openMovieInfo(movie);
     });
     menuActions.appendChild(infoBtn);
+    if (movie.poster && anchorEl.querySelector(".movie-poster-fallback")) {
+      const reloadBtn = document.createElement("button");
+      reloadBtn.className = "btn btn-ghost btn-sm move-info-btn";
+      reloadBtn.textContent = "↻ ポスターを再読み込み";
+      reloadBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMoveMenu();
+        const fresh = buildMovieCard(movie);
+        anchorEl.replaceWith(fresh);
+      });
+      menuActions.appendChild(reloadBtn);
+    }
     if (zone !== "pool") {
       const poolBtn = document.createElement("button");
       poolBtn.className = "btn btn-ghost btn-sm move-pool-btn";
@@ -1483,6 +1514,9 @@
     document.body.appendChild(pop);
 
     // position near the card, kept within viewport
+    pop._anchor = anchorEl;
+    pop._openAt = Date.now();
+    pop._openY = window.scrollY;
     const r = anchorEl.getBoundingClientRect();
     let left = r.left;
     let top = r.bottom + 6;
@@ -4400,7 +4434,7 @@
   }
 
   // =======================================================================
-  // 公開年（その年に公開された作品を公開が早い順にチェックして追加）
+  // 公開年（その年に公開された作品を話題作から順にチェックして追加）
   // =======================================================================
   // 「もっと見る」用のセッション状態。pool には取得済みの作品（公開日つき・登録済みも含む）が入る。
   let recallSession = { year: null, nextPage: 1, hasMore: false, skipped: 0, seen: new Set(), pool: [] };
@@ -4424,13 +4458,6 @@
   //   再公開年ではなくオリジナル公開年で扱われる）
   const RECALL_MIN = 100;        // 初回に集める作品の最小件数
   const RECALL_BATCH_PAGES = 8;  // 1回のサーバーリクエストで取得するページ数（1ページ約36件）
-
-  // 公開が早い順（日本公開日 YYYYMMDD の昇順）に並べるためのソートキー。
-  // 上映日が不明な作品はその年の末尾に回す（先頭に来て順序を乱さないように）。
-  function recallSortKey(f) {
-    if (f.date) return Number(f.date.replace(/-/g, ""));
-    return Number(f.year || "0") * 10000 + 9999;
-  }
 
   // Filmarks の公開年別ページを [from, from+pages) の範囲で取得
   async function fetchFilmarksRange(year, from, pages) {
@@ -4477,7 +4504,7 @@
       return;
     }
     const owned = s.pool.filter((f) => movieExists(f)).length;
-    let msg = `${s.year}年の作品を公開が早い順に ${s.pool.length}件表示中（うち登録済 ${owned}件）。観た作品をタップして選び、まとめて追加できます。`;
+    let msg = `${s.year}年公開の作品を話題作から順に ${s.pool.length}件表示中（うち登録済 ${owned}件）。観た作品をタップして選び、まとめて追加できます。`;
     if (!s.hasMore) msg += ` ※この年の作品はこれで全て表示しました。`;
     status.textContent = msg;
   }
@@ -4520,6 +4547,7 @@
   async function loadMoreRecall() {
     const btn = document.getElementById("recallMoreBtn");
     const label = btn.textContent;
+    const prev = recallSession.pool.length;
     btn.disabled = true;
     btn.textContent = "読み込み中…";
     try {
@@ -4537,16 +4565,18 @@
       btn.textContent = label;
       return;
     }
-    // プール全体を日本公開日順に並べ直して描画（追加分も正しい位置に差し込まれる）
-    renderRecallFull();
+    // 続きは末尾に追記する（表示済みの並びは変えない）
+    const grid = document.getElementById("recallGrid");
+    const picked = new Set(collectPicked(grid).map((f) => normTitle(f.title) + "|" + (f.year || "")));
+    recallSession.pool.slice(prev).forEach((f) => appendRecallCard(grid, f, picked));
+    setPickBtn("recallAddBtn", "recallGrid");
+    const first = grid.children[prev];
+    if (first) first.scrollIntoView({ behavior: "smooth", block: "nearest" });
     updateRecallStatus();
     btn.disabled = false;
     btn.textContent = label;
     updateRecallMoreBtn();
   }
-
-  const recallSortCmp = (a, b) =>
-    recallSortKey(a) - recallSortKey(b) || a.title.localeCompare(b.title, "ja");
 
   function appendRecallCard(grid, f, pickedSet) {
     const card = makePickCard(f, { onToggle: () => setPickBtn("recallAddBtn", "recallGrid") });
@@ -4558,7 +4588,7 @@
     grid.appendChild(card);
   }
 
-  // pool 全体を公開が早い順に並べ替えて描画し直す（初回・追加登録後に使用）
+  // pool 全体を描画し直す（初回・追加登録後に使用）。並びは Filmarks の話題作順のまま。
   function renderRecallFull() {
     const grid = document.getElementById("recallGrid");
     const actions = document.getElementById("recallActions");
@@ -4569,7 +4599,6 @@
       actions.style.display = "none";
       return;
     }
-    s.pool.sort(recallSortCmp);
     s.pool.forEach((f) => appendRecallCard(grid, f, picked));
     actions.style.display = "flex";
     setPickBtn("recallAddBtn", "recallGrid");
@@ -8758,7 +8787,7 @@
         return;
       }
       if (!(currentEditor && currentEditor.classList.contains("tier-editor-sheet"))) closeTierEditor();
-      closeMoveMenu();
+      closeMoveMenuOnScroll(t);
       if (currentThemePanel && currentThemePanel.classList.contains("theme-panel-sheet")) return;
       closeThemePanel();
     }, true);

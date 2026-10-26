@@ -3688,6 +3688,11 @@ body.theme-pop .toast {
 
 /* タッチ主体の端末では、カードのホバー前提UIを常時表示に */
 @media (hover: none) and (pointer: coarse) {
+  .movie-card:hover,
+  body.theme-studio .movie-card:hover,
+  body.theme-pop .movie-card:hover {
+    transform: none;
+  }
   .movie-remove {
     opacity: 1;
   }
