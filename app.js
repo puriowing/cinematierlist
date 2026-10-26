@@ -338,10 +338,12 @@
     if (!vv || vv.height < 200) {
       root.removeProperty("--vv-top");
       root.removeProperty("--vv-h");
+      root.removeProperty("--vv-bottom");
       return;
     }
     root.setProperty("--vv-top", vv.offsetTop + "px");
     root.setProperty("--vv-h", vv.height + "px");
+    root.setProperty("--vv-bottom", Math.max(0, window.innerHeight - vv.offsetTop - vv.height) + "px");
   }
 
   // スマホ：下部タブバー、ホーム画面ショートカット、ホーム画面追加の案内
@@ -2564,8 +2566,18 @@
   // Tier operations
   // =======================================================================
   function addTier() {
-    state.tiers.push({ id: uid(), label: "新", color: TIER_COLORS[state.tiers.length % TIER_COLORS.length], items: [] });
+    const tier = { id: uid(), label: "新", color: TIER_COLORS[state.tiers.length % TIER_COLORS.length], items: [] };
+    state.tiers.push(tier);
     render();
+    const row = document.querySelector(`.tier-row[data-tier-id="${tier.id}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "start" });
+    row.classList.add("tier-just-added");
+    setTimeout(() => row.classList.remove("tier-just-added"), 2400);
+    setTimeout(() => {
+      const label = row.querySelector(".tier-label");
+      if (label) openTierEditor(tier, label);
+    }, 450);
   }
 
   function resetTiers() {
@@ -2597,6 +2609,8 @@
     if (currentEditor) {
       currentEditor.remove();
       currentEditor = null;
+      const bd = document.querySelector(".tier-editor-backdrop");
+      if (bd) bd.remove();
       document.removeEventListener("mousedown", onDocClickForEditor, true);
     }
   }
@@ -2610,10 +2624,13 @@
   function openTierEditor(tier, anchorEl) {
     closeTierEditor();
     const pop = document.createElement("div");
-    pop.className = "tier-editor";
+    const asSheet = window.matchMedia("(max-width: 768px)").matches;
+    pop.className = "tier-editor" + (asSheet ? " tier-editor-sheet" : "");
 
     const idx = state.tiers.indexOf(tier);
-    pop.innerHTML = `
+    pop.innerHTML = (asSheet
+      ? `<div class="theme-sheet-head"><b>ティアを編集</b><button type="button" class="theme-sheet-close te-done">完了</button></div>`
+      : "") + `
       <label class="field">
         <span>ラベル</span>
         <input type="text" class="te-label" value="${escapeHtml(tier.label)}" maxlength="12" />
@@ -2682,6 +2699,19 @@
       render();
       closeTierEditor();
     });
+
+    if (asSheet) {
+      const bd = document.createElement("div");
+      bd.className = "theme-sheet-backdrop tier-editor-backdrop";
+      bd.addEventListener("click", closeTierEditor);
+      document.body.appendChild(bd);
+      pop.querySelector(".te-done").addEventListener("click", closeTierEditor);
+      labelInput.addEventListener("keydown", (e) => { if (e.key === "Enter") labelInput.blur(); });
+      syncVisualViewport();
+      document.body.appendChild(pop);
+      currentEditor = pop;
+      return;
+    }
 
     document.body.appendChild(pop);
     // position near anchor
@@ -8727,7 +8757,7 @@
           (currentThemePanel === t || currentThemePanel.contains(t))) {
         return;
       }
-      closeTierEditor();
+      if (!(currentEditor && currentEditor.classList.contains("tier-editor-sheet"))) closeTierEditor();
       closeMoveMenu();
       if (currentThemePanel && currentThemePanel.classList.contains("theme-panel-sheet")) return;
       closeThemePanel();

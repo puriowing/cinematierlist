@@ -5682,7 +5682,8 @@ body.sheet-open {
   animation: sheet-up 0.25s ease;
 }
 
-.theme-panel-sheet .theme-sheet-head {
+.theme-panel-sheet .theme-sheet-head,
+.tier-editor-sheet .theme-sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5690,7 +5691,8 @@ body.sheet-open {
   font-size: 15px;
 }
 
-.theme-panel-sheet .theme-sheet-close {
+.theme-panel-sheet .theme-sheet-close,
+.tier-editor-sheet .theme-sheet-close {
   border: none;
   background: var(--accent);
   color: #fff;
@@ -6291,4 +6293,42 @@ body.theme-pop .tier-analyze {
   .ta-badge { font-size: 18px; padding: 10px 14px; }
   .ta-row { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; }
   .ta-row-val { min-width: 80px; }
+}
+
+/* ティア編集：スマホは下から出るシート（キーボードの上に収める） */
+.tier-editor.tier-editor-sheet {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--vv-bottom, 0px);
+  width: auto;
+  max-height: calc(var(--vv-h, 100dvh) - 24px);
+  overflow-y: auto;
+  border-radius: 22px 22px 0 0;
+  padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
+  animation: sheet-up 0.25s ease;
+}
+
+.tier-editor-sheet .te-label {
+  font-size: 16px;
+  height: 44px;
+}
+
+.tier-editor-sheet .swatch {
+  width: 34px;
+  height: 34px;
+}
+
+.theme-panel.theme-panel-sheet {
+  bottom: var(--vv-bottom, 0px);
+  max-height: min(82dvh, calc(var(--vv-h, 100dvh) - 24px));
+}
+
+.tier-row.tier-just-added {
+  animation: tier-added 0.8s ease 3;
+}
+
+@keyframes tier-added {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 0 4px var(--accent); }
 }
