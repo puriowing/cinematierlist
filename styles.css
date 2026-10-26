@@ -5985,26 +5985,24 @@ body.theme-pop .collapse-toggle {
   }
 }
 
-/* スマホ：未分類はティア構成バーの下（ティア一覧の直前）に置く */
-@media (max-width: 768px) {
-  main.layout {
-    display: flex;
-    flex-direction: column;
-  }
+/* 未分類はティア構成バーの下（ティア一覧の直前）に置く（PC・スマホ共通） */
+main.layout {
+  display: flex;
+  flex-direction: column;
+}
 
-  main.layout > * {
-    min-width: 0;
-  }
+main.layout > * {
+  min-width: 0;
+}
 
-  main.layout > .pool {
-    order: 1;
-  }
+main.layout > .pool {
+  order: 1;
+}
 
-  main.layout > #tierBoard {
-    order: 2;
-  }
+main.layout > #tierBoard {
+  order: 2;
+}
 
-  main.layout > .board-controls {
-    order: 3;
-  }
+main.layout > .board-controls {
+  order: 3;
 }
