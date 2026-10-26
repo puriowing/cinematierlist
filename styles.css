@@ -6917,3 +6917,275 @@ body.compact .movie-fav-badge span {
     opacity: 0;
   }
 }
+
+/* ---------- 映画タイプ診断（統計・ティア分析） ---------- */
+.ft-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 24px;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(125deg, #6d4aff 0%, #b04dff 55%, #ff5fa2 100%);
+  box-shadow: 0 10px 28px rgba(109, 74, 255, 0.28);
+  overflow: hidden;
+}
+
+.ft-hero::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.ft-hero.ft-jp { background: linear-gradient(125deg, #d6455d 0%, #f08a5d 100%); }
+.ft-hero.ft-fo { background: linear-gradient(125deg, #2d6cdf 0%, #4fb3e8 100%); }
+.ft-hero.ft-anime { background: linear-gradient(125deg, #12a77a 0%, #5fd3a3 100%); }
+.ft-hero.ft-recent { background: linear-gradient(125deg, #ff6a3d 0%, #ffb63d 100%); }
+.ft-hero.ft-classic { background: linear-gradient(125deg, #6b4a2e 0%, #b8895a 100%); }
+.ft-hero.ft-auteur { background: linear-gradient(125deg, #1f2a44 0%, #5b6bb5 100%); }
+
+.ft-hero-empty {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px dashed var(--border);
+  box-shadow: none;
+}
+
+.ft-hero-empty::after { display: none; }
+
+.ft-wait { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+.ft-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 38px;
+  line-height: 1;
+}
+
+.ft-icon svg { width: 40px; height: 40px; }
+
+.ft-main { position: relative; z-index: 1; min-width: 0; }
+
+.ft-cap {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+
+.ft-name {
+  margin: 4px 0 6px;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+
+.ft-copy { margin: 0 0 10px; font-size: 13px; line-height: 1.6; opacity: 0.95; }
+
+.ft-traits { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ft-trait {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ft-axes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; }
+
+.ft-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.ft-axis.is-left .ft-l,
+.ft-axis.is-right .ft-r { color: var(--accent); }
+
+.ft-mid { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+
+.ft-track {
+  position: relative;
+  height: 10px;
+  margin: 8px 0 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 35%, transparent), var(--bg-elev-2) 50%, color-mix(in srgb, var(--accent) 35%, transparent));
+}
+
+.ft-track::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--border);
+}
+
+.ft-dot,
+.ft-base {
+  position: absolute;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ft-dot {
+  width: 20px;
+  height: 20px;
+  background: var(--dot, var(--accent));
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+}
+
+.ft-base {
+  width: 12px;
+  height: 12px;
+  background: var(--bg-elev);
+  border: 2px solid var(--text-dim);
+  z-index: 1;
+}
+
+.ft-axis-vals {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ft-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ft-legend-dot,
+.ft-legend-base {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.ft-legend-dot { background: var(--dot, var(--accent)); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border); }
+.ft-legend-base { margin-left: 10px; border: 2px solid var(--text-dim); }
+
+.ft-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ft-fact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.ft-fact-ic { font-size: 22px; line-height: 1; color: var(--accent); }
+.ft-fact-ic svg { width: 22px; height: 22px; }
+
+.ft-fact-big {
+  font-family: "Montserrat", "Noto Sans JP", sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.ft-fact-big small { margin-left: 2px; font-size: 12px; font-weight: 700; color: var(--text-dim); }
+.ft-fact-cap { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+
+.ft-fact-sub {
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ft-cols {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 170px;
+}
+
+.ft-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+.ft-col-n { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+
+.ft-col-bar {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 6px 6px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.ft-col-bar.is-max { background: var(--accent); }
+.ft-col-l { font-size: 11px; font-weight: 700; color: var(--text-dim); }
+
+.ta-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.ta-type svg { width: 20px; height: 20px; }
+
+@media (max-width: 720px) {
+  .ft-hero { padding: 18px 16px; gap: 12px; align-items: flex-start; }
+  .ft-icon { width: 54px; height: 54px; font-size: 28px; }
+  .ft-icon svg { width: 28px; height: 28px; }
+  .ft-name { font-size: 21px; }
+  .ft-axes { grid-template-columns: 1fr; }
+  .ft-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ft-cols { height: 140px; gap: 3px; }
+}

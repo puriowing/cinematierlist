@@ -18,6 +18,15 @@
         "8777"
       ],
       "port": 8777
+    },
+    {
+      "name": "pickture-memory",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "server.py",
+        "8781"
+      ],
+      "port": 8781
     }
   ]
 }

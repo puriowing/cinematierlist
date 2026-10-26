@@ -1,0 +1,14 @@
+:root { --bg: #f4eee2; --card: #fffdf8; --ink: #26221c; --dim: #7a7266; --navy: #22304f; --line: #e2d9c8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Noto Sans JP", system-ui, sans-serif; line-height: 1.85; -webkit-text-size-adjust: 100%; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 56px; }
+.top { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; text-decoration: none; color: var(--navy); font-weight: 700; }
+.top img { width: 36px; height: 36px; border-radius: 9px; }
+article { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 22px; }
+h1 { font-size: 22px; margin: 0 0 6px; color: var(--navy); }
+.date { color: var(--dim); font-size: 13px; margin: 0 0 22px; }
+h2 { font-size: 16px; margin: 28px 0 8px; color: var(--navy); }
+p, li { font-size: 14.5px; }
+ul, ol { padding-left: 1.3em; margin: 6px 0; }
+.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--dim); }
+.foot a { color: var(--dim); margin: 0 8px; }
