@@ -875,29 +875,27 @@
   // =======================================================================
   // ウォッチリスト（観たい作品 / あとで観る）
   // =======================================================================
-  function watchlistExists({ eigaId, tmdbId, filmarksId, title } = {}) {
-    const nt = title ? normTitle(title) : "";
-    return (state.watchlist || []).some(
-      (m) =>
-        (eigaId && m.eigaId === eigaId) ||
-        (tmdbId && m.tmdbId === tmdbId) ||
-        (filmarksId && m.filmarksId === filmarksId) ||
-        (nt && normTitle(m.title) === nt)
-    );
+  // 同一作品かどうか。作品IDが両方にあればIDで決め、無ければタイトル＋公開年（±1年）で照合する。
+  // 同名の別作品（リメイク等）を「登録済」と誤判定しないため、タイトルだけでは一致させない。
+  function sameMovie(m, q, nt) {
+    if (q.filmarksId && m.filmarksId) return String(m.filmarksId) === String(q.filmarksId);
+    if (q.eigaId && m.eigaId) return String(m.eigaId) === String(q.eigaId);
+    if (q.tmdbId && m.tmdbId) return String(m.tmdbId) === String(q.tmdbId);
+    if (!nt || normTitle(m.title) !== nt) return false;
+    const y1 = parseInt(m.year, 10);
+    const y2 = parseInt(q.year, 10);
+    return !(y1 && y2 && Math.abs(y1 - y2) > 1);
   }
 
-  function removeFromWatchlistByMatch({ eigaId, tmdbId, filmarksId, title } = {}) {
+  function watchlistExists(q = {}) {
+    const nt = q.title ? normTitle(q.title) : "";
+    return (state.watchlist || []).some((m) => sameMovie(m, q, nt));
+  }
+
+  function removeFromWatchlistByMatch(q = {}) {
     if (!state.watchlist || !state.watchlist.length) return;
-    const nt = title ? normTitle(title) : "";
-    state.watchlist = state.watchlist.filter(
-      (m) =>
-        !(
-          (eigaId && m.eigaId === eigaId) ||
-          (tmdbId && m.tmdbId === tmdbId) ||
-          (filmarksId && m.filmarksId === filmarksId) ||
-          (nt && normTitle(m.title) === nt)
-        )
-    );
+    const nt = q.title ? normTitle(q.title) : "";
+    state.watchlist = state.watchlist.filter((m) => !sameMovie(m, q, nt));
   }
 
   function addToWatchlist(movie) {
@@ -1916,8 +1914,7 @@
 
   function findOwnMovie(mv) {
     const nt = normTitle(mv.title);
-    return allMovies().find((m) =>
-      (mv.filmarksId && m.filmarksId === mv.filmarksId) || (nt && normTitle(m.title) === nt)) || null;
+    return allMovies().find((m) => sameMovie(m, mv, nt)) || null;
   }
 
   // お題の作品ごとに、自分のティアでの点（一番上=1、一番下=0）を集める
@@ -2043,13 +2040,8 @@
   // 取得した全作品に、自分の登録作（取得漏れ分も含む）を合わせる
   function mergeUniverse(universe, own) {
     const out = [];
-    const seen = new Set();
-    const keyOf = (m) => (m.filmarksId ? "f:" + m.filmarksId : "") + "|" + normTitle(m.title);
-    const has = (m) => [...seen].some((k) => {
-      const [fid, t] = k.split("|");
-      return (m.filmarksId && fid === "f:" + m.filmarksId) || (t && t === normTitle(m.title));
-    });
-    const push = (m) => { if (!has(m)) { seen.add(keyOf(m)); out.push(m); } };
+    const has = (m) => { const nt = normTitle(m.title); return out.some((x) => sameMovie(x, m, nt)); };
+    const push = (m) => { if (!has(m)) out.push(m); };
     universe.forEach((u) => push(findOwnMovie(u) || u));
     own.forEach(push);
     return out;
@@ -2925,22 +2917,14 @@
   // 登録済み判定は「外部ID一致」または「正規化タイトル一致」で行う。
   // 旧データは eigaId / tmdbId しか持たないことがあるため、タイトルでも照合して
   // どのタブから追加しても同一作品として扱う。
-  function movieExists({ eigaId, tmdbId, filmarksId, title } = {}) {
-    const nt = title ? normTitle(title) : "";
-    return allMovies().some(
-      (m) =>
-        (eigaId && m.eigaId === eigaId) ||
-        (tmdbId && m.tmdbId === tmdbId) ||
-        (filmarksId && m.filmarksId === filmarksId) ||
-        (nt && normTitle(m.title) === nt)
-    );
+  function movieExists(q = {}) {
+    const nt = q.title ? normTitle(q.title) : "";
+    return allMovies().some((m) => sameMovie(m, q, nt));
   }
 
   // タイトル正規化での登録済み判定（ID 照合前の軽い事前フィルタ用）
-  function isRegisteredByTitle(title) {
-    const nt = normTitle(title);
-    if (!nt) return false;
-    return allMovies().some((m) => normTitle(m.title) === nt);
+  function isRegisteredByTitle(title, year, filmarksId) {
+    return movieExists({ title, year, filmarksId });
   }
 
   // 他タブと同じく「タップで選択 → 下部のボタンでまとめて追加」。
@@ -4441,10 +4425,10 @@
     s.hasMore = data.hasMore;
     let added = 0;
     for (const b of data.results) {
-      const key = normTitle(b.title);
-      if (key && s.seen.has(key)) continue;
-      if (key) s.seen.add(key);
-      if (isRegisteredByTitle(b.title)) s.skipped++;
+      const key = b.id ? "f:" + b.id : normTitle(b.title) + "|" + (b.year || "");
+      if (s.seen.has(key)) continue;
+      s.seen.add(key);
+      if (isRegisteredByTitle(b.title, b.year, b.id)) s.skipped++;
       s.pool.push({ title: b.title, year: b.year || "", poster: b.poster || "", date: b.date || "", filmarksId: b.id });
       added++;
     }
@@ -4536,7 +4520,7 @@
 
   function appendRecallCard(grid, f, pickedSet) {
     const card = makePickCard(f, { onToggle: () => setPickBtn("recallAddBtn", "recallGrid") });
-    if (pickedSet && pickedSet.has(normTitle(f.title))) {
+    if (pickedSet && pickedSet.has(normTitle(f.title) + "|" + (f.year || ""))) {
       card.classList.add("picked");
       const badge = card.querySelector(".pick-badge");
       if (badge) badge.textContent = "✓ 選択中";
@@ -4549,7 +4533,7 @@
     const grid = document.getElementById("recallGrid");
     const actions = document.getElementById("recallActions");
     const s = recallSession;
-    const picked = new Set(collectPicked(grid).map((f) => normTitle(f.title)));
+    const picked = new Set(collectPicked(grid).map((f) => normTitle(f.title) + "|" + (f.year || "")));
     grid.innerHTML = "";
     if (!s.pool.length) {
       actions.style.display = "none";
@@ -4764,7 +4748,7 @@
       prof.people.forEach((p) => {
         (recPersonCache.get(p.name) || []).forEach((f) => {
           if (!f.id || (f.year && +f.year > thisYear) || (f.date && f.date > today)) return;
-          if (movieExists({ filmarksId: f.id, title: f.title })) return;
+          if (movieExists({ filmarksId: f.id, title: f.title, year: f.year })) return;
           const c = cands.get(f.id) || {
             film: { title: f.title, poster: f.poster || "", year: f.year || "", filmarksId: f.id },
             people: [], base: 0,
@@ -4854,7 +4838,7 @@
     const actions = document.getElementById("recommendActions");
     const picked = new Set(collectPicked(grid).map((f) => f.filmarksId));
     grid.innerHTML = "";
-    const list = recommendFilms.filter((f) => !movieExists({ filmarksId: f.filmarksId, title: f.title }));
+    const list = recommendFilms.filter((f) => !movieExists({ filmarksId: f.filmarksId, title: f.title, year: f.year }));
     if (!list.length) {
       actions.style.display = "none";
       return;
@@ -4977,7 +4961,7 @@
     list.forEach((f) => {
       if (!f.id || seen.has(f.id)) return;
       if (f.date && f.date < today) return;
-      if (movieExists({ filmarksId: f.id, title: f.title })) return;
+      if (movieExists({ filmarksId: f.id, title: f.title, year: f.year })) return;
       seen.add(f.id);
       upcomingCands.push({ title: f.title, poster: f.poster || "", year: f.year || "",
         date: f.date || "", filmarksId: f.id });
@@ -5062,7 +5046,7 @@
     grid.innerHTML = "";
     // すでにティア/未分類にある作品（鑑賞済み）は除外。観たいリスト済みは「追加済み」表示で残す。
     const list = upcomingFilms.filter(
-      (f) => !movieExists({ filmarksId: f.filmarksId, title: f.title }));
+      (f) => !movieExists({ filmarksId: f.filmarksId, title: f.title, year: f.year }));
     if (!list.length) return;
     // マッチ度は「その回の最高スコア」を100%とした相対値で表す
     const maxScore = list.reduce((mx, f) => Math.max(mx, f._score || 0), 0);
@@ -5083,7 +5067,7 @@
   function makeUpcomingCard(f, matchPct) {
     const card = document.createElement("div");
     card.className = "up-card";
-    const inWatch = watchlistExists({ filmarksId: f.filmarksId, title: f.title });
+    const inWatch = watchlistExists({ filmarksId: f.filmarksId, title: f.title, year: f.year });
     const dateStr = f.date ? f.date.replace(/-/g, "/") : (f.year || "");
     const kindLabel = f.kind ? (KIND_LABEL[f.kind] || "") : "";
     const metaBits = [];
@@ -6072,10 +6056,10 @@
       s.nextPage += FM_BATCH_PAGES;
       s.hasMore = data.hasMore;
       for (const b of data.results) {
-        const key = normTitle(b.title);
-        if (key && s.seen.has(key)) continue;
-        if (key) s.seen.add(key);
-        if (isRegisteredByTitle(b.title)) s.skipped++;
+        const key = b.id ? "f:" + b.id : normTitle(b.title) + "|" + (b.year || "");
+        if (s.seen.has(key)) continue;
+        s.seen.add(key);
+        if (isRegisteredByTitle(b.title, b.year, b.id)) s.skipped++;
         added.push({ title: b.title, year: b.year || "", poster: b.poster || "", filmarksId: b.id, collection: s.col.label });
       }
     }
