@@ -1,5 +1,5 @@
 /* =========================================================================
-   Pickture
+   Tiari
    - localStorage による自動保存
    - Filmarks 検索 / 手動追加
    - ドラッグ&ドロップでティア振り分け
@@ -2040,7 +2040,7 @@
   }
 
   function challengeInviteText(ch) {
-    return `「${ch.title}」のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ #Pickture`;
+    return `「${ch.title}」のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ #Tiari`;
   }
 
   function bindChallengeShare(ch) {
@@ -6499,7 +6499,7 @@
       return;
     }
     const title = currentName();
-    el.tierExportTitle.textContent = title || "Pickture";
+    el.tierExportTitle.textContent = title || "Tiari";
     el.tierExportTitle.style.display = "block";
     try {
       toast("画像を生成中…");
@@ -6653,7 +6653,7 @@
       `</div>` +
       `<div class="sc-body"></div>` +
       `<div class="sc-foot">` +
-        `<span class="sc-brand"><img src="icon.svg" alt="" /><span><b>Pick</b>ture</span></span>` +
+        `<span class="sc-brand"><img src="icon.svg" alt="" /><span>tiari</span></span>` +
         `<span class="sc-date">${shareDateStr()}</span>` +
       `</div>`;
     return { card, ids: ids.slice(0, n), rows, total };
@@ -6860,7 +6860,7 @@
 
   function defaultShareText(ids, rows) {
     const theme = share.title || shareThemeName();
-    const tags = "#Pickture #映画好きと繋がりたい";
+    const tags = "#Tiari #映画好きと繋がりたい";
     if (share.mode === "best") {
       const marks = ["🥇", "🥈", "🥉"];
       const lines = ids.slice(0, 5).map((id, i) => {
@@ -6958,7 +6958,7 @@
   }
 
   function shareFileName() {
-    const base = (share.title || shareThemeName()).replace(/[\\/:*?"<>|]/g, "").slice(0, 40) || "pickture";
+    const base = (share.title || shareThemeName()).replace(/[\\/:*?"<>|]/g, "").slice(0, 40) || "tiari";
     return `${base}-${share.mode === "best" ? "best" : "tier"}.png`;
   }
 

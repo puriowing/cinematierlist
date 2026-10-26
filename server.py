@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pickture 用のローカルサーバー。
+"""Tiari 用のローカルサーバー。
 
 静的ファイル配信に加えて、Filmarks を代理取得して作品の検索結果・ポスター・
 監督/出演などを返す API (/api/filmarks/*) を提供します。ブラウザから直接
@@ -1966,7 +1966,7 @@ def _tailscale():
 def _print_startup():
     line = "─" * 56
     print(line)
-    print(f"  🎬 Pickture を起動しました（ポート {PORT}）")
+    print(f"  🎬 Tiari を起動しました（ポート {PORT}）")
     print(line)
     print(f"  このMacで見る       : http://localhost:{PORT}")
     lan = _lan_ip()
@@ -2002,7 +2002,7 @@ def main():
     except OSError as e:
         if e.errno != errno.EADDRINUSE:
             raise
-        print(f"ポート {PORT} はすでに使用中です（Pickture が起動済みの可能性があります）。")
+        print(f"ポート {PORT} はすでに使用中です（Tiari が起動済みの可能性があります）。")
         print(f"  そのまま使う : http://localhost:{PORT} を開く")
         print(f"  再起動する   : lsof -ti tcp:{PORT} | xargs kill  を実行してから再度起動")
         sys.exit(1)

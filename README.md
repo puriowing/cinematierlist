@@ -1,4 +1,4 @@
-# Pickture 🎬
+# Tiari 🎬
 
 鑑賞した映画を [tiermaker.com](https://tiermaker.com/) のように、ポスター＋タイトル付きでドラッグ&ドロップしながらランク付けできるツールです。ビルド不要・完全ブラウザ完結で、データは自動的にブラウザ内（localStorage）に保存されます。
 

@@ -111,6 +111,12 @@ body {
   gap: 0;
 }
 
+.app-header h1.wordmark svg {
+  display: block;
+  height: 1.55em;
+  width: auto;
+}
+
 .wm-1 {
   color: var(--text);
   font-weight: 500;
@@ -3036,6 +3042,11 @@ body.theme-studio .app-header h1.wordmark {
 }
 
 /* 明るいヘッダーに合わせた2トーン */
+body.theme-studio .app-header h1.wordmark,
+body.theme-pop .app-header h1.wordmark {
+  color: #22304f;
+}
+
 body.theme-studio .wm-1 {
   color: var(--text);
 }

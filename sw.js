@@ -1,10 +1,10 @@
-/* Pickture - Service Worker
+/* Tiari - Service Worker
  * 方針: 画面の鮮度を最優先（network-first）。オンライン時は常に最新を取得し、
  * 取得できた内容をキャッシュへ保存。オフライン時のみキャッシュから返す。
  * これにより「古い app.js が残って不具合」を避けつつ、電波が無い場所でも
  * 直近のリスト画面を開けるようにする。
  */
-const CACHE = "ctl-cache-v8";
+const CACHE = "ctl-cache-v9";
 const CORE = ["./", "./index.html", "./app.js", "./icons.js", "./styles.css", "./icon.svg", "./icon-pop.svg", "./manifest.webmanifest", "./icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
