@@ -6901,3 +6901,19 @@ body.compact .movie-fav-badge span {
   transform: none;
   box-shadow: none;
 }
+
+/* タッチ端末：ホバーで中身が変わると iPhone は1回目のタップを「ホバー」扱いにし、
+   2回タップしないと反応しなくなるため、ホバー時の変化をなくす */
+@media (hover: none) {
+  .movie-move {
+    display: none;
+  }
+
+  .movie-card:hover .movie-remove {
+    opacity: 1;
+  }
+
+  .pick-card:not(.picked):not(.result-added):not(.result-wl):hover .pick-badge {
+    opacity: 0;
+  }
+}
