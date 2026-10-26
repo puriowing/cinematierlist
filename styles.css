@@ -6001,3 +6001,16 @@ main.layout > #tierBoard {
 main.layout > .board-controls {
   order: 3;
 }
+
+/* スマホ：キーボード表示中もシートを見える範囲に収める */
+@media (max-width: 768px) {
+  .modal-overlay {
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vv-h, 100%);
+  }
+
+  .modal-overlay .modal {
+    max-height: calc(var(--vv-h, 100dvh) - 24px);
+  }
+}

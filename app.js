@@ -332,8 +332,27 @@
     return tier ? tier.items : null;
   }
 
+  function syncVisualViewport() {
+    const vv = window.visualViewport;
+    const root = document.documentElement.style;
+    if (!vv || vv.height < 200) {
+      root.removeProperty("--vv-top");
+      root.removeProperty("--vv-h");
+      return;
+    }
+    root.setProperty("--vv-top", vv.offsetTop + "px");
+    root.setProperty("--vv-h", vv.height + "px");
+  }
+
   // スマホ：下部タブバー、ホーム画面ショートカット、ホーム画面追加の案内
   function setupMobileShell() {
+    // キーボード表示中も、下から出るシートを見えている範囲に収める（iOS対策）
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", syncVisualViewport);
+      vv.addEventListener("scroll", syncVisualViewport);
+      syncVisualViewport();
+    }
     const bar = document.getElementById("tabbar");
     if (!bar) return;
     bar.addEventListener("click", (e) => {
@@ -1004,9 +1023,11 @@
   // 「映画を追加」ウィンドウを開く（追加した作品は未分類へ。あとでティアや観たいへ振り分ける）
   function openAddModal() {
     addTarget = "pool";
+    syncVisualViewport();
     openModal("addMovieModal");
     const s = document.getElementById("movieSearchInput");
-    if (s) s.focus();
+    // スマホは自動でキーボードを出さない（シートがキーボードの裏に隠れるため）
+    if (s && !window.matchMedia("(max-width: 768px)").matches) s.focus();
     // 「おすすめ」は時間がかかるので、ウィンドウを開いた時点で裏で準備しておく
     if (!recommendFilms.length && !recBuilding) setTimeout(() => buildRecommendations(), 300);
   }
