@@ -5879,3 +5879,182 @@ body.theme-pop .collapse-toggle {
   0%, 100% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0); }
   50% { box-shadow: 0 0 0 6px rgba(34, 160, 107, 0.35); }
 }
+
+/* ---------- マイベスト（スマホのファーストビュー） ---------- */
+.my-best {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .my-best:not(.hidden) {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 14px;
+    padding: 16px 0 14px;
+    border-radius: 24px;
+    background: #1d1630;
+    color: #fff;
+    box-shadow: 0 14px 34px rgba(40, 20, 90, 0.22);
+    isolation: isolate;
+  }
+
+  .mb-bg {
+    position: absolute;
+    inset: -30px;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    filter: blur(26px) saturate(1.3) brightness(0.55);
+    transform: scale(1.1);
+  }
+
+  .my-best::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, rgba(20, 12, 40, 0.15) 0%, rgba(20, 12, 40, 0.55) 100%);
+  }
+
+  .mb-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 16px 12px;
+  }
+
+  .mb-kicker {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    opacity: 0.9;
+  }
+
+  .mb-tier {
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  .mb-tier b {
+    display: inline-block;
+    min-width: 22px;
+    margin-right: 4px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    background: var(--best-color);
+    color: #1f1d2e;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .mb-posters {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 4px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    scrollbar-width: none;
+  }
+
+  .mb-posters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mb-poster {
+    position: relative;
+    flex: 0 0 auto;
+    width: 104px;
+    aspect-ratio: 2 / 3;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    scroll-snap-align: start;
+    cursor: pointer;
+  }
+
+  .mb-poster:first-child {
+    width: 132px;
+  }
+
+  .mb-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .mb-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 8px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .mb-rank {
+    position: absolute;
+    left: 6px;
+    bottom: 4px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 900;
+    font-size: 34px;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  .mb-poster:first-child .mb-rank {
+    font-size: 44px;
+  }
+
+  .mb-stats {
+    display: flex;
+    gap: 16px;
+    padding: 12px 16px 0;
+    font-size: 11px;
+    opacity: 0.9;
+  }
+
+  .mb-stats b {
+    font-family: "Montserrat", sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-right: 2px;
+  }
+
+  /* 追加バーの「思い出せないとき」を1行の横スクロールに */
+  .quick-add-alt {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-right: -14px;
+    padding-right: 14px;
+  }
+
+  .quick-add-alt::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quick-add-alt > span {
+    display: none;
+  }
+
+  .quick-add-alt .chip-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .tier-row {
+    scroll-margin-top: 70px;
+  }
+}
