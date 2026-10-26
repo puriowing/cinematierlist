@@ -61,6 +61,8 @@
     if (f.type === "year") return f.value + "年";
     if (f.type === "kind") return KIND_LABEL[f.value] || f.value;
     if (f.type === "nitaku") return "二択で動いた作品";
+    if (f.type === "fav") return "偏愛作品";
+    if (f.type === "memory") return "思い出のある作品";
     return f.value;
   }
   // 登録作品のタイトル検索クエリ（正規化済み）。テーマ絞り込みと AND で併用する
@@ -807,6 +809,16 @@
       card.appendChild(badge);
     }
 
+    if (movie.fav || hasMemory(movie)) {
+      const fb = document.createElement("div");
+      fb.className = "movie-fav-badge" + (movie.fav ? "" : " is-memory");
+      fb.innerHTML = window.picktureIcon
+        ? window.picktureIcon(movie.fav ? "heart" : "book")
+        : (movie.fav ? "♥" : "📖");
+      fb.title = movie.fav ? "偏愛作品" : "思い出あり";
+      card.appendChild(fb);
+    }
+
     if (movie.unseen) {
       const ub = document.createElement("div");
       ub.className = "movie-nitaku-badge is-unseen";
@@ -1475,6 +1487,25 @@
       openMovieInfo(movie);
     });
     menuActions.appendChild(infoBtn);
+    const favBtn = document.createElement("button");
+    favBtn.className = "btn btn-ghost btn-sm move-fav-btn" + (movie.fav ? " is-on" : "");
+    favBtn.textContent = movie.fav ? "❤ 偏愛中" : "❤ 偏愛";
+    favBtn.title = "ティアの評価とは別に、特別な作品として印をつけます";
+    favBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMoveMenu();
+      toggleFav(movie);
+    });
+    menuActions.appendChild(favBtn);
+    const memBtn = document.createElement("button");
+    memBtn.className = "btn btn-ghost btn-sm move-info-btn";
+    memBtn.textContent = hasMemory(movie) ? "📖 思い出を見る" : "📖 思い出を書く";
+    memBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMoveMenu();
+      openMemory(movie);
+    });
+    menuActions.appendChild(memBtn);
     if (movie.poster && anchorEl.querySelector(".movie-poster-fallback")) {
       const reloadBtn = document.createElement("button");
       reloadBtn.className = "btn btn-ghost btn-sm move-info-btn";
@@ -2596,6 +2627,86 @@
     toast("作品情報を保存しました");
   }
 
+  // ---- 偏愛マーク・思い出カード（ティアの評価とは別軸の記録） ----
+  const MEMORY_FIELDS = ["when", "where", "with", "note"];
+  let memoryMovieId = null;
+  let memoryFav = false;
+
+  function hasMemory(m) {
+    return !!(m && m.memory && MEMORY_FIELDS.some((k) => m.memory[k]));
+  }
+
+  function toggleFav(movie) {
+    const found = findMovie(movie.id);
+    if (!found) return;
+    const m = found.movie;
+    if (m.fav) delete m.fav; else m.fav = true;
+    render();
+    toast(m.fav ? `「${m.title}」を偏愛作品にしました` : `「${m.title}」の偏愛を外しました`);
+  }
+
+  function renderMemoryFav() {
+    const b = document.getElementById("memoryFavBtn");
+    b.classList.toggle("is-on", memoryFav);
+    b.innerHTML = (window.picktureIcon ? window.picktureIcon("heart") : "♥") +
+      `<span>${memoryFav ? "偏愛作品" : "偏愛作品にする"}</span>`;
+  }
+
+  function openMemory(movie) {
+    memoryMovieId = movie.id;
+    memoryFav = !!movie.fav;
+    const $ = (id) => document.getElementById(id);
+    const mem = movie.memory || {};
+    $("memoryWhen").value = mem.when || "";
+    $("memoryWhere").value = mem.where || "";
+    $("memoryWith").value = mem.with || "";
+    $("memoryNote").value = mem.note || "";
+    $("memoryTitle").textContent = movie.title || "";
+    $("memoryYear").textContent = movie.year ? `${movie.year}年` : "";
+    const tierId = currentZoneOf(movie.id);
+    const tier = state.tiers.find((t) => t.id === tierId);
+    const chip = $("memoryTier");
+    if (tier) {
+      chip.textContent = `ティア ${tier.label}`;
+      chip.style.background = tier.color;
+      chip.style.color = textColorOn(tier.color);
+      chip.hidden = false;
+    } else chip.hidden = true;
+    const img = $("memoryPoster");
+    if (movie.poster) { img.src = movie.poster; img.style.display = ""; }
+    else { img.removeAttribute("src"); img.style.display = "none"; }
+    renderMemoryFav();
+    openModal("memoryModal");
+  }
+
+  function saveMemory() {
+    const found = memoryMovieId ? findMovie(memoryMovieId) : null;
+    if (!found) { closeModal("memoryModal"); return; }
+    const m = found.movie;
+    const $ = (id) => document.getElementById(id);
+    const mem = {
+      when: $("memoryWhen").value.trim(),
+      where: $("memoryWhere").value.trim(),
+      with: $("memoryWith").value.trim(),
+      note: $("memoryNote").value.trim(),
+    };
+    MEMORY_FIELDS.forEach((k) => { if (!mem[k]) delete mem[k]; });
+    if (Object.keys(mem).length) m.memory = mem; else delete m.memory;
+    if (memoryFav) m.fav = true; else delete m.fav;
+    closeModal("memoryModal");
+    memoryMovieId = null;
+    render();
+    toast("思い出を保存しました");
+  }
+
+  function wireMemory() {
+    document.getElementById("memoryFavBtn").addEventListener("click", () => {
+      memoryFav = !memoryFav;
+      renderMemoryFav();
+    });
+    document.getElementById("memorySaveBtn").addEventListener("click", saveMemory);
+  }
+
   // =======================================================================
   // Tier operations
   // =======================================================================
@@ -3090,6 +3201,8 @@
     if (type === "kind") return movie.kind === value;
     if (type === "userTheme") return (movie.userThemes || []).includes(value);
     if (type === "nitaku") return !!movie.nitaku;
+    if (type === "fav") return !!movie.fav;
+    if (type === "memory") return hasMemory(movie);
     return true;
   }
 
@@ -3117,10 +3230,14 @@
     const kindCount = new Map();
     const genreCount = new Map();
     const userThemeCount = new Map();
+    let favCount = 0;
+    let memoryCount = 0;
     const genreSet = new Set(GENRES.map((g) => g.label));
     allMovies().forEach((m) => {
       if (m.year) yearCount.set(m.year, (yearCount.get(m.year) || 0) + 1);
       if (m.kind) kindCount.set(m.kind, (kindCount.get(m.kind) || 0) + 1);
+      if (m.fav) favCount++;
+      if (hasMemory(m)) memoryCount++;
       (m.userThemes || []).forEach((t) => userThemeCount.set(t, (userThemeCount.get(t) || 0) + 1));
       if (m.meta) {
         (m.meta.directors || []).forEach((d) => dirCount.set(d, (dirCount.get(d) || 0) + 1));
@@ -3168,6 +3285,10 @@
       genre: genres,
       award: awards,
       userTheme: userThemes,
+      special: [
+        favCount && { value: "fav:1", label: "❤ 偏愛作品", count: favCount },
+        memoryCount && { value: "memory:1", label: "📖 思い出のある作品", count: memoryCount },
+      ].filter(Boolean),
     };
   }
 
@@ -3231,6 +3352,7 @@
     const data = getThemeData();
     // 有効なカテゴリの初期選択
     const cats = [
+      { key: "special", label: "❤ 偏愛・思い出" },
       { key: "userTheme", label: "🏷 タグ" },
       { key: "year", label: "公開年" },
       { key: "kind", label: "種別" },
@@ -3382,6 +3504,9 @@
         } else if (themePanelCat === "award") {
           html +=
             `<div class="theme-empty">登録作の中に映画賞・映画祭の受賞作が見つかりませんでした。</div>`;
+        } else if (themePanelCat === "special") {
+          html +=
+            `<div class="theme-empty">作品をタップして「偏愛」「思い出を書く」を選ぶと、ここで絞り込めます。</div>`;
         } else if (themePanelCat === "userTheme") {
           html +=
             `<div class="theme-empty">まだタグがありません。上の「＋ 新しいタグを作成」から、好きな切り口で作品をまとめられます。</div>`;
@@ -8777,6 +8902,7 @@
 
     wireManual();
     wireMovieInfo();
+    wireMemory();
 
     // close popovers on scroll（ただしポップオーバー内部のスクロールでは閉じない）
     window.addEventListener("scroll", (e) => {

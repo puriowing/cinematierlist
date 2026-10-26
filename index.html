@@ -592,6 +592,48 @@
   </div>
 
   <!-- Movie info editor modal -->
+  <div id="memoryModal" class="modal-overlay hidden">
+    <div class="modal memory-modal">
+      <div class="modal-header">
+        <h3>📖 思い出カード</h3>
+        <button class="modal-close" data-close="memoryModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="memory-card">
+          <img id="memoryPoster" class="memory-poster" alt="ポスター" />
+          <div class="memory-head">
+            <div id="memoryTitle" class="memory-title"></div>
+            <div class="memory-sub"><span id="memoryYear"></span><span id="memoryTier" class="memory-tier"></span></div>
+            <button id="memoryFavBtn" type="button" class="memory-fav"></button>
+          </div>
+        </div>
+        <p class="hint memory-lead">ティアの評価とは別に、この作品との思い出を残せます。</p>
+        <div class="memory-grid">
+          <label class="field">
+            <span>いつ観た</span>
+            <input id="memoryWhen" type="text" placeholder="例: 小学生の頃 / 2016年6月" />
+          </label>
+          <label class="field">
+            <span>どこで</span>
+            <input id="memoryWhere" type="text" placeholder="例: 日曜洋画劇場 / TOHOシネマズ新宿" />
+          </label>
+          <label class="field">
+            <span>誰と</span>
+            <input id="memoryWith" type="text" placeholder="例: 父と / ひとりで" />
+          </label>
+        </div>
+        <label class="field">
+          <span>思い出</span>
+          <textarea id="memoryNote" rows="5" placeholder="なぜ特別なのか、観たときのこと、忘れられない場面など"></textarea>
+        </label>
+        <div class="settings-actions">
+          <button id="memorySaveBtn" class="btn btn-primary">保存</button>
+          <button class="btn btn-ghost" data-close="memoryModal">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="movieInfoModal" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-header">

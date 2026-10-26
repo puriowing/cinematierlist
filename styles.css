@@ -6337,3 +6337,139 @@ body.theme-pop .tier-analyze {
   0%, 100% { box-shadow: var(--shadow); }
   50% { box-shadow: 0 0 0 4px var(--accent); }
 }
+
+/* ---------- 偏愛マーク・思い出カード ---------- */
+.movie-fav-badge {
+  position: absolute;
+  top: calc(var(--poster-h) - 24px);
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e8456b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.movie-fav-badge svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.movie-fav-badge.is-memory {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.movie-fav-badge.is-memory svg {
+  fill: none;
+}
+
+.move-fav-btn.is-on {
+  color: #e8456b;
+  border-color: #e8456b;
+}
+
+.move-fav-btn.is-on svg {
+  fill: currentColor;
+}
+
+.memory-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+
+.memory-poster {
+  width: 78px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.memory-head {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.memory-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.memory-tier {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.memory-fav {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.memory-fav svg {
+  width: 15px;
+  height: 15px;
+}
+
+.memory-fav.is-on {
+  background: #e8456b;
+  border-color: #e8456b;
+  color: #fff;
+}
+
+.memory-fav.is-on svg {
+  fill: currentColor;
+}
+
+.memory-lead {
+  margin: 10px 0 4px;
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 10px;
+}
+
+@media (max-width: 600px) {
+  .memory-grid {
+    grid-template-columns: 1fr;
+  }
+}
