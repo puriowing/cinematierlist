@@ -7345,3 +7345,23 @@ body.compact .movie-fav-badge span {
 
 .mp-fold-body { padding: 14px 16px 16px; }
 .mp-fold-body .pv-group { background: var(--bg); }
+
+.movie-media-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.result-card .movie-media-badge {
+  top: 6px;
+  left: 6px;
+}

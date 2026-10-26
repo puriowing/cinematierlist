@@ -138,13 +138,13 @@
   </nav>
 
 
-  <button id="fabAdd" class="fab-add" aria-label="映画を追加" title="映画を追加">＋</button>
+  <button id="fabAdd" class="fab-add" aria-label="作品を追加" title="作品を追加">＋</button>
 
   <!-- Add movie modal -->
   <div id="addMovieModal" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-header">
-        <h3>映画を追加</h3>
+        <h3>作品を追加</h3>
         <button class="modal-close" data-close="addMovieModal">✕</button>
       </div>
 
@@ -161,6 +161,11 @@
 
       <!-- Search tab -->
       <div class="tab-panel active" data-panel="search">
+        <div class="role-chips" id="searchMediaChips">
+          <button class="role-chip active" data-media="">映画</button>
+          <button class="role-chip" data-media="drama">ドラマシリーズ</button>
+          <button class="role-chip" data-media="anime">アニメシリーズ</button>
+        </div>
         <div class="search-row">
           <input id="movieSearchInput" type="text" placeholder="映画のタイトルを入力（例: インセプション）" />
           <button id="movieSearchBtn" class="btn btn-primary">検索</button>
@@ -425,7 +430,7 @@
         <section class="help-card">
           <div class="help-card-head"><span class="help-num">1</span><h4>映画を追加する</h4></div>
           <div class="help-card-body">
-            <p>画面右下の <b>「＋」ボタン</b> を押すと「映画を追加」ウィンドウが開きます。いろいろな探し方から選べます。</p>
+            <p>画面右下の <b>「＋」ボタン</b> を押すと「作品を追加」ウィンドウが開きます。いろいろな探し方から選べます。</p>
             <div class="help-ways">
               <div class="help-way"><span class="help-way-ic">🔍</span><div class="help-way-txt"><b>検索</b><span>タイトルで探す</span></div></div>
               <div class="help-way"><span class="help-way-ic">✨</span><div class="help-way-txt"><b>おすすめ</b><span>好みに近い未登録作</span></div></div>

@@ -35,6 +35,17 @@
     { id: uid(), label: "D", color: "#7fbfff", items: [] },
   ];
 
+  // 作品の種類（映画は media なし。ドラマ・アニメはシリーズ単位）
+  const MEDIA_LABEL = { drama: "ドラマ", anime: "アニメ" };
+  const MEDIA_DEFS = [["movie", "映画"], ["drama", "ドラマシリーズ"], ["anime", "アニメシリーズ"]];
+  const MEDIA_FILTER_LABEL = Object.fromEntries(MEDIA_DEFS);
+
+  function filmarksUrl(m) {
+    const s = String(m.filmarksId || "").match(/^([da])(\d+)-(\d+)$/);
+    if (s) return `https://filmarks.com/${s[1] === "d" ? "dramas" : "animes"}/${s[2]}/${s[3]}`;
+    return "https://filmarks.com/movies/" + encodeURIComponent(m.filmarksId);
+  }
+
   /** @type {{title:string, tiers:Array, pool:Array}} */
   let state = loadState();
   let settings = loadSettings();
@@ -60,6 +71,7 @@
   function filterLabel(f) {
     if (f.type === "year") return f.value + "年";
     if (f.type === "kind") return KIND_LABEL[f.value] || f.value;
+    if (f.type === "media") return MEDIA_FILTER_LABEL[f.value] || f.value;
     if (f.type === "nitaku") return "二択で動いた作品";
     if (f.type === "fav") return "偏愛作品";
     if (f.type === "memory") return "思い出のある作品";
@@ -800,6 +812,13 @@
     title.textContent = movie.title;
     title.title = movie.title;
     card.appendChild(title);
+
+    if (MEDIA_LABEL[movie.media]) {
+      const mb = document.createElement("div");
+      mb.className = "movie-media-badge";
+      mb.textContent = MEDIA_LABEL[movie.media];
+      card.appendChild(mb);
+    }
 
     if (movie.comment && String(movie.comment).trim()) {
       const badge = document.createElement("div");
@@ -3221,10 +3240,10 @@
   // データ取得元は Filmarks に一元化している（検索・ポスター・監督/出演・人物）。
   // =======================================================================
   // Filmarks 検索（ポスターが安定して付くので検索・ポスター補完の主ソース）
-  async function searchFilmarks(query) {
+  async function searchFilmarks(query, media = "") {
     let res;
     try {
-      res = await fetch("/api/filmarks/search?q=" + encodeURIComponent(query));
+      res = await fetch("/api/filmarks/search?q=" + encodeURIComponent(query) + (media ? "&media=" + media : ""));
     } catch (e) {
       throw new Error("NO_SERVER");
     }
@@ -3239,6 +3258,8 @@
       poster: r.poster || "",
       filmarksId: r.id,
       url: r.url,
+      media: r.media || "",
+      seasons: r.seasons || 0,
     }));
   }
 
@@ -3540,6 +3561,7 @@
     if (type === "genre") return (movie.genres || []).includes(value) || movieCollections(movie).includes(value);
     if (type === "award") return movieCollections(movie).includes(value);
     if (type === "kind") return movie.kind === value;
+    if (type === "media") return (movie.media || "movie") === value;
     if (type === "userTheme") return (movie.userThemes || []).includes(value);
     if (type === "nitaku") return !!movie.nitaku;
     if (type === "fav") return !!movie.fav;
@@ -3591,9 +3613,14 @@
       cols.forEach((label) => { if (genreSet.has(label)) gset.add(label); });
       gset.forEach((label) => genreCount.set(label, (genreCount.get(label) || 0) + 1));
     });
-    const kinds = KIND_DEFS
+    const mediaCount = new Map();
+    allMovies().forEach((m) => { const k = m.media || "movie"; mediaCount.set(k, (mediaCount.get(k) || 0) + 1); });
+    const kinds = (mediaCount.size > 1
+      ? MEDIA_DEFS.filter(([k]) => mediaCount.get(k)).map(([k, label]) => ({ value: "media:" + k, label, count: mediaCount.get(k) }))
+      : []
+    ).concat(KIND_DEFS
       .filter(([k]) => kindCount.get(k))
-      .map(([k, label]) => ({ value: "kind:" + k, label, count: kindCount.get(k) }));
+      .map(([k, label]) => ({ value: "kind:" + k, label, count: kindCount.get(k) })));
     const years = [...yearCount.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([v, n]) => ({ value: "year:" + v, label: `${v}年`, count: n }));
@@ -4521,7 +4548,7 @@
   async function autoFillPosters() {
     if (autoFillRunning || autoFillDisabled) return;
     const targets = enrichPool().filter(
-      (m) => ((!m.poster || !String(m.poster).trim()) || hasLegacyPoster(m)) && !posterAttempted.has(m.id)
+      (m) => !m.media && ((!m.poster || !String(m.poster).trim()) || hasLegacyPoster(m)) && !posterAttempted.has(m.id)
     );
     if (!targets.length) return;
 
@@ -4591,7 +4618,7 @@
 
   async function enrichGenres() {
     if (genreFixRunning || genreFixDisabled) return;
-    const targets = enrichPool().filter((m) => m.genreCheckedV !== GENRE_FIX_VERSION);
+    const targets = enrichPool().filter((m) => m.genreCheckedV !== GENRE_FIX_VERSION && !m.media);
     if (!targets.length) return;
 
     genreFixRunning = true;
@@ -4652,10 +4679,15 @@
     if (cr) {
       m.meta = { directors: cr.directors || [], cast: cr.cast || [] };
       if (cr.year) { m.year = cr.year; m.yearCheckedV = YEAR_FIX_VERSION; }
-      const k = classifyKind(cr);
+      const k = m.media ? null : classifyKind(cr);
       if (k) m.kind = k;
       // Filmarks 詳細にはジャンルIDも含まれるので、同時に確定して別リクエストを節約
-      if (Array.isArray(cr.genreIds) && cr.genreIds.length && m.genreCheckedV !== GENRE_FIX_VERSION) {
+      if (m.media && Array.isArray(cr.genres)) {
+        const known = new Set(GENRES.map((g) => g.label));
+        const labels = cr.genres.filter((g) => known.has(g));
+        if (labels.length) m.genres = labels;
+        m.genreCheckedV = GENRE_FIX_VERSION;
+      } else if (Array.isArray(cr.genreIds) && cr.genreIds.length && m.genreCheckedV !== GENRE_FIX_VERSION) {
         const labels = cr.genreIds.map(fmGenreLabel).filter(Boolean);
         if (labels.length) { m.genres = labels; m.genreCheckedV = GENRE_FIX_VERSION; }
       }
@@ -5625,7 +5657,7 @@
          ${metaBits.length ? `<div class="up-meta">${escapeHtml(metaBits.join(" ／ "))}</div>` : ""}
          <div class="up-actions">
            <button class="btn btn-sm up-add ${inWatch ? "up-added" : "btn-primary"}"${inWatch ? " disabled" : ""}>${inWatch ? "✓ 観たいリストに追加済み" : "🔖 観たいリストに追加"}</button>
-           <a class="btn btn-ghost btn-sm" href="https://filmarks.com/movies/${encodeURIComponent(f.filmarksId)}" target="_blank" rel="noopener">作品情報 ↗</a>
+           <a class="btn btn-ghost btn-sm" href="${filmarksUrl(f)}" target="_blank" rel="noopener">作品情報 ↗</a>
          </div>
        </div>`;
     const addBtn = card.querySelector(".up-add");
@@ -9110,7 +9142,7 @@
     const wrap = document.getElementById("searchResults");
     wrap.innerHTML = "";
     if (!results.length) {
-      document.getElementById("searchStatus").textContent = "該当する映画が見つかりませんでした。";
+      document.getElementById("searchStatus").textContent = "該当する作品が見つかりませんでした。";
       return;
     }
     results.forEach((r) => {
@@ -9124,14 +9156,16 @@
           : `<div class="result-fallback">🎬</div>`) +
         `<div class="result-meta">
            <div class="result-title">${escapeHtml(r.title)}</div>
-           <div class="result-year">${escapeHtml(r.year || "")}</div>
+           <div class="result-year">${escapeHtml([r.year, r.seasons > 1 ? `全${r.seasons}シーズン` : ""].filter(Boolean).join(" ・ "))}</div>
          </div>` +
+        (MEDIA_LABEL[r.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[r.media]}</div>` : "") +
         (owned || wanted ? `<div class="pick-badge">${owned ? "✓ 登録済" : "🔖 観たい"}</div>` : "");
       card.addEventListener("click", () => {
         const movie = { title: r.title, poster: r.poster || "", year: r.year || "" };
         if (r.tmdbId) movie.tmdbId = r.tmdbId;
         if (r.eigaId) movie.eigaId = r.eigaId;
         if (r.filmarksId) movie.filmarksId = r.filmarksId;
+        if (r.media) { movie.media = r.media; movie.genreCheckedV = GENRE_FIX_VERSION; }
         const ok = addMovie(movie);
         if (ok) {
           card.classList.remove("result-wl");
@@ -9146,6 +9180,7 @@
     });
   }
 
+  let searchMedia = "";
   async function doSearch() {
     const q = document.getElementById("movieSearchInput").value.trim();
     const status = document.getElementById("searchStatus");
@@ -9155,11 +9190,11 @@
     box.innerHTML = "";
     showLoading(box, `「${q}」を検索中…`);
     try {
-      const results = await searchFilmarks(q);
+      const results = await searchFilmarks(q, searchMedia);
       clearLoading(box);
       status.textContent = results.length
         ? `${results.length}件見つかりました（クリックで追加）`
-        : "該当する映画が見つかりませんでした。";
+        : "該当する作品が見つかりませんでした。";
       renderSearchResults(results);
     } catch (e) {
       clearLoading(box);
@@ -9384,6 +9419,16 @@
 
     // search
     document.getElementById("movieSearchBtn").addEventListener("click", doSearch);
+    document.querySelectorAll("#searchMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
+      searchMedia = b.dataset.media;
+      document.querySelectorAll("#searchMediaChips .role-chip").forEach((x) => x.classList.toggle("active", x === b));
+      document.getElementById("movieSearchInput").placeholder = {
+        "": "映画のタイトルを入力（例: インセプション）",
+        drama: "ドラマのタイトルを入力（例: アンナチュラル）",
+        anime: "アニメのタイトルを入力（例: 進撃の巨人）",
+      }[searchMedia];
+      if (document.getElementById("movieSearchInput").value.trim()) doSearch();
+    }));
     document.getElementById("movieSearchInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
     });

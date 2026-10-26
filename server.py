@@ -598,13 +598,13 @@ def filmarks_series_search(query, media, limit=20):
                   "poster": pm.group(1) if pm else ""})
     reps = []
     for series, seasons in list(groups.items())[:limit]:
-        rep = min(seasons, key=lambda s: s["date"])
-        reps.append((series, rep, len(seasons)))
-    urls = [f"https://filmarks.com/{SERIES_PATH[media]}/{s}/{r['season']}" for s, r, _ in reps]
+        rep = min(seasons, key=lambda s: int(s["season"]))
+        reps.append((series, rep, len(seasons), "" if rep["date"].startswith("9999") else rep["date"][:4]))
+    urls = [f"https://filmarks.com/{SERIES_PATH[media]}/{s}/{r['season']}" for s, r, _, _ in reps]
     _prefetch(urls)
     results = []
-    for (series, rep, n), url in zip(reps, urls):
-        title, year = rep["title"], "" if rep["date"].startswith("9999") else rep["date"][:4]
+    for (series, rep, n, year), url in zip(reps, urls):
+        title = rep["title"]
         try:
             ld = _filmarks_ld_season(_fetch(url)) or {}
             sr = ld.get(media + "Series") or {}
