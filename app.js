@@ -7964,7 +7964,9 @@
     }
     results.forEach((r) => {
       const card = document.createElement("div");
-      card.className = "result-card";
+      const owned = movieExists(r);
+      const wanted = !owned && watchlistExists(r);
+      card.className = "result-card pick-card" + (owned ? " result-added" : wanted ? " result-wl" : "");
       card.innerHTML =
         (r.poster
           ? `<img src="${r.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
@@ -7972,7 +7974,8 @@
         `<div class="result-meta">
            <div class="result-title">${escapeHtml(r.title)}</div>
            <div class="result-year">${escapeHtml(r.year || "")}</div>
-         </div>`;
+         </div>` +
+        (owned || wanted ? `<div class="pick-badge">${owned ? "✓ 登録済" : "🔖 観たい"}</div>` : "");
       card.addEventListener("click", () => {
         const movie = { title: r.title, poster: r.poster || "", year: r.year || "" };
         if (r.tmdbId) movie.tmdbId = r.tmdbId;
@@ -7980,7 +7983,11 @@
         if (r.filmarksId) movie.filmarksId = r.filmarksId;
         const ok = addMovie(movie);
         if (ok) {
+          card.classList.remove("result-wl");
           card.classList.add("result-added");
+          const badge = card.querySelector(".pick-badge") || card.appendChild(document.createElement("div"));
+          badge.className = "pick-badge";
+          badge.textContent = addTarget === "watchlist" ? "🔖 観たい" : "✓ 登録済";
           toast(addTarget === "watchlist" ? `🔖 「${r.title}」を観たいリストに追加しました` : `「${r.title}」を追加しました`);
         }
       });

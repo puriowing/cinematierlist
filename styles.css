@@ -2471,6 +2471,15 @@ code {
   background: #2fa36b;
 }
 
+.pick-card.result-wl {
+  outline: 2px dashed #6b7a8f;
+}
+
+.pick-card.result-wl .pick-badge {
+  opacity: 1;
+  background: #6b7a8f;
+}
+
 /* ---------- Recovery banner ---------- */
 .recovery-banner {
   display: flex;
