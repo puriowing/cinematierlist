@@ -510,6 +510,22 @@
     </div>
   </div>
 
+  <!-- Tier analysis modal -->
+  <div id="tierAnalysisModal" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>📊 ティア分析</h3>
+        <button class="modal-close" data-close="tierAnalysisModal">✕</button>
+      </div>
+      <div id="tierAnalysisTabs" class="ta-tabs"></div>
+      <div id="tierAnalysisBody" class="settings-body stats-body"></div>
+      <div class="modal-footer">
+        <button id="tierAnalysisSaveBtn" class="btn btn-ghost">📷 画像として保存</button>
+        <button class="btn btn-ghost" data-close="tierAnalysisModal">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Upcoming recommendations modal (based on your stats) -->
   <div id="upcomingModal" class="modal-overlay hidden">
     <div class="modal modal-wide">

@@ -575,6 +575,7 @@
         `<span class="tier-label-text">${escapeHtml(tier.label)}</span>` +
         `<span class="tier-count">${visibleItems(tier.items).length}</span>` +
         `<button class="tier-sort" title="このティアを並び替え（登録順 / あいうえお順）">↕</button>` +
+        `<button class="tier-analyze" title="このティアを分析">📊</button>` +
         `<span class="tier-gear" title="ティアを編集">⚙</span>`;
       label.querySelector(".collapse-toggle").addEventListener("click", (e) => {
         e.stopPropagation();
@@ -584,6 +585,10 @@
       label.querySelector(".tier-sort").addEventListener("click", (e) => {
         e.stopPropagation();
         openTierSortMenu(tier, e.currentTarget);
+      });
+      label.querySelector(".tier-analyze").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openTierAnalysis(tier.id);
       });
       label.addEventListener("click", () => openTierEditor(tier, label));
       row.appendChild(label);
@@ -2632,6 +2637,7 @@
         </div>
         <button class="btn btn-danger btn-sm te-delete">削除</button>
       </div>
+      <button class="btn btn-ghost btn-sm te-analyze">📊 このティアを分析</button>
     `;
 
     const swatchWrap = pop.querySelector(".color-swatches");
@@ -2669,6 +2675,10 @@
         render();
         closeTierEditor();
       }
+    });
+    pop.querySelector(".te-analyze").addEventListener("click", () => {
+      closeTierEditor();
+      openTierAnalysis(tier.id);
     });
     pop.querySelector(".te-delete").addEventListener("click", () => {
       if (state.tiers.length <= 1) {
@@ -7562,6 +7572,378 @@
     openModal("statsModal");
   }
 
+  // =======================================================================
+  // ティア分析：1つのティアの作品群を「ランク付けした全作品」と比べて傾向を出す
+  // =======================================================================
+  const TA_KIND_COLORS = {
+    jp_live: "#5b8cff", foreign_live: "#ff9f5b",
+    jp_anime: "#57d9a3", foreign_anime: "#c78bff",
+  };
+  let taTierId = null;
+
+  function taFeatures(m, genreSet) {
+    const gset = new Set(m.genres || []);
+    const cols = [];
+    movieCollections(m).forEach((l) => (genreSet.has(l) ? gset.add(l) : cols.push(l)));
+    const y = parseInt(m.year, 10) || 0;
+    return {
+      year: y,
+      decade: y ? Math.floor(y / 10) * 10 : 0,
+      kind: m.kind || "",
+      genres: [...gset],
+      cols,
+      dirs: (m.meta && m.meta.directors) || [],
+      cast: ((m.meta && m.meta.cast) || []).slice(0, 5),
+    };
+  }
+
+  function computeTierAnalysis(tier) {
+    const genreSet = new Set(GENRES.map((g) => g.label));
+    const all = state.tiers.flatMap((t) => t.items.map((m) => ({ m, f: taFeatures(m, genreSet) })));
+    const mine = all.filter((x) => tier.items.includes(x.m));
+    const N = all.length;
+    const n = mine.length;
+    const idx = state.tiers.indexOf(tier);
+    const upTo = state.tiers.slice(0, idx + 1).reduce((a, t) => a + t.items.length, 0);
+
+    const count = (list, key) => {
+      const c = new Map();
+      list.forEach(({ f }) => {
+        const v = f[key];
+        (Array.isArray(v) ? v : [v]).forEach((k) => { if (k) c.set(k, (c.get(k) || 0) + 1); });
+      });
+      return c;
+    };
+    const cmp = (key) => {
+      const a = count(all, key);
+      const t = count(mine, key);
+      return [...a.entries()].map(([label, all]) => {
+        const c = t.get(label) || 0;
+        return { label, count: c, all, share: c / n, allShare: all / N, lift: (c / n) / (all / N) };
+      });
+    };
+    const avg = (list) => {
+      const ys = list.map((x) => x.f.year).filter(Boolean);
+      return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : null;
+    };
+    const rate = (list, pred) => {
+      const k = list.filter((x) => x.f.kind);
+      return k.length ? k.filter((x) => pred(x.f.kind)).length / k.length : null;
+    };
+    const isJp = (k) => k.startsWith("jp_");
+    const isAnime = (k) => k.endsWith("_anime");
+
+    const kindsT = count(mine, "kind");
+    const kindsA = count(all, "kind");
+    const kindTotalT = [...kindsT.values()].reduce((a, b) => a + b, 0);
+    const kindTotalA = [...kindsA.values()].reduce((a, b) => a + b, 0);
+    const kinds = KIND_DEFS.map(([k, label]) => ({
+      key: k, label, color: TA_KIND_COLORS[k],
+      count: kindsT.get(k) || 0,
+      share: kindTotalT ? (kindsT.get(k) || 0) / kindTotalT : 0,
+      allShare: kindTotalA ? (kindsA.get(k) || 0) / kindTotalA : 0,
+    }));
+
+    const decA = count(all, "decade");
+    const decT = count(mine, "decade");
+    const decKeys = [...decA.keys()].sort((a, b) => a - b);
+    const yearedT = mine.filter((x) => x.f.year).length || 1;
+    const yearedA = all.filter((x) => x.f.year).length || 1;
+    const decades = decKeys.map((d) => ({
+      label: `${d}年代`, decade: d, count: decT.get(d) || 0,
+      share: (decT.get(d) || 0) / yearedT, allShare: (decA.get(d) || 0) / yearedA,
+    }));
+
+    const byCount = (a, b) => b.count - a.count || b.lift - a.lift || a.label.localeCompare(b.label);
+    const genresAll = cmp("genres");
+    const genres = genresAll.filter((e) => e.count).sort(byCount);
+    const cols = cmp("cols").filter((e) => e.count).sort(byCount);
+    const persons = (key) => cmp(key)
+      .filter((e) => e.count)
+      .map((e) => ({ ...e, rate: e.count / (e.all || 1) }))
+      .sort((a, b) => b.count - a.count || b.rate - a.rate || a.label.localeCompare(b.label));
+
+    return {
+      tier, n, N, idx,
+      topPct: N ? upTo / N : 0,
+      avgYear: avg(mine), allAvgYear: avg(all),
+      jpRate: rate(mine, isJp), allJpRate: rate(all, isJp),
+      animeRate: rate(mine, isAnime), allAnimeRate: rate(all, isAnime),
+      kinds, decades, genres, genresAll, cols,
+      directors: persons("dirs"),
+      actors: persons("cast"),
+      metaKnown: mine.filter((x) => x.m.meta).length,
+    };
+  }
+
+  // 傾向を短い文章にまとめる
+  function buildTierInsights(a) {
+    const out = [];
+    const pct = (v) => Math.round(v * 100) + "%";
+    const minC = Math.max(a.n >= 20 ? 3 : 2, Math.ceil(a.n * 0.04));
+    const kindTop = [...a.kinds].filter((k) => k.count).sort((x, y) => y.share - x.share)[0];
+    if (kindTop) {
+      const diff = Math.round((kindTop.share - kindTop.allShare) * 100);
+      out.push({ icon: "🎞️", text: `${pct(kindTop.share)}が${kindTop.label}。` +
+        (Math.abs(diff) >= 5 ? `全体（${pct(kindTop.allShare)}）より${diff > 0 ? "多め" : "少なめ"}です。` : "全体とほぼ同じ割合です。") });
+    }
+    if (a.avgYear && a.allAvgYear) {
+      const d = Math.round(a.avgYear - a.allAvgYear);
+      const peak = [...a.decades].sort((x, y) => y.count - x.count)[0];
+      out.push({ icon: "🗓️", text: `平均は${Math.round(a.avgYear)}年公開。` +
+        (Math.abs(d) >= 2 ? `全体より${Math.abs(d)}年${d > 0 ? "新しい" : "古い"}作品が多め。` : "全体とほぼ同じ時代感です。") +
+        (peak && peak.count ? `いちばん多いのは${peak.label}（${peak.count}本）。` : "") });
+    }
+    const loved = a.genres.filter((g) => g.count >= minC && g.lift >= 1.25).sort((x, y) => y.lift - x.lift).slice(0, 3);
+    if (loved.length) {
+      out.push({ icon: "💖", text: `全体と比べて特に多いジャンルは「${loved.map((g) => g.label).join("」「")}」。` +
+        `「${loved[0].label}」は全体の${loved[0].lift.toFixed(1)}倍の割合です。` });
+    }
+    const rareAll = a.genresAll.filter((g) => g.allShare >= 0.05 && g.lift <= 0.7).sort((x, y) => x.lift - y.lift).slice(0, 2);
+    if (rareAll.length && a.n >= 10) {
+      const r0 = rareAll[0];
+      out.push({ icon: "🧊", text: `逆に「${rareAll.map((g) => g.label).join("」「")}」は全体より少なめ` +
+        (r0.count ? `（「${r0.label}」は全体の${r0.lift.toFixed(1)}倍）。` : `（「${r0.label}」はこのティアに1本もありません）。`) });
+    }
+    const base = a.N ? a.n / a.N : 1;
+    const fan = (list) => list
+      .filter((p) => p.all >= 3 && p.count >= 2 && p.rate >= Math.min(1, Math.max(0.5, base * 1.8)))
+      .sort((x, y) => y.rate - x.rate || y.count - x.count)[0];
+    const d = fan(a.directors);
+    if (d) out.push({ icon: "🎬", text: `${d.label}監督の作品は、登録${d.all}本のうち${d.count}本がこのティア（${pct(d.rate)}）。` });
+    const c = fan(a.actors);
+    if (c) out.push({ icon: "⭐", text: `${c.label}の出演作は、登録${c.all}本のうち${c.count}本がこのティア（${pct(c.rate)}）。` });
+    const col = a.cols.filter((x) => x.count >= 2).sort((x, y) => y.count - x.count)[0];
+    if (col) out.push({ icon: "📚", text: `「${col.label}」から${col.count}本入っています。` });
+    return out;
+  }
+
+  function taLiftBadge(lift, count, n) {
+    if (n < 5 || count < 3) return "";
+    const cls = lift >= 1.25 ? "is-up" : lift <= 0.8 ? "is-down" : "";
+    return `<span class="ta-lift ${cls}" title="全体と比べた割合">×${lift.toFixed(1)}</span>`;
+  }
+
+  function taShareRows(entries, color, n) {
+    if (!entries.length) return `<p class="stat-empty">データがありません。</p>`;
+    const max = Math.max(...entries.map((e) => Math.max(e.share, e.allShare)), 0.01);
+    return entries.map((e) =>
+      `<div class="ta-row">` +
+      `<span class="ta-row-label" title="${escapeHtml(e.label)}">${escapeHtml(e.label)}</span>` +
+      `<span class="ta-track">` +
+      `<span class="ta-fill" style="width:${((e.share / max) * 100).toFixed(1)}%;background:${color}"></span>` +
+      `<span class="ta-mark" style="left:${((e.allShare / max) * 100).toFixed(1)}%" title="全体 ${Math.round(e.allShare * 100)}%"></span>` +
+      `</span>` +
+      `<span class="ta-row-val">${e.count}<small>${Math.round(e.share * 100)}%</small>${e.lift != null ? taLiftBadge(e.lift, e.count, n) : ""}</span>` +
+      `</div>`
+    ).join("");
+  }
+
+  function taPersonRows(entries) {
+    if (!entries.length) {
+      return `<p class="stat-empty">監督・出演者の情報がまだありません（作品情報の自動取得後に表示されます）。</p>`;
+    }
+    const max = Math.max(1, ...entries.map((e) => e.count));
+    return entries.map((e, i) =>
+      `<div class="stat-rank-row">` +
+      `<span class="stat-rank-no">${i + 1}</span>` +
+      `<span class="stat-rank-main">` +
+      `<span class="stat-rank-name" title="${escapeHtml(e.label)}">${escapeHtml(e.label)}</span>` +
+      `<span class="stat-rank-bar"><span class="stat-rank-fill" style="width:${((e.count / max) * 100).toFixed(1)}%"></span></span>` +
+      `</span>` +
+      `<span class="stat-rank-count">${e.count}本<span class="stat-rank-pct">登録${e.all}本中</span></span>` +
+      `</div>`
+    ).join("");
+  }
+
+  function taKindDonut(kinds, n) {
+    const list = kinds.filter((k) => k.count);
+    const total = list.reduce((s, k) => s + k.count, 0);
+    if (!total) return `<p class="stat-empty">種別が判明した作品がまだありません。</p>`;
+    let acc = 0;
+    const stops = list.map((k) => {
+      const from = (acc / total) * 100;
+      acc += k.count;
+      return `${k.color} ${from.toFixed(2)}% ${((acc / total) * 100).toFixed(2)}%`;
+    }).join(", ");
+    const legend = kinds.map((k) => {
+      const d = Math.round((k.share - k.allShare) * 100);
+      const delta = n >= 5 && Math.abs(d) >= 3
+        ? `<span class="ta-delta ${d > 0 ? "is-up" : "is-down"}">${d > 0 ? "+" : ""}${d}pt</span>` : "";
+      return `<div class="donut-leg">` +
+        `<span class="donut-dot" style="background:${k.color}"></span>` +
+        `<span class="donut-leg-label">${escapeHtml(k.label)}</span>` +
+        `<span class="donut-leg-val">${k.count}<span class="donut-leg-pct">${Math.round(k.share * 100)}%</span>${delta}</span>` +
+        `</div>`;
+    }).join("");
+    return `<div class="donut-wrap">` +
+      `<div class="donut" style="background:conic-gradient(${stops})">` +
+      `<div class="donut-hole"><span class="donut-total">${total}</span><span class="donut-sub">本</span></div>` +
+      `</div><div class="donut-legend">${legend}<p class="ta-legend-note">pt＝全体との差</p></div></div>`;
+  }
+
+  function taPosterStrip(items) {
+    const list = items.slice(0, 14);
+    return `<div class="ta-posters">` + list.map((m) =>
+      m.poster
+        ? `<img class="ta-poster" src="${escapeHtml(m.poster)}" alt="" title="${escapeHtml(m.title)}" loading="lazy" crossorigin="anonymous">`
+        : `<span class="ta-poster ta-poster-fb" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</span>`
+    ).join("") + `</div>`;
+  }
+
+  function renderTierAnalysisTabs() {
+    const wrap = document.getElementById("tierAnalysisTabs");
+    if (!wrap) return;
+    wrap.innerHTML = state.tiers.map((t) =>
+      `<button type="button" class="ta-tab${t.id === taTierId ? " is-active" : ""}" data-tier="${escapeHtml(t.id)}">` +
+      `<span class="ta-tab-sw" style="background:${t.color}"></span>${escapeHtml(t.label)}<span class="ta-tab-n">${t.items.length}</span></button>`
+    ).join("");
+    wrap.querySelectorAll(".ta-tab").forEach((b) => b.addEventListener("click", () => {
+      taTierId = b.dataset.tier;
+      renderTierAnalysis();
+    }));
+    const active = wrap.querySelector(".is-active");
+    if (active) active.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  function renderTierAnalysis() {
+    const body = document.getElementById("tierAnalysisBody");
+    const tier = state.tiers.find((t) => t.id === taTierId) || state.tiers[0];
+    if (!body || !tier) return;
+    taTierId = tier.id;
+    renderTierAnalysisTabs();
+    body.scrollTop = 0;
+    const modal = body.closest(".modal");
+    if (modal) modal.scrollTop = 0;
+
+    if (!tier.items.length) {
+      body.innerHTML = `<p class="stat-empty">「${escapeHtml(tier.label)}」にはまだ作品がありません。作品を振り分けると、ここに傾向が表示されます。</p>`;
+      return;
+    }
+    const a = computeTierAnalysis(tier);
+    const pct = (v) => (v == null ? "—" : Math.round(v * 100) + "%");
+    const deltaPt = (v, base) => {
+      if (v == null || base == null || a.n < 5) return "";
+      const d = Math.round((v - base) * 100);
+      return Math.abs(d) < 1 ? `<span class="ta-kpi-sub">全体と同じ</span>`
+        : `<span class="ta-kpi-sub ${d > 0 ? "is-up" : "is-down"}">全体${d > 0 ? "より+" : "より"}${d}pt</span>`;
+    };
+    const yearDelta = a.avgYear && a.allAvgYear && a.n >= 5
+      ? (() => {
+        const d = Math.round(a.avgYear - a.allAvgYear);
+        return d === 0 ? `<span class="ta-kpi-sub">全体と同じ</span>`
+          : `<span class="ta-kpi-sub ${d > 0 ? "is-up" : "is-down"}">全体より${Math.abs(d)}年${d > 0 ? "新しい" : "古い"}</span>`;
+      })() : "";
+
+    const topPct = a.topPct * 100;
+    const kpis = [
+      { v: a.n.toLocaleString(), u: "本", cap: "作品数", sub: `<span class="ta-kpi-sub">全${a.N.toLocaleString()}本中</span>` },
+      { v: a.idx === state.tiers.length - 1 ? "—" : (topPct < 10 ? topPct.toFixed(1) : Math.round(topPct)) + "%", u: "", cap: "上位", sub: `<span class="ta-kpi-sub">ランク付け作品の中で</span>` },
+      { v: a.avgYear ? Math.round(a.avgYear) : "—", u: "年", cap: "平均公開年", sub: yearDelta },
+      { v: pct(a.jpRate), u: "", cap: "邦画の割合", sub: deltaPt(a.jpRate, a.allJpRate) },
+      { v: pct(a.animeRate), u: "", cap: "アニメの割合", sub: deltaPt(a.animeRate, a.allAnimeRate) },
+    ];
+    const kpiHtml = kpis.map((k) =>
+      `<div class="hero-kpi">` +
+      `<span class="hero-num">${escapeHtml(String(k.v))}${k.u ? `<span class="hero-unit">${k.u}</span>` : ""}</span>` +
+      `<span class="hero-cap">${escapeHtml(k.cap)}</span>${k.sub || ""}` +
+      `</div>`
+    ).join('<span class="hero-div"></span>');
+
+    // キーワード（このティアらしさ）：種別・年代・ジャンルで最も特徴的なもの
+    const minC = Math.max(a.n >= 20 ? 3 : 2, Math.ceil(a.n * 0.04));
+    const tags = [];
+    const kindTop = [...a.kinds].sort((x, y) => y.share - x.share)[0];
+    if (kindTop && kindTop.count) tags.push({ label: kindTop.label, note: pct(kindTop.share) });
+    const peak = [...a.decades].sort((x, y) => y.count - x.count)[0];
+    if (peak && peak.count) tags.push({ label: peak.label, note: pct(peak.share) });
+    const featured = a.genres.filter((g) => g.count >= minC).sort((x, y) => y.lift - x.lift || y.count - x.count);
+    (featured.length ? featured : a.genres).slice(0, 3).forEach((g) =>
+      tags.push({ label: g.label, note: a.n >= 5 ? `全体の${g.lift.toFixed(1)}倍` : `${g.count}本` })
+    );
+    const tagHtml = tags.map((t) =>
+      `<span class="ta-tag"><b>${escapeHtml(t.label)}</b><small>${escapeHtml(t.note)}</small></span>`
+    ).join(`<span class="ta-tag-x">×</span>`);
+
+    const insights = buildTierInsights(a);
+    const insightsHtml = insights.map((it) =>
+      `<div class="stat-insight"><span class="stat-insight-icon">${it.icon}</span>` +
+      `<span class="stat-insight-text">${escapeHtml(it.text)}</span></div>`
+    ).join("");
+
+    const panel = (title, inner, cls) =>
+      `<section class="stat-panel ${cls || ""}"><h4 class="stat-panel-title">${title}</h4>` +
+      `<div class="stat-panel-body">${inner}</div></section>`;
+    const decs = a.decades.filter((d) => d.count || d.allShare >= 0.02);
+    const legend = `<p class="ta-legend"><span class="ta-legend-fill" style="background:${tier.color}"></span>このティア` +
+      `<span class="ta-legend-mark"></span>全体の割合<span class="ta-lift is-up">×1.5</span>＝全体の何倍か</p>`;
+    const missing = a.n - a.metaKnown;
+
+    body.innerHTML =
+      `<div class="ta-head" style="--tier:${tier.color}">` +
+      `<span class="ta-badge">${escapeHtml(tier.label)}</span>` +
+      `<div class="ta-head-main"><p class="ta-head-cap">このティアのキーワード</p><div class="ta-tags">${tagHtml}</div></div>` +
+      `</div>` +
+      `<div class="stats-hero ta-hero">${kpiHtml}</div>` +
+      (insightsHtml ? panel("🔍 このティアの傾向", `<div class="stat-insights">${insightsHtml}</div>`, "stat-panel-wide") : "") +
+      `<div class="stat-grid">` +
+      panel("🎞️ 種別", taKindDonut(a.kinds, a.n)) +
+      panel("🗓️ 年代", legend + `<div class="ta-rows">${taShareRows(decs, tier.color, a.n)}</div>`) +
+      panel("🎭 ジャンル TOP", `<div class="ta-rows">${taShareRows(a.genres.slice(0, 10), tier.color, a.n)}</div>`) +
+      panel("📚 コレクション・映画賞", `<div class="ta-rows">${taShareRows(a.cols.slice(0, 8), tier.color, a.n)}</div>`) +
+      panel("🎥 監督 TOP", `<div class="stat-rank-list">${taPersonRows(a.directors.slice(0, 8))}</div>`) +
+      panel("⭐ 出演者 TOP", `<div class="stat-rank-list">${taPersonRows(a.actors.slice(0, 8))}</div>`) +
+      panel("🎬 このティアの作品", taPosterStrip(tier.items), "stat-panel-wide") +
+      `</div>` +
+      `<p class="stat-note">「全体」はティアに振り分けた全${a.N.toLocaleString()}本です（未分類・観たいは含みません）。` +
+      `ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。出演者は各作品の主要キャスト（上位5名）で集計しています。` +
+      (missing > 0 ? `監督・出演者の情報がない作品が${missing}本あります。` : "") + `</p>`;
+    body.querySelectorAll("img.ta-poster").forEach((img) => img.addEventListener("error", () => {
+      const src = img.getAttribute("src") || "";
+      if (!img.dataset.proxied && src && !src.startsWith("data:") && !src.includes("/api/img")) {
+        img.dataset.proxied = "1";
+        img.src = "/api/img?u=" + encodeURIComponent(src);
+        return;
+      }
+      const fb = document.createElement("span");
+      fb.className = "ta-poster ta-poster-fb";
+      fb.textContent = img.title;
+      img.replaceWith(fb);
+    }));
+  }
+
+  function openTierAnalysis(tierId) {
+    taTierId = tierId || (state.tiers[0] && state.tiers[0].id);
+    renderTierAnalysis();
+    openModal("tierAnalysisModal");
+  }
+
+  async function saveTierAnalysisPng() {
+    if (!window.htmlToImage) { toast("画像ライブラリの読み込みに失敗しました（ネット接続を確認）"); return; }
+    const region = document.getElementById("tierAnalysisBody");
+    const tier = state.tiers.find((t) => t.id === taTierId);
+    if (!region || !tier) return;
+    try {
+      toast("画像を生成中…");
+      region.querySelectorAll("img[loading=lazy]").forEach((img) => { img.loading = "eager"; });
+      await waitImages(region);
+      const bg = getComputedStyle(region.closest(".modal")).backgroundColor;
+      const dataUrl = await window.htmlToImage.toPng(region, {
+        pixelRatio: 2, backgroundColor: bg, cacheBust: false, includeQueryParams: true,
+        fontEmbedCSS: await shareFontCSS(),
+        imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+      });
+      const a = document.createElement("a");
+      a.download = `tier-analysis-${tier.label}.png`;
+      a.href = dataUrl;
+      a.click();
+      toast("画像を保存しました");
+    } catch (e) {
+      console.error(e);
+      toast("画像化に失敗しました。時間をおいてもう一度お試しください。");
+    }
+  }
+
   function renderAchvPage() {
     const body = document.getElementById("achvBody");
     if (!body) return;
@@ -8288,6 +8670,8 @@
       if (e.target.files[0]) importData(e.target.files[0]);
       e.target.value = "";
     });
+
+    document.getElementById("tierAnalysisSaveBtn").addEventListener("click", saveTierAnalysisPng);
 
     // modal close buttons + overlay click
     document.querySelectorAll("[data-close]").forEach((b) =>
