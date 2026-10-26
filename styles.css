@@ -6023,3 +6023,35 @@ main.layout > .board-controls {
     max-height: calc(var(--vv-h, 100dvh) - 24px);
   }
 }
+
+/* ---------- 一覧の読み込み中表示 ---------- */
+.list-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 160px;
+  padding: 24px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.list-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  animation: list-spin 0.8s linear infinite;
+}
+
+@keyframes list-spin {
+  to { transform: rotate(360deg); }
+}

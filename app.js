@@ -2766,13 +2766,16 @@
   }
 
   // 候補名をタップ → 検索して最初の人物のフィルモグラフィを直接開く
-  async function quickLoadPerson(name) {
+  function quickLoadPerson(name) {
+    return withLoading(document.getElementById("personResults"), `「${name}」を検索中…`, () => quickLoadPersonRaw(name));
+  }
+
+  async function quickLoadPersonRaw(name) {
     const input = document.getElementById("personSearchInput");
     const status = document.getElementById("personStatus");
     input.value = name;
-    document.getElementById("personResults").innerHTML = "";
     document.getElementById("personFilmography").classList.add("hidden");
-    status.textContent = `「${name}」を検索中…`;
+    status.textContent = "";
     let res;
     try {
       res = await fetch("/api/filmarks/person/search?q=" + encodeURIComponent(name));
@@ -2791,7 +2794,7 @@
       status.textContent = "該当する人物が見つかりませんでした。";
       return;
     }
-    loadFilmography(list[0]);
+    return loadFilmography(list[0]);
   }
 
   async function searchPerson() {
@@ -2799,9 +2802,13 @@
     const status = document.getElementById("personStatus");
     const q = input.value.trim();
     if (!q) return;
-    status.textContent = "検索中…";
+    status.textContent = "";
     document.getElementById("personResults").innerHTML = "";
     document.getElementById("personFilmography").classList.add("hidden");
+    return withLoading(document.getElementById("personResults"), `「${q}」を検索中…`, () => searchPersonFetch(q, status));
+  }
+
+  async function searchPersonFetch(q, status) {
     let res;
     try {
       res = await fetch("/api/filmarks/person/search?q=" + encodeURIComponent(q));
@@ -2840,9 +2847,15 @@
     });
   }
 
-  async function loadFilmography(person) {
+  function loadFilmography(person) {
+    const box = document.getElementById("personResults");
+    box.innerHTML = "";
+    return withLoading(box, `「${person.name}」の作品を取得中…`, () => loadFilmographyRaw(person));
+  }
+
+  async function loadFilmographyRaw(person) {
     const status = document.getElementById("personStatus");
-    status.textContent = `「${person.name}」の作品を取得中…`;
+    status.textContent = "";
     let res;
     try {
       res = await fetch("/api/filmarks/person/movies?id=" + encodeURIComponent(person.id));
@@ -4239,6 +4252,25 @@
   // =======================================================================
   // 登録を促進する機能：共通ユーティリティ（チェックして一括追加するグリッド）
   // =======================================================================
+  function showLoading(el, text) {
+    if (!el) return;
+    clearLoading(el);
+    const box = document.createElement("div");
+    box.className = "list-loading";
+    box.innerHTML = `<span class="list-spinner" aria-hidden="true"></span><span class="list-loading-tx"></span>`;
+    box.querySelector(".list-loading-tx").textContent = text;
+    el.prepend(box);
+  }
+
+  function clearLoading(el) {
+    if (el) el.querySelectorAll(":scope > .list-loading").forEach((x) => x.remove());
+  }
+
+  async function withLoading(el, text, fn) {
+    showLoading(el, text);
+    try { return await fn(); } finally { clearLoading(el); }
+  }
+
   function makePickCard(f, opts) {
     opts = opts || {};
     const added = movieExists(f);
@@ -4443,12 +4475,14 @@
     recallSession = { year, nextPage: 1, hasMore: true, skipped: 0, seen: new Set(), pool: [] };
     updateRecallMoreBtn();
 
-    status.textContent = `${year}年の作品を取得中…`;
+    status.textContent = "";
+    showLoading(grid, `${year}年の作品を取得中…`);
     try {
       while (recallSession.pool.length < RECALL_MIN && recallSession.hasMore) {
         await fetchRecallBatch();
       }
     } catch (e) {
+      clearLoading(grid);
       status.innerHTML = e.message === "NO_SERVER"
         ? recallServerHint()
         : "取得に失敗しました: " + e.message;
@@ -4696,6 +4730,8 @@
     }
 
     if (btn) btn.disabled = true;
+    status.textContent = "";
+    showLoading(grid, "あなたの好みから候補を集めています…");
     try {
       // 1) 好みの人物のフィルモグラフィを集める（2回目以降はキャッシュ）
       let done = 0;
@@ -4705,8 +4741,8 @@
           const p = queue.shift();
           await recPersonFilms(p.name);
           done++;
-          if (runId === recRunId)
-            status.textContent = `あなたの好みから候補を集めています… ${done}/${prof.people.length}`;
+          const tx = runId === recRunId && grid.querySelector(".list-loading-tx");
+          if (tx) tx.textContent = `あなたの好みから候補を集めています… ${done}/${prof.people.length}`;
         }
       };
       await Promise.all(Array.from({ length: 5 }, worker));
@@ -4757,6 +4793,7 @@
       status.textContent = `${recommendFilms.length}件の候補（好みに近い順）。観た作品をタップして選び、まとめて追加できます。「候補を更新」で別の作品を表示します。`;
       renderRecommend();
     } catch (e) {
+      if (runId === recRunId) clearLoading(grid);
       if (e.message === "NO_SERVER")
         status.innerHTML =
           "候補の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
@@ -6028,11 +6065,13 @@
       x.classList.toggle("active", x.dataset.col === col.id)
     );
     fmUpdateMoreBtn(ctrl);
-    status.textContent = `「${col.label}」の作品を取得中…`;
+    status.textContent = "";
+    showLoading(grid, `「${col.label}」の作品を取得中…`);
     const session = ctrl.session;
     try {
       await fmFillQueue(ctrl, FM_TARGET);
     } catch (e) {
+      if (ctrl.session === session) clearLoading(grid);
       status.innerHTML = e.message === "NO_SERVER" ? ctrl.hint : "取得に失敗しました: " + e.message;
       return;
     }
@@ -6118,7 +6157,8 @@
       x.classList.toggle("active", x.dataset.col === col.id)
     );
     updateCollectionMoreBtn(ctx);
-    await loadMoreCollection(ctx);
+    showLoading(grid, `「${col.label}」の作品を照合中…`);
+    try { await loadMoreCollection(ctx); } finally { if (ctx.col === col) clearLoading(grid); }
   }
 
   function updateCollectionMoreBtn(ctx) {
@@ -7990,15 +8030,19 @@
     const q = document.getElementById("movieSearchInput").value.trim();
     const status = document.getElementById("searchStatus");
     if (!q) return;
-    status.textContent = "検索中…";
-    document.getElementById("searchResults").innerHTML = "";
+    status.textContent = "";
+    const box = document.getElementById("searchResults");
+    box.innerHTML = "";
+    showLoading(box, `「${q}」を検索中…`);
     try {
       const results = await searchFilmarks(q);
+      clearLoading(box);
       status.textContent = results.length
         ? `${results.length}件見つかりました（クリックで追加）`
         : "該当する映画が見つかりませんでした。";
       renderSearchResults(results);
     } catch (e) {
+      clearLoading(box);
       if (e.message === "NO_SERVER") {
         status.innerHTML =
           "検索にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行し、http://localhost:8000 を開いてください。それ以外は「手動で追加」をご利用ください。";
