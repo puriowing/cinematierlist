@@ -6346,22 +6346,6 @@ body.theme-pop .tier-analyze {
 }
 
 /* ---------- 偏愛マーク・思い出カード ---------- */
-body .movie-card.is-fav,
-body.theme-pop .movie-card.is-fav {
-  box-shadow: 0 0 0 2.5px #e0245e, 0 6px 18px rgba(224, 36, 94, 0.38);
-}
-
-body .movie-card.is-fav:hover,
-body.theme-pop .movie-card.is-fav:hover {
-  box-shadow: 0 0 0 2.5px #e0245e, 0 12px 26px rgba(224, 36, 94, 0.5);
-}
-
-body .movie-card.is-fav .movie-title,
-body.theme-pop .movie-card.is-fav .movie-title {
-  background: linear-gradient(90deg, #c2185b, #e0245e 55%, #ff5c8a);
-  color: #fff;
-}
-
 .movie-fav-badge {
   position: absolute;
   top: calc(var(--poster-h) - 26px);
