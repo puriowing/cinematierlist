@@ -1262,6 +1262,59 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
+def _timeline_settings(u):
+    return {"public": bool(u.get("timelinePublic")), "showAge": bool(u.get("timelineAge")),
+            "token": u.get("timelineToken") or ""}
+
+
+def _user_by_timeline(token):
+    if not token:
+        return None
+    for u in _load_users().values():
+        t = u.get("timelineToken")
+        if t and u.get("timelinePublic") and hmac.compare_digest(t, token):
+            return u
+    return None
+
+
+def _public_timeline(u, obj):
+    obj = obj if isinstance(obj, dict) else {}
+    items = []
+
+    def add(m, tier):
+        if not isinstance(m, dict):
+            return
+        mem = m.get("memory")
+        if not isinstance(mem, dict):
+            return
+        mem = {k: _s(mem.get(k), 600 if k == "note" else 80) for k in ("when", "where", "with", "note")}
+        mem = {k: v for k, v in mem.items() if v}
+        if not mem:
+            return
+        poster = _s(m.get("poster"), 600)
+        if not poster.startswith(("http://", "https://", "/api/img?u=")):
+            poster = ""
+        items.append({"title": _s(m.get("title"), 120), "year": _s(str(m.get("year") or ""), 8),
+                      "poster": poster, "fav": bool(m.get("fav")), "memory": mem,
+                      "tier": tier})
+
+    for t in obj.get("tiers") or []:
+        if not isinstance(t, dict):
+            continue
+        tier = {"label": _s(t.get("label"), 16), "color": _s(t.get("color"), 16)}
+        for m in t.get("items") or []:
+            add(m, tier)
+    for m in obj.get("pool") or []:
+        add(m, None)
+    res = {"name": _display_name(u), "items": items}
+    if u.get("timelineAge"):
+        try:
+            res["birthYear"] = int(obj.get("birthYear") or 0) or None
+        except (TypeError, ValueError):
+            pass
+    return res
+
+
 def _clean_ratings(raw):
     if not isinstance(raw, dict):
         return {}
@@ -1513,7 +1566,8 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_private_json({"error": "unauthorized"}, 401)
             return
         self._send_private_json({"share": u.get("share") or "", "display": _display_name(u),
-                                 "community": u.get("community") is not False})
+                                 "community": u.get("community") is not False,
+                                 "timeline": _timeline_settings(u)})
 
     def _h_social_set(self):
         uid = self._current_uid()
@@ -1535,9 +1589,27 @@ class Handler(SimpleHTTPRequestHandler):
                 u["display"] = data["display"].strip()[:24]
             if isinstance(data.get("community"), bool):
                 u["community"] = data["community"]
+            tl = data.get("timeline")
+            if isinstance(tl, dict):
+                if isinstance(tl.get("public"), bool):
+                    u["timelinePublic"] = tl["public"]
+                    if tl["public"] and not u.get("timelineToken"):
+                        u["timelineToken"] = secrets.token_urlsafe(9)
+                if isinstance(tl.get("showAge"), bool):
+                    u["timelineAge"] = tl["showAge"]
             _save_users(users)
         self._send_private_json({"share": u.get("share") or "", "display": _display_name(u),
-                                 "community": u.get("community") is not False})
+                                 "community": u.get("community") is not False,
+                                 "timeline": _timeline_settings(u)})
+
+    def _h_timeline(self, token):
+        with _data_lock:
+            u = _user_by_timeline(token)
+            obj = _load_list(u["id"]) if u else None
+        if not u:
+            self._send_private_json({"error": "not_found"}, 404)
+            return
+        self._send_private_json(_public_timeline(u, obj))
 
     def _h_community_lookup(self):
         data = self._read_json_body() or {}
@@ -1687,6 +1759,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/list":
             self._h_get_list()
+            return
+        if parsed.path.startswith("/api/timeline/"):
+            self._h_timeline(parsed.path[len("/api/timeline/"):])
             return
         if parsed.path == "/api/social":
             self._h_social_get()
@@ -1926,6 +2001,7 @@ STATIC_FILES = {
     "/icon.svg", "/icon-pop.svg",
     "/icons/apple-touch-icon.png", "/icons/icon-192.png", "/icons/icon-512.png",
     "/icons/icon-app.svg", "/icons/icon-maskable-512.png",
+    "/terms.html", "/privacy.html", "/legal.css",
 }
 
 

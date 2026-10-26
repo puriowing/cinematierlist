@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261027k" />
+  <link rel="stylesheet" href="styles.css?v=20261027m" />
 </head>
 <body>
   <header class="app-header">
@@ -116,7 +116,15 @@
       <button id="addTierBtn" class="btn btn-ghost">＋ ティアを追加</button>
     </div>
 
-    <footer class="app-footer">Tiari（ティアリ）</footer>
+    <footer class="app-footer">
+      <nav class="app-footer-links" aria-label="サービス情報">
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+        <a href="privacy.html#contact">お問い合わせ</a>
+      </nav>
+      <p class="app-footer-credit">作品情報：Filmarks ／ 配信情報：JustWatch</p>
+      <p class="app-footer-copy">© 2026 Tiari（ティアリ）</p>
+    </footer>
 
   </main>
 
@@ -598,13 +606,14 @@
   <div id="timelineModal" class="modal-overlay hidden">
     <div class="modal timeline-modal">
       <div class="modal-header">
-        <h3>📖 わたしの映画人生年表</h3>
+        <h3>📖 <span id="timelineHeading">わたしの映画人生年表</span></h3>
         <button class="modal-close" data-close="timelineModal">✕</button>
       </div>
       <div class="settings-body">
+        <div id="timelineShare" class="tl-share"></div>
         <div class="tl-head">
           <span id="timelineCount" class="tl-count"></span>
-          <label class="tl-birth">生まれた年
+          <label id="timelineBirthWrap" class="tl-birth">生まれた年
             <input id="timelineBirth" type="text" inputmode="numeric" placeholder="例: 1975" />
           </label>
         </div>

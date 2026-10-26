@@ -2702,7 +2702,7 @@
     closeModal("memoryModal");
     memoryMovieId = null;
     render();
-    if (!document.getElementById("timelineModal").classList.contains("hidden")) renderTimeline();
+    if (!timelineView && !document.getElementById("timelineModal").classList.contains("hidden")) renderTimeline();
     toast("思い出を保存しました");
   }
 
@@ -2741,13 +2741,15 @@
     return null;
   }
 
-  function timelineEntries() {
-    const birth = parseInt(state.birthYear, 10) || 0;
+  // view: null = 自分の年表 / { name, items, birthYear } = 公開リンクで見ている他人の年表
+  let timelineView = null;
+  let timelineSettings = null;
+
+  function timelineEntries(items, birth) {
     const dated = [];
     const byAge = [];
     const unknown = [];
-    allMovies().forEach((m) => {
-      if (!hasMemory(m)) return;
+    items.forEach((m) => {
       const p = parseMemoryWhen(m.memory.when);
       if (p && p.year) dated.push({ m, year: p.year, month: p.month || 0, approx: false });
       else if (p && p.age != null && birth) dated.push({ m, year: birth + p.age, month: 0, approx: true });
@@ -2756,45 +2758,63 @@
     });
     dated.sort((a, b) => a.year - b.year || a.month - b.month || (a.approx ? -1 : 1));
     byAge.sort((a, b) => a.age - b.age);
-    return { birth, dated, byAge, unknown };
+    return { dated, byAge, unknown };
   }
 
-  function timelineCard(m) {
+  function myTimelineItems() {
+    return allMovies().filter(hasMemory).map((m) => {
+      const tier = state.tiers.find((t) => t.id === currentZoneOf(m.id));
+      return Object.assign({}, m, { tier: tier ? { label: tier.label, color: tier.color } : null });
+    });
+  }
+
+  function timelineCard(m, readOnly) {
     const mem = m.memory || {};
-    const tierId = currentZoneOf(m.id);
-    const tier = state.tiers.find((t) => t.id === tierId);
+    const tier = m.tier;
     const sub = [mem.where, mem.with].filter(Boolean).map(escapeHtml).join("・");
     const poster = m.poster
       ? `<img class="tl-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
       : `<div class="tl-poster tl-poster-fb">${escapeHtml(m.title || "")}</div>`;
+    const tag = readOnly ? "div" : "button";
     return (
-      `<button type="button" class="tl-card" data-mid="${escapeHtml(m.id)}">` +
+      `<${tag} ${readOnly ? "" : `type="button" data-mid="${escapeHtml(m.id)}"`} class="tl-card${readOnly ? " is-readonly" : ""}">` +
       poster +
       `<span class="tl-body">` +
       `<span class="tl-title-row"><span class="tl-title">${escapeHtml(m.title || "")}</span>` +
       (m.fav ? `<span class="tl-fav">偏${window.picktureIcon ? window.picktureIcon("heart") : "♥"}</span>` : "") +
-      (tier ? `<span class="tl-tier" style="background:${tier.color};color:${textColorOn(tier.color)}">${escapeHtml(tier.label)}</span>` : "") +
+      (tier ? `<span class="tl-tier" style="background:${escapeHtml(tier.color)};color:${textColorOn(tier.color)}">${escapeHtml(tier.label)}</span>` : "") +
       `</span>` +
       (mem.when ? `<span class="tl-when">${escapeHtml(mem.when)}</span>` : "") +
       (sub ? `<span class="tl-sub">${sub}</span>` : "") +
       (mem.note ? `<span class="tl-note">${escapeHtml(mem.note)}</span>` : "") +
-      `</span></button>`
+      `</${tag}>`
     );
   }
 
   function renderTimeline() {
+    const view = timelineView;
     const body = document.getElementById("timelineBody");
-    const { birth, dated, byAge, unknown } = timelineEntries();
-    const total = dated.length + byAge.length + unknown.length;
+    const items = view ? view.items : myTimelineItems();
+    const birth = view ? (parseInt(view.birthYear, 10) || 0) : (parseInt(state.birthYear, 10) || 0);
+    const { dated, byAge, unknown } = timelineEntries(items, birth);
+    const total = items.length;
+
+    document.getElementById("timelineHeading").textContent =
+      view ? `${view.name}さんの映画人生年表` : "わたしの映画人生年表";
+    document.getElementById("timelineBirthWrap").hidden = !!view;
+    document.getElementById("timelineShare").hidden = !!view;
     document.getElementById("timelineBirth").value = state.birthYear || "";
     document.getElementById("timelineCount").textContent = total ? `${total}本の思い出` : "";
+    if (!view) renderTimelineShare();
 
     if (!total) {
-      body.innerHTML =
-        `<div class="tl-empty">まだ思い出がありません。<br>作品をタップして「📖 思い出を書く」から、いつ・どこで・誰と観たかを残すと、ここに年表として並びます。</div>`;
+      body.innerHTML = view
+        ? `<div class="tl-empty">まだ思い出が書かれていません。</div>`
+        : `<div class="tl-empty">まだ思い出がありません。<br>作品をタップして「📖 思い出を書く」から、いつ・どこで・誰と観たかを残すと、ここに年表として並びます。</div>`;
       return;
     }
 
+    const card = (m) => `<li class="tl-item">${timelineCard(m, !!view)}</li>`;
     let html = "";
     if (dated.length) {
       html += `<ol class="tl-list">`;
@@ -2808,23 +2828,23 @@
             `</li>`;
           lastYear = e.year;
         }
-        html += `<li class="tl-item">${timelineCard(e.m)}</li>`;
+        html += card(e.m);
       });
       html += `</ol>`;
     }
     if (byAge.length) {
       html +=
         `<div class="tl-section"><div class="tl-section-head">年齢・時期で書いた思い出</div>` +
-        `<p class="tl-section-hint">上の「生まれた年」を入れると、年表の中に並びます。</p>` +
-        `<ol class="tl-list">` + byAge.map((e) => `<li class="tl-item">${timelineCard(e.m)}</li>`).join("") + `</ol></div>`;
+        (view ? "" : `<p class="tl-section-hint">上の「生まれた年」を入れると、年表の中に並びます。</p>`) +
+        `<ol class="tl-list">` + byAge.map((e) => card(e.m)).join("") + `</ol></div>`;
     }
     if (unknown.length) {
       html +=
-        `<div class="tl-section"><div class="tl-section-head">いつか分からない思い出</div>` +
-        `<p class="tl-section-hint">「いつ観た」に年（例: 2016年）や年齢・時期（例: 10歳、小学生の頃）を書くと年表に並びます。</p>` +
-        `<ol class="tl-list">` + unknown.map((e) => `<li class="tl-item">${timelineCard(e.m)}</li>`).join("") + `</ol></div>`;
+        `<div class="tl-section"><div class="tl-section-head">${view ? "そのほかの思い出" : "いつか分からない思い出"}</div>` +
+        (view ? "" : `<p class="tl-section-hint">「いつ観た」に年（例: 2016年）や年齢・時期（例: 10歳、小学生の頃）を書くと年表に並びます。</p>`) +
+        `<ol class="tl-list">` + unknown.map((e) => card(e.m)).join("") + `</ol></div>`;
     }
-    const favNoMemory = allMovies().filter((m) => m.fav && !hasMemory(m));
+    const favNoMemory = view ? [] : allMovies().filter((m) => m.fav && !hasMemory(m));
     if (favNoMemory.length) {
       html +=
         `<div class="tl-section"><div class="tl-section-head">思い出がまだの偏愛作品</div>` +
@@ -2836,7 +2856,82 @@
     body.innerHTML = html;
   }
 
+  function timelineShareUrl(token) {
+    return location.origin + location.pathname + "?timeline=" + encodeURIComponent(token);
+  }
+
+  async function loadTimelineSettings() {
+    if (!currentUser) { timelineSettings = null; renderTimelineShare(); return; }
+    let r = null;
+    try { r = await apiJSON("/api/social"); } catch (e) {}
+    timelineSettings = r && r.ok && r.data.timeline ? r.data.timeline : null;
+    renderTimelineShare();
+  }
+
+  function renderTimelineShare() {
+    const box = document.getElementById("timelineShare");
+    if (!currentUser) {
+      box.innerHTML =
+        `<div class="tl-share-row"><span class="tl-share-label">非公開</span>` +
+        `<span class="tl-share-note">公開するにはログインが必要です。</span>` +
+        `<button type="button" id="tlLoginBtn" class="btn btn-ghost btn-sm">マイページ</button></div>`;
+      document.getElementById("tlLoginBtn").addEventListener("click", () => { closeModal("timelineModal"); openMyPage(); });
+      return;
+    }
+    const st = timelineSettings;
+    if (!st) { box.innerHTML = `<div class="tl-share-row"><span class="tl-share-note">公開設定を読み込み中…</span></div>`; return; }
+    box.innerHTML =
+      `<div class="tl-share-row">` +
+      `<div class="tl-switch" role="group" aria-label="公開設定">` +
+      `<button type="button" class="tl-switch-btn${st.public ? "" : " active"}" data-public="0">非公開</button>` +
+      `<button type="button" class="tl-switch-btn${st.public ? " active" : ""}" data-public="1">公開</button>` +
+      `</div>` +
+      `<span class="tl-share-note">${st.public ? "リンクを知っている人が見られます" : "自分だけが見られます"}</span>` +
+      `</div>` +
+      (st.public && st.token
+        ? `<div class="soc-paste tl-share-link"><input id="tlShareUrl" type="text" readonly value="${escapeHtml(timelineShareUrl(st.token))}" />` +
+          `<button type="button" id="tlCopyBtn" class="btn btn-primary btn-sm">コピー</button></div>` +
+          `<label class="tl-age-opt"><input type="checkbox" id="tlShowAge" ${st.showAge ? "checked" : ""} /> 年齢も表示する（生まれた年が分かります）</label>`
+        : "");
+    box.querySelectorAll("[data-public]").forEach((b) =>
+      b.addEventListener("click", () => saveTimelineSettings({ public: b.dataset.public === "1" })));
+    const copy = document.getElementById("tlCopyBtn");
+    if (copy) copy.addEventListener("click", async () => {
+      const input = document.getElementById("tlShareUrl");
+      try { await navigator.clipboard.writeText(input.value); } catch (e) { input.select(); document.execCommand("copy"); }
+      toast("リンクをコピーしました");
+    });
+    const age = document.getElementById("tlShowAge");
+    if (age) age.addEventListener("change", () => saveTimelineSettings({ showAge: age.checked }));
+  }
+
+  async function saveTimelineSettings(patch) {
+    if (patch.public === (timelineSettings && timelineSettings.public)) return;
+    const r = await apiJSON("/api/social", { method: "POST", body: JSON.stringify({ timeline: patch }) });
+    if (!r.ok || !r.data.timeline) { toast("変更に失敗しました"); return; }
+    timelineSettings = r.data.timeline;
+    if ("public" in patch) toast(timelineSettings.public ? "年表を公開しました" : "年表を非公開にしました");
+    renderTimelineShare();
+  }
+
   function openTimeline() {
+    timelineView = null;
+    renderTimeline();
+    openModal("timelineModal");
+    loadTimelineSettings();
+  }
+
+  async function handleTimelineLink() {
+    const params = new URLSearchParams(location.search);
+    const token = params.get("timeline");
+    if (!token) return;
+    params.delete("timeline");
+    const qs = params.toString();
+    history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash);
+    let r = null;
+    try { r = await apiJSON("/api/timeline/" + encodeURIComponent(token)); } catch (e) {}
+    if (!r || !r.ok) { toast("この年表は非公開か、リンクが無効です"); return; }
+    timelineView = r.data;
     renderTimeline();
     openModal("timelineModal");
   }
@@ -2845,7 +2940,7 @@
     document.getElementById("timelineBtn").addEventListener("click", openTimeline);
     document.getElementById("timelineBody").addEventListener("click", (e) => {
       const b = e.target.closest("[data-mid]");
-      if (!b) return;
+      if (!b || timelineView) return;
       const found = findMovie(b.dataset.mid);
       if (found) openMemory(found.movie);
     });
@@ -9295,6 +9390,7 @@
     .then(() => { try { return checkAuth(); } catch (e) {} })
     .then(() => { try { handleCompareLink(); } catch (e) {} })
     .then(() => { try { handleChallengeLink(); } catch (e) {} })
+    .then(() => { try { handleTimelineLink(); } catch (e) {} })
     .catch(() => {});
 
   // PWA: Service Worker を登録（HTTPS または localhost のみ有効）。
