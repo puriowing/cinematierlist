@@ -111,12 +111,11 @@ body {
   gap: 0;
 }
 
-.wm-kana {
-  display: block;
-  margin-top: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.5em;
+.app-footer {
+  margin: 28px 0 8px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   color: var(--text-dim);
 }
 
@@ -6043,6 +6042,10 @@ main.layout > #tierBoard {
 
 main.layout > .board-controls {
   order: 3;
+}
+
+main.layout > .app-footer {
+  order: 4;
 }
 
 /* スマホ：キーボード表示中もシートを見える範囲に収める */
