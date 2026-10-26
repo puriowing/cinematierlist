@@ -1260,9 +1260,78 @@
   }
 
   // マイページ（アカウント＋保存・共有＋設定＋復元ポイントを統合）
+  // マイページ：他の人に見せる内容をまとめて切り替える
+  const PRIVACY_GROUPS = [
+    { title: "友だち比較リンク", note: "あなたの比較用リンクを開いた人に見せる項目です。一致度と共通の作品数は常に表示されます。", items: [
+      ["cmpBoth", "2人とも高評価の作品"],
+      ["cmpSplit", "評価が分かれた作品"],
+      ["cmpRecs", "あなたの高評価作（相手へのおすすめ）"],
+    ] },
+    { title: "人生年表（公開したとき）", note: "公開した年表で見せる項目です。「いつ観た」は年表の並びに使うため常に表示されます。", items: [
+      ["tlWhere", "観た場所"],
+      ["tlWith", "一緒に観た人"],
+      ["tlNote", "思い出のメモ"],
+    ] },
+  ];
+
+  async function renderPrivacySettings() {
+    const box = document.getElementById("privacyBody");
+    if (!box) return;
+    if (!currentUser) {
+      box.innerHTML = `<p class="hint">ログインすると、ほかの人に見せる内容をここでまとめて切り替えられます（ログインしていない間は、何も公開されません）。</p>`;
+      return;
+    }
+    box.innerHTML = `<p class="hint">読み込み中…</p>`;
+    let r = null;
+    try { r = await apiJSON("/api/social"); } catch (e) {}
+    if (!r || !r.ok) { box.innerHTML = `<p class="hint">読み込みに失敗しました。</p>`; return; }
+    const d = r.data;
+    const pv = d.privacy || {};
+    const tl = d.timeline || {};
+    const sw = (id, on, label) =>
+      `<label class="pv-row"><span class="pv-label">${escapeHtml(label)}</span>` +
+      `<input type="checkbox" class="pv-switch" data-key="${id}" ${on ? "checked" : ""} /></label>`;
+    box.innerHTML =
+      `<p class="hint">ほかの人に見せる内容をまとめて切り替えます。オフにした項目は、相手の画面に表示されません。</p>` +
+      `<label class="field"><span>ほかの人に表示される名前</span>` +
+      `<div class="soc-paste"><input id="pvDisplay" type="text" maxlength="24" value="${escapeHtml(d.display)}" />` +
+      `<button type="button" id="pvDisplaySave" class="btn btn-ghost btn-sm">変更</button></div></label>` +
+      `<div class="pv-group"><p class="pv-title">みんなのティア</p>` +
+      sw("community", d.community, "自分の評価をみんなのティアに含める（名前は出ません）") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">${PRIVACY_GROUPS[0].title}` +
+      `<small>${d.share ? "リンク発行中" : "リンク未発行"}</small></p><p class="pv-note">${PRIVACY_GROUPS[0].note}</p>` +
+      PRIVACY_GROUPS[0].items.map(([k, l]) => sw(k, pv[k] !== false, l)).join("") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">${PRIVACY_GROUPS[1].title}` +
+      `<small>${tl.public ? "公開中" : "非公開"}</small></p><p class="pv-note">${PRIVACY_GROUPS[1].note}</p>` +
+      sw("tlPublic", !!tl.public, "年表をリンクで公開する") +
+      PRIVACY_GROUPS[1].items.map(([k, l]) => sw(k, pv[k] !== false, l)).join("") +
+      sw("tlAge", !!tl.showAge, "年齢（生まれた年が分かります）") + `</div>`;
+
+    document.getElementById("pvDisplaySave").addEventListener("click", async () => {
+      const res = await apiJSON("/api/social", { method: "POST", body: JSON.stringify({ display: document.getElementById("pvDisplay").value }) });
+      toast(res.ok ? "名前を変更しました" : "変更に失敗しました");
+    });
+    box.querySelectorAll(".pv-switch").forEach((el) => el.addEventListener("change", async () => {
+      const k = el.dataset.key;
+      let body;
+      if (k === "community") body = { community: el.checked };
+      else if (k === "tlPublic") body = { timeline: { public: el.checked } };
+      else if (k === "tlAge") body = { timeline: { showAge: el.checked } };
+      else body = { privacy: { [k]: el.checked } };
+      el.disabled = true;
+      const res = await apiJSON("/api/social", { method: "POST", body: JSON.stringify(body) });
+      el.disabled = false;
+      if (!res.ok) { el.checked = !el.checked; toast("変更に失敗しました"); return; }
+      if (res.data && res.data.timeline) timelineSettings = res.data.timeline;
+      toast(el.checked ? "表示するようにしました" : "表示しないようにしました");
+      if (k === "tlPublic") renderPrivacySettings();
+    }));
+  }
+
   function openMyPage() {
     renderAuth();
     renderBackupList();
+    renderPrivacySettings();
     openModal("settingsModal");
   }
 
@@ -1924,6 +1993,7 @@
           `<div class="soc-line"><small class="soc-dim">${name}</small> ${tierChip(m.friend)}</div><div class="soc-line">${socWatchBtn(m)}</div>`)).join("") +
         `</div>`;
     }
+    if ((d.hidden || []).length) html += `<p class="soc-note">${name} さんは一部の項目を非公開にしています。</p>`;
     html += `<p class="hint">ティアの名前は、相手の評価をあなたのティアの段階に置きかえて表示しています。</p></div>`;
     box.innerHTML = html;
     bindWatchButtons(box, d.recs);

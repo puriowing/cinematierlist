@@ -1262,6 +1262,14 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
+PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote")
+
+
+def _privacy(u):
+    p = u.get("privacy") if isinstance(u.get("privacy"), dict) else {}
+    return {k: p.get(k) is not False for k in PRIVACY_KEYS}
+
+
 def _timeline_settings(u):
     return {"public": bool(u.get("timelinePublic")), "showAge": bool(u.get("timelineAge")),
             "token": u.get("timelineToken") or ""}
@@ -1280,6 +1288,8 @@ def _user_by_timeline(token):
 def _public_timeline(u, obj):
     obj = obj if isinstance(obj, dict) else {}
     items = []
+    pv = _privacy(u)
+    fields = ["when"] + [k for k, flag in (("where", "tlWhere"), ("with", "tlWith"), ("note", "tlNote")) if pv[flag]]
 
     def add(m, tier):
         if not isinstance(m, dict):
@@ -1287,7 +1297,7 @@ def _public_timeline(u, obj):
         mem = m.get("memory")
         if not isinstance(mem, dict):
             return
-        mem = {k: _s(mem.get(k), 600 if k == "note" else 80) for k in ("when", "where", "with", "note")}
+        mem = {k: _s(mem.get(k), 600 if k == "note" else 80) for k in fields}
         mem = {k: v for k, v in mem.items() if v}
         if not mem:
             return
@@ -1567,7 +1577,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         self._send_private_json({"share": u.get("share") or "", "display": _display_name(u),
                                  "community": u.get("community") is not False,
-                                 "timeline": _timeline_settings(u)})
+                                 "timeline": _timeline_settings(u), "privacy": _privacy(u)})
 
     def _h_social_set(self):
         uid = self._current_uid()
@@ -1597,10 +1607,17 @@ class Handler(SimpleHTTPRequestHandler):
                         u["timelineToken"] = secrets.token_urlsafe(9)
                 if isinstance(tl.get("showAge"), bool):
                     u["timelineAge"] = tl["showAge"]
+            pv = data.get("privacy")
+            if isinstance(pv, dict):
+                cur = _privacy(u)
+                for k in PRIVACY_KEYS:
+                    if isinstance(pv.get(k), bool):
+                        cur[k] = pv[k]
+                u["privacy"] = cur
             _save_users(users)
         self._send_private_json({"share": u.get("share") or "", "display": _display_name(u),
                                  "community": u.get("community") is not False,
-                                 "timeline": _timeline_settings(u)})
+                                 "timeline": _timeline_settings(u), "privacy": _privacy(u)})
 
     def _h_timeline(self, token):
         with _data_lock:
@@ -1646,7 +1663,11 @@ class Handler(SimpleHTTPRequestHandler):
             friend_ratings = dict(_ratings_cache.get(friend["id"]) or {})
             is_self = friend["id"] == self._current_uid()
         res = _compare(friend_ratings, mine)
-        res.update({"name": _display_name(friend), "self": is_self})
+        pv = _privacy(friend)
+        hidden = [sec for sec, flag in (("both", "cmpBoth"), ("split", "cmpSplit"), ("recs", "cmpRecs")) if not pv[flag]]
+        for sec in hidden:
+            res[sec] = []
+        res.update({"name": _display_name(friend), "self": is_self, "hidden": hidden})
         self._send_private_json(res)
 
     def _h_challenge_create(self):
