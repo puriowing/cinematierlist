@@ -111,9 +111,18 @@ body {
   gap: 0;
 }
 
+.wm-kana {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  color: var(--text-dim);
+}
+
 .app-header h1.wordmark svg {
   display: block;
-  height: 1.85em;
+  height: 1.05em;
   width: auto;
 }
 
