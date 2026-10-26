@@ -1903,7 +1903,30 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
             return
+        if not self._static_allowed():
+            return
         super().do_GET()
+
+    def do_HEAD(self):
+        if not self._static_allowed():
+            return
+        super().do_HEAD()
+
+    def _static_allowed(self):
+        """フロントが使うファイルだけを配信し、それ以外（data/ 等）は 404。"""
+        path = urllib.parse.urlparse(self.path).path
+        if path in ("/", "/index.html") or path in STATIC_FILES:
+            return True
+        self.send_error(404)
+        return False
+
+
+STATIC_FILES = {
+    "/app.js", "/styles.css", "/icons.js", "/sw.js", "/manifest.webmanifest",
+    "/icon.svg", "/icon-pop.svg",
+    "/icons/apple-touch-icon.png", "/icons/icon-192.png", "/icons/icon-512.png",
+    "/icons/icon-app.svg", "/icons/icon-maskable-512.png",
+}
 
 
 def _lan_ip():
