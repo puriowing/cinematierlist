@@ -5913,3 +5913,73 @@ body.theme-pop .collapse-toggle {
     scroll-margin-top: 70px;
   }
 }
+
+/* テーマで絞り込み：スマホは1行に最小化 */
+@media (max-width: 768px) {
+  body .filter-bar {
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    margin-bottom: 12px;
+  }
+
+  body .filter-bar .filter-label {
+    font-size: 0;
+    flex: 0 0 auto;
+    color: var(--accent);
+  }
+
+  body .filter-bar .filter-label .ic {
+    width: 20px;
+    height: 20px;
+  }
+
+  body .filter-bar .theme-filter-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    height: 38px;
+    padding: 0 12px;
+  }
+
+  body .filter-bar .movie-search-input {
+    flex: 1 1 80px;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    order: 1;
+    height: 38px;
+    margin: 0;
+  }
+
+  body .filter-bar .share-theme-btn {
+    order: 2;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    font-size: 0;
+    border-radius: 50%;
+  }
+
+  body .filter-bar .share-theme-btn .ic {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+  }
+
+  body .filter-bar .filter-info.is-idle {
+    display: none;
+  }
+
+  body .filter-bar .filter-info {
+    order: 3;
+    flex: 1 1 100%;
+    font-size: 11px;
+  }
+}

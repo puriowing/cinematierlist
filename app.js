@@ -3411,6 +3411,7 @@
     const info = document.getElementById("filterInfo");
     if (!info) return;
     const total = allMovies().length;
+    info.classList.toggle("is-idle", !hasFilter() && !searchQuery);
     if (!hasFilter() && !searchQuery) {
       info.textContent = `登録 ${total} 本`;
     } else {
