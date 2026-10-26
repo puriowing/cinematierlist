@@ -1200,7 +1200,7 @@
     try {
       resp = await apiJSON(path, { method: "POST", body: JSON.stringify({ username, password }) });
     } catch (e) {
-      showAuthError("サーバーに接続できません（python3 server.py を起動してください）");
+      showAuthError("サーバーに接続できません。時間をおいてもう一度お試しください。");
       return;
     }
     if (!resp.ok) {
@@ -1639,7 +1639,7 @@
       if (currentUser) social = await apiJSON("/api/social");
     } catch (e) {}
     if (!top || !top.ok || !look || !look.ok) {
-      box.innerHTML = `<p class="soc-note">サーバーに接続できません（python3 server.py を起動してください）。</p>`;
+      box.innerHTML = `<p class="soc-note">サーバーに接続できません。時間をおいてもう一度お試しください。</p>`;
       return;
     }
     const min = top.data.min;
@@ -2455,7 +2455,7 @@
     } catch (e) {
       if (infoMovieId !== reqId) return;
       box.innerHTML =
-        `<span class="info-watch-note">配信・上映状況の取得にはローカルサーバー（<code>python3 server.py</code>）が必要です。</span>`;
+        `<span class="info-watch-note">配信・上映状況を取得できませんでした。</span>`;
       return;
     }
     if (infoMovieId !== reqId) return; // 別作品に切り替わっていたら無視
@@ -2781,7 +2781,7 @@
       res = await fetch("/api/filmarks/person/search?q=" + encodeURIComponent(name));
     } catch (e) {
       status.innerHTML =
-        "人物検索にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+        "通信に失敗しました。時間をおいてもう一度お試しください。";
       return;
     }
     if (!res.ok) {
@@ -2814,7 +2814,7 @@
       res = await fetch("/api/filmarks/person/search?q=" + encodeURIComponent(q));
     } catch (e) {
       status.innerHTML =
-        "人物検索にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+        "通信に失敗しました。時間をおいてもう一度お試しください。";
       return;
     }
     if (!res.ok) {
@@ -3937,7 +3937,7 @@
     } catch (e) {
       updateFilterInfo();
       if (e.message === "NO_SERVER") {
-        toast("分析にはローカルサーバーが必要です（python3 server.py）");
+        toast("通信に失敗しました。時間をおいてもう一度お試しください。");
       } else {
         toast("分析に失敗しました: " + e.message);
       }
@@ -4442,7 +4442,7 @@
   }
 
   function recallServerHint() {
-    return "「公開年」機能にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+    return "通信に失敗しました。時間をおいてもう一度お試しください。";
   }
 
   function updateRecallStatus() {
@@ -4796,7 +4796,7 @@
       if (runId === recRunId) clearLoading(grid);
       if (e.message === "NO_SERVER")
         status.innerHTML =
-          "候補の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+          "通信に失敗しました。時間をおいてもう一度お試しください。";
       else status.textContent = "候補の取得に失敗しました。少し時間をおいて再度お試しください。";
     } finally {
       if (btn && runId === recRunId) btn.disabled = false;
@@ -4945,7 +4945,7 @@
       list = data.results || [];
     } catch (e) {
       status.innerHTML =
-        "公開予定の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+        "通信に失敗しました。時間をおいてもう一度お試しください。";
       return;
     }
     // 未来日・未登録・未ウォッチのものだけに絞る
@@ -5980,14 +5980,14 @@
   const genreCtrl = {
     panel: "genre", gridId: "genreGrid", statusId: "genreStatus", actionsId: "genreActions",
     addBtnId: "genreAddBtn", moreWrapId: "genreMoreWrap", moreBtnId: "genreMoreBtn",
-    hint: "ジャンル別の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。",
+    hint: "通信に失敗しました。時間をおいてもう一度お試しください。",
     buildUrl: (col, from, pages) => `/api/filmarks/genre?genre=${col.fmGenre}&from=${from}&pages=${pages}`,
     films: [], session: newFmSession(),
   };
   const awardCtrl = {
     panel: "award", gridId: "awardGrid", statusId: "awardStatus", actionsId: "awardActions",
     addBtnId: "awardAddBtn", moreWrapId: "awardMoreWrap", moreBtnId: "awardMoreBtn",
-    hint: "映画賞の取得にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。",
+    hint: "通信に失敗しました。時間をおいてもう一度お試しください。",
     buildUrl: (col, from, pages) => `/api/filmarks/award?path=${encodeURIComponent(col.fmAward)}&from=${from}&pages=${pages}`,
     films: [], session: newFmSession(),
   };
@@ -6221,7 +6221,7 @@
     if (ctx.col !== col) return;
     if (serverDown) {
       status.innerHTML =
-        "照合にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行してください。";
+        "通信に失敗しました。時間をおいてもう一度お試しください。";
       if (moreBtn) { moreBtn.disabled = false; moreBtn.textContent = "もっと見る"; }
       return;
     }
@@ -7510,7 +7510,7 @@
       panel("🎥 よく登録している監督", `<div class="stat-rank-list">${statRankRows(s.topDirectors, s.total)}</div>`) +
       panel("⭐ よく登録している出演者", `<div class="stat-rank-list">${statRankRows(s.topActors, s.total)}</div>`) +
       `</div>` +
-      `<p class="stat-note">数値は「本数」と「全登録数(${s.total}本)に占める割合」です。ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。種別・監督・出演者・ジャンルは <code>python3 server.py</code> 起動中に自動補完されます。</p>`;
+      `<p class="stat-note">数値は「本数」と「全登録数(${s.total}本)に占める割合」です。ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。種別・監督・出演者・ジャンルは自動で補完されます。</p>`;
   }
 
   function openStatsModal() {
@@ -8045,7 +8045,7 @@
       clearLoading(box);
       if (e.message === "NO_SERVER") {
         status.innerHTML =
-          "検索にはローカルサーバーが必要です。ターミナルで <code>python3 server.py</code> を実行し、http://localhost:8000 を開いてください。それ以外は「手動で追加」をご利用ください。";
+          "通信に失敗しました。時間をおいてもう一度お試しください。うまくいかないときは「手動で追加」をご利用ください。";
       } else if (e.message === "FETCH_FAILED") {
         status.textContent = "検索元への接続に失敗しました。ネット接続を確認してください。";
       } else {

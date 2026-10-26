@@ -161,7 +161,7 @@
       <!-- Recall by release (公開) year tab -->
       <div class="tab-panel" data-panel="recall">
         <p class="hint" style="margin-top:0">
-          公開年を選ぶと、その年に日本で公開された作品を公開が早い順に一覧表示します。観た作品をタップして選び、まとめて追加できます。リバイバル上映はオリジナルの公開年で扱います。「もっと見る」でさらに続きを読み込めます（<code>python3 server.py</code> が必要）。
+          公開年を選ぶと、その年に日本で公開された作品を公開が早い順に一覧表示します。観た作品をタップして選び、まとめて追加できます。リバイバル上映はオリジナルの公開年で扱います。「もっと見る」でさらに続きを読み込めます。
         </p>
         <div class="cal-controls">
           <select id="recallYear" aria-label="公開年"></select>
@@ -177,7 +177,7 @@
       <!-- Recommend tab -->
       <div class="tab-panel" data-panel="recommend">
         <p class="hint" style="margin-top:0">
-          登録済みの監督・出演者から、まだ入れていない作品を提案します（<code>python3 server.py</code> が必要）。
+          登録済みの監督・出演者から、まだ入れていない作品を提案します。
         </p>
         <div class="filmo-actions">
           <button id="recommendRefreshBtn" class="btn btn-ghost btn-sm">🔄 候補を更新</button>
@@ -189,7 +189,7 @@
       <!-- Collection tab -->
       <div class="tab-panel" data-panel="collection">
         <p class="hint" style="margin-top:0">
-          人気シリーズや名作スタジオの作品を、観たものだけチェックしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+          人気シリーズや名作スタジオの作品を、観たものだけチェックしてまとめて追加できます。
         </p>
         <div class="suggest-head">
           <span class="suggest-label">おすすめのコレクション</span>
@@ -209,7 +209,7 @@
       <!-- Genre tab -->
       <div class="tab-panel" data-panel="genre">
         <p class="hint" style="margin-top:0">
-          ジャンルを選ぶと、その人気作を数百件以上から表示します。観たものだけタップしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+          ジャンルを選ぶと、その人気作を数百件以上から表示します。観たものだけタップしてまとめて追加できます。
         </p>
         <div class="suggest-head">
           <span class="suggest-label">🎬 ジャンルを選ぶ</span>
@@ -225,7 +225,7 @@
       <!-- Awards / festivals tab -->
       <div class="tab-panel" data-panel="award">
         <p class="hint" style="margin-top:0">
-          各映画賞・映画祭の受賞作から、観たものだけチェックしてまとめて追加できます（<code>python3 server.py</code> が必要）。
+          各映画賞・映画祭の受賞作から、観たものだけチェックしてまとめて追加できます。
         </p>
         <div class="suggest-head">
           <span class="suggest-label">🏆 映画賞・映画祭を選ぶ</span>
@@ -241,7 +241,7 @@
       <!-- Person (bulk) tab -->
       <div class="tab-panel" data-panel="person">
         <p class="hint" style="margin-top:0">
-          俳優・監督名で検索し、出演作・監督作から観たものだけタップしてまとめて追加できます（<code>python3 server.py</code> での起動が必要）。
+          俳優・監督名で検索し、出演作・監督作から観たものだけタップしてまとめて追加できます。
         </p>
         <div class="suggest-head">
           <span class="suggest-label">おすすめの人物（タップで作品一覧へ）</span>
@@ -520,7 +520,7 @@
       <div class="settings-body">
         <div class="up-intro">
           <p class="hint" style="margin:0">
-            あなたのティアリストの傾向（監督・出演者・ジャンル・種別）をもとに、これから公開される作品からおすすめを提案します。各作品の「作品情報 ↗」で詳細を確認してから、観たいリストに追加できます（<code>python3 server.py</code> が必要）。
+            あなたのティアリストの傾向（監督・出演者・ジャンル・種別）をもとに、これから公開される作品からおすすめを提案します。各作品の「作品情報 ↗」で詳細を確認してから、観たいリストに追加できます。
           </p>
           <button id="upcomingRefreshBtn" class="btn btn-ghost btn-sm">🔄 候補を更新</button>
         </div>
@@ -795,6 +795,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261026t"></script>
+  <script src="app.js?v=20261026u"></script>
 </body>
 </html>
