@@ -4929,14 +4929,25 @@
     else renderUpcoming();
   }
 
+  const UP_BATCH = 30;
+  let upcomingCands = [];
+  let upcomingNext = 0;
+  let upcomingProf = null;
+  let upcomingRun = 0;
+
   async function buildUpcoming() {
+    const run = ++upcomingRun;
     const status = document.getElementById("upcomingStatus");
     const grid = document.getElementById("upcomingGrid");
     grid.innerHTML = "";
     upcomingFilms = [];
+    upcomingCands = [];
+    upcomingNext = 0;
+    updateUpcomingMore();
 
     // 1) 公開予定リストを取得
-    status.textContent = "これから公開される作品を集めています…";
+    status.textContent = "";
+    showLoading(grid, "これから公開される作品を集めています…");
     let list = [];
     try {
       const res = await fetch("/api/filmarks/coming?pages=8");
@@ -4944,46 +4955,59 @@
       const data = await res.json();
       list = data.results || [];
     } catch (e) {
-      status.innerHTML =
-        "通信に失敗しました。時間をおいてもう一度お試しください。";
+      if (run !== upcomingRun) return;
+      clearLoading(grid);
+      status.textContent = "通信に失敗しました。時間をおいてもう一度お試しください。";
       return;
     }
-    // 未来日・未登録・未ウォッチのものだけに絞る
+    if (run !== upcomingRun) return;
+    // 未来日・未登録のものだけに絞り、公開が近い順に並べる
     const today = new Date().toISOString().slice(0, 10);
     const seen = new Set();
-    const cands = [];
     list.forEach((f) => {
       if (!f.id || seen.has(f.id)) return;
       if (f.date && f.date < today) return;
       if (movieExists({ filmarksId: f.id, title: f.title })) return;
       seen.add(f.id);
-      cands.push({ title: f.title, poster: f.poster || "", year: f.year || "",
+      upcomingCands.push({ title: f.title, poster: f.poster || "", year: f.year || "",
         date: f.date || "", filmarksId: f.id });
     });
-    if (!cands.length) {
+    upcomingCands.sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
+    if (!upcomingCands.length) {
+      clearLoading(grid);
       status.textContent = "公開予定の新作が見つかりませんでした。少し時間をおいて再度お試しください。";
       return;
     }
 
-    // 2) 好みプロフィール
-    const prof = tasteProfile();
+    upcomingProf = tasteProfile();
+    recLoadCache();
+    await loadUpcomingBatch(run);
+  }
 
-    // 3) 各作品の監督・出演・ジャンル・種別を取得（好みとの照合＋作品情報の表示用）
-    for (let i = 0; i < cands.length; i += 60) {
-      const chunk = cands.slice(i, i + 60);
-      const ids = chunk.map((m) => m.filmarksId).join(",");
-      let res;
-      try {
-        res = await fetch("/api/filmarks/details?ids=" + encodeURIComponent(ids));
-      } catch (e) { break; }
-      if (!res.ok) continue;
-      const data = await res.json();
-      chunk.forEach((m) => applyCredit(m, (data.results || {})[m.filmarksId]));
-      status.textContent = `作品情報を取得しています… ${Math.min(i + 60, cands.length)}/${cands.length}`;
+  // 公開が近い順に UP_BATCH 本ずつ作品情報を確認し、好みに近い順に並べて追記する
+  async function loadUpcomingBatch(run = upcomingRun) {
+    const grid = document.getElementById("upcomingGrid");
+    const batch = upcomingCands.slice(upcomingNext, upcomingNext + UP_BATCH);
+    if (!batch.length) return;
+    upcomingNext += batch.length;
+    const first = !upcomingFilms.length;
+    if (first) showLoading(grid, "あなたの好みと照らし合わせています…");
+    else {
+      const box = document.createElement("div");
+      box.className = "list-loading";
+      box.innerHTML = `<span class="list-spinner" aria-hidden="true"></span><span class="list-loading-tx">続きを読み込んでいます…</span>`;
+      grid.appendChild(box);
     }
+    const moreBtn = document.getElementById("upcomingMoreBtn");
+    if (moreBtn) moreBtn.disabled = true;
 
-    // 4) スコアリングして並べ替え（好み一致が上位、次に公開日の早い順）
-    upcomingFilms = cands.map((m) => {
+    await recFetchDetails(batch.map((m) => m.filmarksId));
+    if (run !== upcomingRun) return;
+    recSaveCache();
+
+    const prof = upcomingProf;
+    const films = batch.map((m) => {
+      applyCredit(m, recDetailCache.get(m.filmarksId));
       const { score, reason } = prof.count ? scoreUpcoming(m, prof) : { score: 0, reason: "" };
       return {
         title: m.title, poster: m.poster, year: m.year, date: m.date,
@@ -4993,16 +5017,34 @@
         genres: m.genres || [], kind: m.kind || "",
       };
     }).sort((a, b) => b._score - a._score || String(a.date).localeCompare(String(b.date)));
+    upcomingFilms.push(...films);
 
-    const matched = upcomingFilms.filter((f) => f._score > 0).length;
-    if (!prof.count) {
-      status.textContent = `近日公開の${upcomingFilms.length}件を公開日順に表示しています。観た映画を登録すると、あなたの好みに合わせて並び替えます。`;
-    } else if (matched) {
-      status.textContent = `あなたの好みに近い公開予定作を上位に${matched}件。「作品情報 ↗」で詳細を確認して、観たいリストに追加できます。`;
-    } else {
-      status.textContent = `好みに近い新作は見つかりませんでしたが、近日公開の${upcomingFilms.length}件を表示します。`;
-    }
+    if (moreBtn) moreBtn.disabled = false;
+    updateUpcomingStatus();
     renderUpcoming();
+    updateUpcomingMore();
+  }
+
+  function updateUpcomingStatus() {
+    const status = document.getElementById("upcomingStatus");
+    const matched = upcomingFilms.filter((f) => f._score > 0).length;
+    const n = upcomingFilms.length;
+    if (!upcomingProf || !upcomingProf.count) {
+      status.textContent = `公開が近い${n}本を表示しています。観た映画を登録すると、あなたの好みに合わせて並び替えます。`;
+    } else if (matched) {
+      status.textContent = `公開が近い${n}本を、あなたの好みに近い順に表示しています。「もっと見る」で、さらに先の公開作も確認できます。`;
+    } else {
+      status.textContent = `公開が近い${n}本には好みに近い作品がありませんでした。「もっと見る」で、さらに先の公開作も確認できます。`;
+    }
+  }
+
+  function updateUpcomingMore() {
+    const wrap = document.getElementById("upcomingMoreWrap");
+    if (!wrap) return;
+    const rest = upcomingCands.length - upcomingNext;
+    wrap.style.display = upcomingFilms.length && rest > 0 ? "flex" : "none";
+    const btn = document.getElementById("upcomingMoreBtn");
+    if (btn) btn.textContent = `もっと見る（さらに${Math.min(UP_BATCH, rest)}本）`;
   }
 
   function renderUpcoming() {
@@ -8292,6 +8334,7 @@
     document.getElementById("recommendAddBtn").addEventListener("click", bulkAddRecommend);
     document.getElementById("upcomingBtn").addEventListener("click", openUpcomingModal);
     document.getElementById("upcomingRefreshBtn").addEventListener("click", buildUpcoming);
+    document.getElementById("upcomingMoreBtn").addEventListener("click", () => loadUpcomingBatch());
 
     // コレクション
     document.getElementById("collectionShuffleBtn").addEventListener("click", renderCollectionChips);
