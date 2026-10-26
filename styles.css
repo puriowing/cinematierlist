@@ -7299,3 +7299,49 @@ body.compact .movie-fav-badge span {
 .pv-switch:checked { background: var(--accent); }
 .pv-switch:checked::after { transform: translateX(18px); }
 .pv-switch:disabled { opacity: 0.5; }
+
+/* ---------- マイページ：折りたたみをカード型に（開いた項目をはっきり） ---------- */
+.mp-fold {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.mp-fold > summary {
+  padding: 14px 16px;
+}
+
+.mp-fold > summary:hover { background: var(--bg-elev-2); }
+
+.mp-fold > summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-elev-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / 14px no-repeat;
+  transition: transform 0.2s;
+}
+
+.mp-fold[open] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.mp-fold[open] > summary {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+}
+
+.mp-fold[open] > summary::after {
+  transform: rotate(90deg);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E");
+}
+
+.mp-fold-body { padding: 14px 16px 16px; }
+.mp-fold-body .pv-group { background: var(--bg); }

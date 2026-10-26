@@ -1328,6 +1328,21 @@
     }));
   }
 
+  // マイページの折りたたみは1つずつ開き、開いた項目の見出しを見える位置へ
+  function wireMyPageFolds() {
+    const folds = [...document.querySelectorAll("#settingsModal .mp-fold")];
+    folds.forEach((d) => d.addEventListener("toggle", () => {
+      if (!d.open) return;
+      folds.forEach((o) => { if (o !== d) o.open = false; });
+      const modal = d.closest(".modal");
+      const head = modal && modal.querySelector(".modal-header");
+      if (modal) {
+        const top = d.getBoundingClientRect().top - modal.getBoundingClientRect().top + modal.scrollTop - (head ? head.offsetHeight : 0) - 8;
+        modal.scrollTo({ top, behavior: "smooth" });
+      }
+    }));
+  }
+
   function openMyPage() {
     renderAuth();
     renderBackupList();
@@ -9410,6 +9425,7 @@
 
     wireManual();
     wireNudge();
+    wireMyPageFolds();
     wireMovieInfo();
     wireMemory();
     wireTimeline();
