@@ -483,7 +483,6 @@
     updateTitleDisplay();
     renderTiers();
     renderPool();
-    renderMyBest();
     updateThemeButton();
     updateFilterInfo();
     const cnt = allMovies().length;
@@ -495,47 +494,6 @@
     scheduleAutoFill();
     scheduleGenreFix();
     scheduleKindEnrich();
-  }
-
-  // スマホのファーストビュー：最上位ティアのポスターを大きく見せる
-  function renderMyBest() {
-    const box = document.getElementById("myBest");
-    if (!box) return;
-    const top = state.tiers.find((t) => t.items.length);
-    if (!top) { box.classList.add("hidden"); box.innerHTML = ""; return; }
-    const total = allMovies().length;
-    const ranked = state.tiers.reduce((n, t) => n + t.items.length, 0);
-    const picks = top.items.slice(0, 5);
-    const bg = (picks.find((m) => m.poster) || {}).poster || "";
-    box.classList.remove("hidden");
-    box.style.setProperty("--best-color", top.color || "#6d4aff");
-    box.innerHTML =
-      (bg ? `<div class="mb-bg" style="background-image:url('${escapeHtml(bg)}')"></div>` : "") +
-      `<div class="mb-head"><span class="mb-kicker">MY BEST</span>` +
-      `<span class="mb-tier"><b>${escapeHtml(top.label)}</b>ティア ${top.items.length}本</span></div>` +
-      `<div class="mb-posters">` +
-      picks.map((m, i) =>
-        `<button type="button" class="mb-poster" data-id="${escapeHtml(m.id)}" aria-label="${escapeHtml(m.title)}">` +
-        (m.poster
-          ? `<img src="${escapeHtml(m.poster)}" alt="" loading="lazy">`
-          : `<span class="mb-fallback">${escapeHtml(m.title)}</span>`) +
-        `<span class="mb-rank">${i + 1}</span></button>`).join("") +
-      `</div>` +
-      `<div class="mb-stats"><span><b>${total}</b>本 登録</span><span><b>${ranked}</b>本 ランク付け</span>` +
-      `<span><b>${state.tiers.filter((t) => t.items.length).length}</b>ティア</span></div>`;
-    box.querySelectorAll("img").forEach((img) => img.addEventListener("error", () => {
-      const src = img.getAttribute("src") || "";
-      if (!img.dataset.proxied && src && !src.includes("/api/img")) {
-        img.dataset.proxied = "1";
-        img.src = "/api/img?u=" + encodeURIComponent(src);
-      } else {
-        img.remove();
-      }
-    }));
-    box.querySelectorAll(".mb-poster").forEach((b) => b.addEventListener("click", () => {
-      const row = document.querySelector(`.tier-row[data-tier-id="${top.id}"]`);
-      if (row) row.scrollIntoView({ behavior: "smooth", block: "start" });
-    }));
   }
 
   function updateCounter(n) {
