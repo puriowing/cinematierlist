@@ -1423,7 +1423,7 @@ body .layout > .pool.pool-empty {
   margin: 0;
 }
 
-/* スクロールで追加バーが見えなくなったら出す */
+/* 映画を追加（常に表示） */
 .fab-add {
   position: fixed;
   right: max(20px, env(safe-area-inset-right));
@@ -1440,16 +1440,16 @@ body .layout > .pool.pool-empty {
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
-  opacity: 0;
-  transform: scale(0.6);
-  pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: transform 0.2s;
 }
 
-.fab-add.show {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
+.fab-add:hover {
+  transform: scale(1.06);
+}
+
+/* 登録済みなら追加バーは隠し、右下の＋ボタンから追加する（PC・スマホ共通） */
+body:not(.is-empty) #addBar {
+  display: none;
 }
 
 body.theme-pop .fab-add {
@@ -5882,11 +5882,6 @@ body.theme-pop .collapse-toggle {
 
 /* ---------- スマホのファーストビュー ---------- */
 @media (max-width: 768px) {
-  /* 登録済みなら追加バーは隠し、右下の＋ボタンから追加する */
-  body:not(.is-empty) #addBar {
-    display: none;
-  }
-
   /* 追加バーの「思い出せないとき」を1行の横スクロールに */
   .quick-add-alt {
     flex-wrap: nowrap;

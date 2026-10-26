@@ -8151,12 +8151,6 @@
         switchTab(b.dataset.openTab);
       })
     );
-    if ("IntersectionObserver" in window) {
-      const fab = document.getElementById("fabAdd");
-      new IntersectionObserver(([en]) => fab.classList.toggle("show", !en.isIntersecting)).observe(
-        document.getElementById("quickAddForm")
-      );
-    }
     document.getElementById("clearPoolBtn").addEventListener("click", () => {
       if (!state.pool.length) return;
       if (confirm("未分類の映画をすべて削除しますか？")) {
