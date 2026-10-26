@@ -812,9 +812,9 @@
     if (movie.fav || hasMemory(movie)) {
       const fb = document.createElement("div");
       fb.className = "movie-fav-badge" + (movie.fav ? "" : " is-memory");
-      fb.innerHTML = (window.picktureIcon
+      fb.innerHTML = (movie.fav ? "<span>偏</span>" : "") + (window.picktureIcon
         ? window.picktureIcon(movie.fav ? "heart" : "book")
-        : (movie.fav ? "♥" : "📖")) + (movie.fav ? "<span>偏愛</span>" : "");
+        : (movie.fav ? "♥" : "📖"));
       if (movie.fav) {
         card.classList.add("is-fav");
         if (justFavId === movie.id) { card.classList.add("fav-pop"); justFavId = null; }
