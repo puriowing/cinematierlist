@@ -4346,7 +4346,7 @@
   // =======================================================================
   // 公開年（その年に公開された作品を公開が早い順にチェックして追加）
   // =======================================================================
-  // 「もっと見る」用のセッション状態。pool には取得済みの未登録作（公開日つき）が入る。
+  // 「もっと見る」用のセッション状態。pool には取得済みの作品（公開日つき・登録済みも含む）が入る。
   let recallSession = { year: null, nextPage: 1, hasMore: false, skipped: 0, seen: new Set(), pool: [] };
 
   function initRecallUI() {
@@ -4366,7 +4366,7 @@
   // （サーバー側で製作年 Y〜Y-5 を横断し、上映日=オリジナル公開日の年で絞り込む。
   //   製作が数年前でもその年に日本公開された作品を拾い、リバイバル上映は
   //   再公開年ではなくオリジナル公開年で扱われる）
-  const RECALL_MIN = 100;        // 初回に集める未登録作の最小件数
+  const RECALL_MIN = 100;        // 初回に集める作品の最小件数
   const RECALL_BATCH_PAGES = 8;  // 1回のサーバーリクエストで取得するページ数（1ページ約36件）
 
   // 公開が早い順（日本公開日 YYYYMMDD の昇順）に並べるためのソートキー。
@@ -4389,7 +4389,7 @@
     return { results: data.results || [], hasMore: !!data.hasMore };
   }
 
-  // 次のページ範囲を取得し、未登録・重複なしの作品を pool に追加する。
+  // 次のページ範囲を取得し、重複なしの作品を pool に追加する（登録済みも含める）。
   // 返り値: 今回追加できた新規作品数
   async function fetchRecallBatch() {
     const s = recallSession;
@@ -4402,7 +4402,7 @@
       const key = normTitle(b.title);
       if (key && s.seen.has(key)) continue;
       if (key) s.seen.add(key);
-      if (isRegisteredByTitle(b.title)) { s.skipped++; continue; }
+      if (isRegisteredByTitle(b.title)) s.skipped++;
       s.pool.push({ title: b.title, year: b.year || "", poster: b.poster || "", date: b.date || "", filmarksId: b.id });
       added++;
     }
@@ -4417,14 +4417,12 @@
     const status = document.getElementById("recallStatus");
     const s = recallSession;
     if (!s.pool.length) {
-      status.textContent = s.skipped
-        ? `${s.year}年の作品はすべて登録済みでした。別の年をお試しください。`
-        : `${s.year}年の作品が見つかりませんでした。別の年をお試しください。`;
+      status.textContent = `${s.year}年の作品が見つかりませんでした。別の年をお試しください。`;
       return;
     }
-    let msg = `${s.year}年の作品を公開が早い順に ${s.pool.length}件表示中。観た作品をタップして選び、まとめて追加できます。`;
-    if (s.skipped) msg += `（登録済み ${s.skipped}件は除外）`;
-    if (!s.hasMore) msg += ` ※この年の未登録作はこれで全て表示しました。`;
+    const owned = s.pool.filter((f) => movieExists(f)).length;
+    let msg = `${s.year}年の作品を公開が早い順に ${s.pool.length}件表示中（うち登録済 ${owned}件）。観た作品をタップして選び、まとめて追加できます。`;
+    if (!s.hasMore) msg += ` ※この年の作品はこれで全て表示しました。`;
     status.textContent = msg;
   }
 
@@ -4467,7 +4465,7 @@
     btn.disabled = true;
     btn.textContent = "読み込み中…";
     try {
-      // 未登録作が最低1件は増えるまで（空振り対策で数バッチ）取得を試みる
+      // 新しい作品が最低1件は増えるまで（空振り対策で数バッチ）取得を試みる
       let added = 0, tries = 0;
       while (recallSession.hasMore && added < 1 && tries < 8) {
         added += await fetchRecallBatch();
@@ -4523,9 +4521,6 @@
     const picked = collectPicked(document.getElementById("recallGrid"));
     const c = addFilms(picked);
     if (c) {
-      // 追加済みは候補から除去して残りを再描画
-      const added = new Set(picked.map((p) => normTitle(p.title)));
-      recallSession.pool = recallSession.pool.filter((f) => !added.has(normTitle(f.title)));
       renderRecallFull();
       updateRecallStatus();
       notifyBulkAdded("recallAddBtn", "recallGrid", c);
@@ -5972,7 +5967,7 @@
     return { results: data.results || [], hasMore: !!data.hasMore };
   }
 
-  // 未登録・重複なしの候補が minSize 件になるまでページを辿って集める（人気順を維持）
+  // 重複なしの候補が minSize 件になるまでページを辿って集める（人気順を維持）
   // 同じセッションへの補充は直列化（先読みと「もっと見る」が同じページを取り合わないように）
   function fmFillQueue(ctrl, minSize) {
     const s = ctrl.session;
@@ -5991,7 +5986,7 @@
         const key = normTitle(b.title);
         if (key && s.seen.has(key)) continue;
         if (key) s.seen.add(key);
-        if (isRegisteredByTitle(b.title)) { s.skipped++; continue; }
+        if (isRegisteredByTitle(b.title)) s.skipped++;
         added.push({ title: b.title, year: b.year || "", poster: b.poster || "", filmarksId: b.id, collection: s.col.label });
       }
     }
@@ -6002,14 +5997,12 @@
     const status = document.getElementById(ctrl.statusId);
     const s = ctrl.session;
     if (!ctrl.films.length) {
-      status.textContent = s.skipped
-        ? `「${s.col.label}」の作品はすべて登録済みでした。`
-        : `「${s.col.label}」の作品が見つかりませんでした。`;
+      status.textContent = `「${s.col.label}」の作品が見つかりませんでした。`;
       return;
     }
-    let msg = `「${s.col.label}」から ${ctrl.films.length}件を表示中。観た作品をタップして選び、まとめて追加できます。`;
-    if (s.skipped) msg += `（登録済み ${s.skipped}件は除外）`;
-    if (!s.queue.length && !s.hasMore) msg += ` ※未登録作はこれで全て表示しました。`;
+    const owned = ctrl.films.filter((f) => movieExists(f)).length;
+    let msg = `「${s.col.label}」から ${ctrl.films.length}件を表示中（うち登録済 ${owned}件）。観た作品をタップして選び、まとめて追加できます。`;
+    if (!s.queue.length && !s.hasMore) msg += ` ※これで全て表示しました。`;
     status.textContent = msg;
   }
 
@@ -6098,8 +6091,6 @@
     const picked = collectPicked(document.getElementById(ctrl.gridId));
     const c = addFilms(picked);
     if (c) {
-      const added = new Set(picked.map((p) => normTitle(p.title)));
-      ctrl.films = ctrl.films.filter((f) => !added.has(normTitle(f.title)));
       fmRender(ctrl, 0);
       fmUpdateStatus(ctrl);
       fmUpdateMoreBtn(ctrl);
