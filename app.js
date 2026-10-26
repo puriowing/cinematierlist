@@ -1486,7 +1486,6 @@
       closeMoveMenu();
       openMovieInfo(movie);
     });
-    menuActions.appendChild(infoBtn);
     const favBtn = document.createElement("button");
     favBtn.className = "btn btn-ghost btn-sm move-fav-btn" + (movie.fav ? " is-on" : "");
     favBtn.textContent = movie.fav ? "❤ 偏愛中" : "❤ 偏愛";
@@ -1506,6 +1505,7 @@
       openMemory(movie);
     });
     menuActions.appendChild(memBtn);
+    menuActions.appendChild(infoBtn);
     if (movie.poster && anchorEl.querySelector(".movie-poster-fallback")) {
       const reloadBtn = document.createElement("button");
       reloadBtn.className = "btn btn-ghost btn-sm move-info-btn";

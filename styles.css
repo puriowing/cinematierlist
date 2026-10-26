@@ -2976,13 +2976,20 @@ code {
 
 /* Move menu action buttons row */
 .move-menu-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
 .move-menu-actions .btn {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
+  white-space: nowrap;
+}
+
+.move-menu-actions .btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 
