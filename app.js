@@ -9339,6 +9339,7 @@
     document.getElementById("genreMoreBtn").addEventListener("click", () => fmLoadMore(genreCtrl));
 
     wireManual();
+    wireNudge();
     wireMovieInfo();
     wireMemory();
     wireTimeline();
@@ -9559,6 +9560,219 @@
       banner.classList.add("hidden");
   }
 
+
+  // =======================================================================
+  // 作品登録のうながし：新規ユーザーは「まず5本」、登録済みなら数日おきに人気作から選んでもらう
+  // =======================================================================
+  const NUDGE_KEY = "tiari-nudge";
+  const NUDGE_INTERVAL_DAYS = 3;
+  const NUDGE_GOAL = 5;
+  const NUDGE_SHOW = 12;
+  let nudgeMode = "periodic";
+  let nudgePool = [];
+
+  function nudgeLoad() {
+    try { return JSON.parse(localStorage.getItem(NUDGE_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function nudgeSave(d) {
+    try { localStorage.setItem(NUDGE_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+
+  function anyModalOpen() {
+    return !!document.querySelector(".modal-overlay:not(.hidden)");
+  }
+
+  function maybeShowNudge() {
+    if (anyModalOpen() || /[?&](compare|challenge|timeline|t)=/.test(location.search)) return;
+    const d = nudgeLoad();
+    if (d.off) return;
+    const total = allMovies().length;
+    if (total === 0) {
+      if (d.onboardedAt) return;
+      openNudge("onboard");
+      return;
+    }
+    const last = d.lastShown || 0;
+    if (Date.now() - last < NUDGE_INTERVAL_DAYS * 86400000) return;
+    openNudge("periodic");
+  }
+
+  // 新規ユーザー向け：多くの人が観ている定番作（公開年つきで照合の精度を上げる）
+  const NUDGE_STAPLES = [
+    ["千と千尋の神隠し", 2001], ["タイタニック", 1997], ["アナと雪の女王", 2013], ["君の名は。", 2016],
+    ["ハリー・ポッターと賢者の石", 2001], ["もののけ姫", 1997], ["ハウルの動く城", 2004], ["劇場版「鬼滅の刃」無限列車編", 2020],
+    ["ONE PIECE FILM RED", 2022], ["トップガン マーヴェリック", 2022], ["アバター", 2009], ["ボヘミアン・ラプソディ", 2018],
+    ["天気の子", 2019], ["崖の上のポニョ", 2008], ["ジュラシック・パーク", 1993], ["アラジン", 2019],
+    ["美女と野獣", 2017], ["となりのトトロ", 1988], ["風立ちぬ", 2013], ["THE FIRST SLAM DUNK", 2022],
+    ["すずめの戸締まり", 2022], ["アベンジャーズ／エンドゲーム", 2019], ["ジョーカー", 2019], ["ラ・ラ・ランド", 2016],
+    ["インセプション", 2010], ["ターミネーター2", 1991], ["バック・トゥ・ザ・フューチャー", 1985], ["シン・ゴジラ", 2016],
+    ["天空の城ラピュタ", 1986], ["ローマの休日", 1953], ["魔女の宅急便", 1989], ["E.T.", 1982],
+    ["ズートピア", 2016], ["トイ・ストーリー", 1995], ["ファインディング・ニモ", 2003], ["モンスターズ・インク", 2001],
+    ["パイレーツ・オブ・カリビアン／呪われた海賊たち", 2003], ["ロード・オブ・ザ・リング", 2001], ["マトリックス", 1999], ["おくりびと", 2008],
+    ["永遠の0", 2013], ["世界の中心で、愛をさけぶ", 2004], ["ショーシャンクの空に", 1994], ["フォレスト・ガンプ／一期一会", 1994],
+    ["レ・ミゼラブル", 2012], ["グレイテスト・ショーマン", 2017], ["ザ・スーパーマリオブラザーズ・ムービー", 2023], ["アルマゲドン", 1998],
+    ["ホーム・アローン", 1990], ["君たちはどう生きるか", 2023], ["踊る大捜査線 THE MOVIE", 1998], ["ゴジラ-1.0", 2023],
+    ["名探偵コナン 黒鉄の魚影", 2023], ["スター・ウォーズ／フォースの覚醒", 2015], ["メン・イン・ブラック", 1997], ["ライオン・キング", 1994],
+    ["天使にラブ・ソングを…", 1992], ["ミッション：インポッシブル", 1996], ["ダイ・ハード", 1988], ["スタンド・バイ・ミー", 1986],
+  ];
+  let nudgeStapleQueue = [];
+
+  async function nudgeFetchStaples() {
+    if (!nudgeStapleQueue.length) {
+      nudgeStapleQueue = NUDGE_STAPLES.filter(([t]) => !isRegisteredByTitle(t)).sort(() => Math.random() - 0.5);
+    }
+    const batch = nudgeStapleQueue.splice(0, NUDGE_SHOW);
+    const found = await Promise.all(batch.map(async ([title, year]) => {
+      try {
+        const results = await searchFilmarks(title);
+        const m = pickPosterMatch(results, title, String(year)) || results[0];
+        return m ? { title: m.title || title, year: String(year), poster: m.poster || "", filmarksId: m.filmarksId } : null;
+      } catch (e) { return null; }
+    }));
+    return found.filter((f) => f && !movieExists(f));
+  }
+
+  // ユーザーのよく観るジャンル（なければ定番ジャンル）の人気作から候補を集める
+  async function nudgeFetchCandidates() {
+    if (nudgeMode === "onboard") return nudgeFetchStaples();
+    const counts = new Map();
+    allMovies().forEach((m) => (m.genres || []).forEach((g) => counts.set(g, (counts.get(g) || 0) + 1)));
+    const byLabel = new Map(GENRES.map((g) => [g.label, g]));
+    let picks = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([l]) => byLabel.get(l)).filter(Boolean).slice(0, 3);
+    if (picks.length < 3) {
+      ["ドラマ", "アクション", "アニメ", "コメディ", "SF"].forEach((l) => {
+        const g = byLabel.get(l);
+        if (g && picks.length < 3 && !picks.includes(g)) picks.push(g);
+      });
+    }
+    const seen = new Set(nudgeLoad().seen || []);
+    const lists = await Promise.all(picks.map(async (g) => {
+      const from = nudgeMode === "onboard" ? 1 : 1 + Math.floor(Math.random() * 3);
+      try {
+        const res = await fetch(`/api/filmarks/genre?genre=${g.fmGenre}&from=${from}&pages=1`);
+        if (!res.ok) return [];
+        return (await res.json()).results || [];
+      } catch (e) { return []; }
+    }));
+    const out = [];
+    const keys = new Set();
+    for (let i = 0; i < 40; i++) {
+      lists.forEach((l) => {
+        const b = l[i];
+        if (!b) return;
+        const key = normTitle(b.title);
+        if (!key || keys.has(key) || isRegisteredByTitle(b.title) || seen.has(String(b.id))) return;
+        keys.add(key);
+        out.push({ title: b.title, year: b.year || "", poster: b.poster || "", filmarksId: b.id });
+      });
+    }
+    return out;
+  }
+
+  function nudgeUpdateUI() {
+    const n = collectPicked(document.getElementById("nudgeGrid")).length;
+    const btn = document.getElementById("nudgeAddBtn");
+    btn.disabled = n === 0;
+    btn.textContent = n ? `選んだ${n}本を追加` : "観た作品をタップで選択";
+    const prog = document.getElementById("nudgeProgress");
+    if (nudgeMode === "onboard") {
+      const have = allMovies().length;
+      const cur = Math.min(NUDGE_GOAL, have + n);
+      prog.classList.remove("hidden");
+      prog.querySelector(".nudge-progress-bar span").style.width = `${(cur / NUDGE_GOAL) * 100}%`;
+      prog.querySelector(".nudge-progress-tx").textContent = cur >= NUDGE_GOAL
+        ? "🎉 これで映画タイプ診断ができます"
+        : `${cur} / ${NUDGE_GOAL}本（あと${NUDGE_GOAL - cur}本で映画タイプ診断）`;
+    } else {
+      prog.classList.add("hidden");
+    }
+  }
+
+  function nudgeRenderGrid() {
+    const grid = document.getElementById("nudgeGrid");
+    grid.innerHTML = "";
+    const list = nudgePool.splice(0, NUDGE_SHOW);
+    if (!list.length) {
+      grid.innerHTML = `<p class="stat-empty">候補が見つかりませんでした。右下の「＋」からタイトルで探して追加できます。</p>`;
+      nudgeUpdateUI();
+      return;
+    }
+    const d = nudgeLoad();
+    d.seen = [...(d.seen || []), ...list.map((f) => String(f.filmarksId))].slice(-400);
+    nudgeSave(d);
+    list.forEach((f) => grid.appendChild(makePickCard(f, { subtitle: f.year || "", onToggle: nudgeUpdateUI })));
+    nudgeUpdateUI();
+  }
+
+  async function openNudge(mode) {
+    nudgeMode = mode;
+    const d = nudgeLoad();
+    if (mode === "onboard") d.onboardedAt = Date.now();
+    d.lastShown = Date.now();
+    nudgeSave(d);
+    document.getElementById("nudgeTitle").textContent = mode === "onboard" ? "🎬 まずは観た映画を5本選ぼう" : "🎬 この中に観た映画はありますか？";
+    document.getElementById("nudgeLead").textContent = mode === "onboard"
+      ? "人気の映画を並べました。観たことがある作品をタップしてください。5本そろうと、あなたの「映画タイプ」がわかります。"
+      : "あなたがよく観るジャンルの人気作です。観た作品をタップすると、まとめて未分類に追加できます。";
+    document.getElementById("nudgeLaterBtn").textContent = mode === "onboard" ? "自分で探す" : "あとで";
+    document.getElementById("nudgeOffBtn").classList.toggle("hidden", mode === "onboard");
+    const grid = document.getElementById("nudgeGrid");
+    grid.innerHTML = "";
+    openModal("nudgeModal");
+    nudgeUpdateUI();
+    nudgePool = [];
+    nudgeStapleQueue = [];
+    await nudgeNextPage();
+  }
+
+  async function nudgeNextPage() {
+    const grid = document.getElementById("nudgeGrid");
+    if (nudgePool.length < NUDGE_SHOW) {
+      grid.innerHTML = "";
+      nudgeUpdateUI();
+      showLoading(grid, "候補を集めています…");
+      nudgePool = nudgePool.concat(await nudgeFetchCandidates());
+      clearLoading(grid);
+    }
+    nudgeRenderGrid();
+  }
+
+  function nudgeAdd() {
+    const picked = collectPicked(document.getElementById("nudgeGrid"));
+    const prevTarget = addTarget;
+    addTarget = "pool";
+    const c = addFilms(picked);
+    addTarget = prevTarget;
+    if (!c) return;
+    const total = allMovies().length;
+    if (nudgeMode === "onboard" && total < NUDGE_GOAL) {
+      toast(`✓ ${c}本を追加しました。あと${NUDGE_GOAL - total}本！`);
+      nudgeNextPage();
+      return;
+    }
+    closeModal("nudgeModal");
+    if (nudgeMode === "onboard") {
+      toast(`🎉 ${c}本を追加しました。あなたの映画タイプが出ました！`, { label: "タイプを見る", onClick: openStatsModal });
+    } else {
+      toast(`✓ ${c}本を「未分類」に追加しました。ティアに振り分けましょう`);
+    }
+  }
+
+  function wireNudge() {
+    document.getElementById("nudgeAddBtn").addEventListener("click", nudgeAdd);
+    document.getElementById("nudgeSkipBtn").addEventListener("click", nudgeNextPage);
+    document.getElementById("nudgeOffBtn").addEventListener("click", () => {
+      const d = nudgeLoad();
+      d.off = true;
+      nudgeSave(d);
+      closeModal("nudgeModal");
+      toast("今後は表示しません");
+    });
+    document.getElementById("nudgeLaterBtn").addEventListener("click", () => {
+      closeModal("nudgeModal");
+      if (nudgeMode === "onboard") openAddModal();
+    });
+  }
   // =======================================================================
   // Init
   // =======================================================================
@@ -9576,7 +9790,8 @@
     .then(() => { try { handleCompareLink(); } catch (e) {} })
     .then(() => { try { handleChallengeLink(); } catch (e) {} })
     .then(() => { try { handleTimelineLink(); } catch (e) {} })
-    .catch(() => {});
+    .catch(() => {})
+    .then(() => setTimeout(() => { try { maybeShowNudge(); } catch (e) {} }, 1200));
 
   // PWA: Service Worker を登録（HTTPS または localhost のみ有効）。
   // オフラインでも直近の画面を開けるようにし、ホーム画面追加でアプリ化できる。
