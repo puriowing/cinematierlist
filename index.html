@@ -34,6 +34,7 @@
       <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
       <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
       <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
+      <button id="timelineBtn" class="btn btn-ghost" title="思い出を人生の年表で見る">📖<span class="btn-label"> 年表</span></button>
       <button id="achvBtn" class="btn btn-ghost" title="実績を開く">🏅<span class="btn-label"> 実績</span></button>
       <button id="authBtn" class="btn btn-primary" title="マイページ（アカウント・保存・設定）">👤 マイページ</button>
     </div>
@@ -124,6 +125,7 @@
     <button type="button" class="tbar-btn" data-proxy="battleBtn" style="display:none"><span class="tab-ic">⚖️</span><span class="tab-tx">二択</span></button>
     <button type="button" class="tbar-btn" data-proxy="socialBtn"><span class="tab-ic">🌐</span><span class="tab-tx">みんな</span></button>
     <button type="button" class="tbar-btn" data-proxy="statsBtn"><span class="tab-ic">📊</span><span class="tab-tx">統計</span></button>
+    <button type="button" class="tbar-btn" data-proxy="timelineBtn"><span class="tab-ic">📖</span><span class="tab-tx">年表</span></button>
     <button type="button" class="tbar-btn" data-proxy="authBtn"><span class="tab-ic">👤</span><span class="tab-tx">マイページ</span></button>
   </nav>
 
@@ -593,6 +595,24 @@
   </div>
 
   <!-- Movie info editor modal -->
+  <div id="timelineModal" class="modal-overlay hidden">
+    <div class="modal timeline-modal">
+      <div class="modal-header">
+        <h3>📖 わたしの映画人生年表</h3>
+        <button class="modal-close" data-close="timelineModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="tl-head">
+          <span id="timelineCount" class="tl-count"></span>
+          <label class="tl-birth">生まれた年
+            <input id="timelineBirth" type="text" inputmode="numeric" placeholder="例: 1975" />
+          </label>
+        </div>
+        <div id="timelineBody"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="memoryModal" class="modal-overlay hidden">
     <div class="modal memory-modal">
       <div class="modal-header">
@@ -608,11 +628,11 @@
             <button id="memoryFavBtn" type="button" class="memory-fav"></button>
           </div>
         </div>
-        <p class="hint memory-lead">ティアの評価とは別に、この作品との思い出を残せます。</p>
+        <p class="hint memory-lead">ティアの評価とは別に、この作品との思い出を残せます。「いつ観た」に年や年齢を書くと、人生年表に並びます。</p>
         <div class="memory-grid">
           <label class="field">
             <span>いつ観た</span>
-            <input id="memoryWhen" type="text" placeholder="例: 小学生の頃 / 2016年6月" />
+            <input id="memoryWhen" type="text" placeholder="例: 2016年6月 / 10歳 / 小学生の頃" />
           </label>
           <label class="field">
             <span>どこで</span>

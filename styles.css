@@ -6547,3 +6547,255 @@ body.compact .movie-fav-badge span {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- 思い出の人生年表 ---------- */
+.timeline-modal {
+  max-width: 620px;
+}
+
+.tl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tl-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.tl-birth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tl-birth input {
+  width: 84px;
+  padding: 6px 8px;
+}
+
+.tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  position: relative;
+}
+
+.tl-list::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.tl-year {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.tl-year:first-child {
+  margin-top: 0;
+}
+
+.tl-year::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #e8456b;
+  border: 2px solid var(--bg-elev);
+}
+
+.tl-year-num {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.tl-age {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.tl-item {
+  margin-bottom: 8px;
+}
+
+.tl-card {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.tl-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.tl-poster {
+  width: 52px;
+  height: 78px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.tl-poster-fb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  font-size: 10px;
+  text-align: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.tl-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tl-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tl-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tl-fav {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff5c8a, #c2185b);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tl-fav {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.tl-fav svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+}
+
+.tl-tier {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tl-when {
+  font-size: 12px;
+  font-weight: 700;
+  color: #c2185b;
+}
+
+.tl-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tl-note {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tl-section {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+
+.tl-section-head {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.tl-section-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tl-todo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tl-todo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tl-todo-btn span {
+  font-weight: 800;
+  color: #c2185b;
+}
+
+.tl-empty {
+  padding: 28px 12px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-dim);
+}

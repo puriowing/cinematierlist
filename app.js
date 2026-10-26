@@ -2702,7 +2702,159 @@
     closeModal("memoryModal");
     memoryMovieId = null;
     render();
+    if (!document.getElementById("timelineModal").classList.contains("hidden")) renderTimeline();
     toast("思い出を保存しました");
+  }
+
+  // ---- 思い出の人生年表 ----
+  const ERA_BASE = { "昭和": 1925, "平成": 1988, "令和": 2018 };
+  const LIFE_STAGES = [
+    [/幼稚園|保育園|幼い|幼少|子どもの頃|子供の頃/, 5],
+    [/小学/, 9],
+    [/中学/, 13],
+    [/高校/, 16],
+    [/大学|専門学校|浪人/, 20],
+    [/新社会人|新卒|入社/, 23],
+  ];
+
+  // 「いつ観た」の自由記述から 年・月 または 年齢 を読み取る
+  function parseMemoryWhen(text) {
+    const t = String(text || "").replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+    const month = (t.match(/(\d{1,2})月/) || [])[1];
+    const era = t.match(/(昭和|平成|令和)\s*(\d{1,2}|元)年/);
+    if (era) {
+      return { year: ERA_BASE[era[1]] + (era[2] === "元" ? 1 : parseInt(era[2], 10)), month: month ? +month : 0 };
+    }
+    const y = t.match(/(19|20)\d{2}/);
+    if (y) return { year: parseInt(y[0], 10), month: month ? +month : 0 };
+    const y2 = t.match(/(?:^|[^\d])(\d{2})年(?!代)/);
+    if (y2) {
+      const n = parseInt(y2[1], 10);
+      return { year: n >= 30 ? 1900 + n : 2000 + n, month: month ? +month : 0 };
+    }
+    const age = t.match(/(\d{1,2})歳/);
+    if (age) return { age: parseInt(age[1], 10) };
+    const decade = t.match(/(\d)0代/);
+    if (decade) return { age: parseInt(decade[1], 10) * 10 + 5 };
+    const stage = LIFE_STAGES.find(([re]) => re.test(t));
+    if (stage) return { age: stage[1] };
+    return null;
+  }
+
+  function timelineEntries() {
+    const birth = parseInt(state.birthYear, 10) || 0;
+    const dated = [];
+    const byAge = [];
+    const unknown = [];
+    allMovies().forEach((m) => {
+      if (!hasMemory(m)) return;
+      const p = parseMemoryWhen(m.memory.when);
+      if (p && p.year) dated.push({ m, year: p.year, month: p.month || 0, approx: false });
+      else if (p && p.age != null && birth) dated.push({ m, year: birth + p.age, month: 0, approx: true });
+      else if (p && p.age != null) byAge.push({ m, age: p.age });
+      else unknown.push({ m });
+    });
+    dated.sort((a, b) => a.year - b.year || a.month - b.month || (a.approx ? -1 : 1));
+    byAge.sort((a, b) => a.age - b.age);
+    return { birth, dated, byAge, unknown };
+  }
+
+  function timelineCard(m) {
+    const mem = m.memory || {};
+    const tierId = currentZoneOf(m.id);
+    const tier = state.tiers.find((t) => t.id === tierId);
+    const sub = [mem.where, mem.with].filter(Boolean).map(escapeHtml).join("・");
+    const poster = m.poster
+      ? `<img class="tl-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
+      : `<div class="tl-poster tl-poster-fb">${escapeHtml(m.title || "")}</div>`;
+    return (
+      `<button type="button" class="tl-card" data-mid="${escapeHtml(m.id)}">` +
+      poster +
+      `<span class="tl-body">` +
+      `<span class="tl-title-row"><span class="tl-title">${escapeHtml(m.title || "")}</span>` +
+      (m.fav ? `<span class="tl-fav">偏${window.picktureIcon ? window.picktureIcon("heart") : "♥"}</span>` : "") +
+      (tier ? `<span class="tl-tier" style="background:${tier.color};color:${textColorOn(tier.color)}">${escapeHtml(tier.label)}</span>` : "") +
+      `</span>` +
+      (mem.when ? `<span class="tl-when">${escapeHtml(mem.when)}</span>` : "") +
+      (sub ? `<span class="tl-sub">${sub}</span>` : "") +
+      (mem.note ? `<span class="tl-note">${escapeHtml(mem.note)}</span>` : "") +
+      `</span></button>`
+    );
+  }
+
+  function renderTimeline() {
+    const body = document.getElementById("timelineBody");
+    const { birth, dated, byAge, unknown } = timelineEntries();
+    const total = dated.length + byAge.length + unknown.length;
+    document.getElementById("timelineBirth").value = state.birthYear || "";
+    document.getElementById("timelineCount").textContent = total ? `${total}本の思い出` : "";
+
+    if (!total) {
+      body.innerHTML =
+        `<div class="tl-empty">まだ思い出がありません。<br>作品をタップして「📖 思い出を書く」から、いつ・どこで・誰と観たかを残すと、ここに年表として並びます。</div>`;
+      return;
+    }
+
+    let html = "";
+    if (dated.length) {
+      html += `<ol class="tl-list">`;
+      let lastYear = null;
+      dated.forEach((e) => {
+        if (e.year !== lastYear) {
+          const age = birth ? e.year - birth : null;
+          html +=
+            `<li class="tl-year"><span class="tl-year-num">${e.year}</span>` +
+            (age != null && age >= 0 ? `<span class="tl-age">${age}歳${e.approx ? "ごろ" : ""}</span>` : "") +
+            `</li>`;
+          lastYear = e.year;
+        }
+        html += `<li class="tl-item">${timelineCard(e.m)}</li>`;
+      });
+      html += `</ol>`;
+    }
+    if (byAge.length) {
+      html +=
+        `<div class="tl-section"><div class="tl-section-head">年齢・時期で書いた思い出</div>` +
+        `<p class="tl-section-hint">上の「生まれた年」を入れると、年表の中に並びます。</p>` +
+        `<ol class="tl-list">` + byAge.map((e) => `<li class="tl-item">${timelineCard(e.m)}</li>`).join("") + `</ol></div>`;
+    }
+    if (unknown.length) {
+      html +=
+        `<div class="tl-section"><div class="tl-section-head">いつか分からない思い出</div>` +
+        `<p class="tl-section-hint">「いつ観た」に年（例: 2016年）や年齢・時期（例: 10歳、小学生の頃）を書くと年表に並びます。</p>` +
+        `<ol class="tl-list">` + unknown.map((e) => `<li class="tl-item">${timelineCard(e.m)}</li>`).join("") + `</ol></div>`;
+    }
+    const favNoMemory = allMovies().filter((m) => m.fav && !hasMemory(m));
+    if (favNoMemory.length) {
+      html +=
+        `<div class="tl-section"><div class="tl-section-head">思い出がまだの偏愛作品</div>` +
+        `<div class="tl-todo">` +
+        favNoMemory.map((m) =>
+          `<button type="button" class="tl-todo-btn" data-mid="${escapeHtml(m.id)}">${escapeHtml(m.title || "")}<span>書く</span></button>`).join("") +
+        `</div></div>`;
+    }
+    body.innerHTML = html;
+  }
+
+  function openTimeline() {
+    renderTimeline();
+    openModal("timelineModal");
+  }
+
+  function wireTimeline() {
+    document.getElementById("timelineBtn").addEventListener("click", openTimeline);
+    document.getElementById("timelineBody").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-mid]");
+      if (!b) return;
+      const found = findMovie(b.dataset.mid);
+      if (found) openMemory(found.movie);
+    });
+    document.getElementById("timelineBirth").addEventListener("change", (e) => {
+      const v = parseInt(String(e.target.value).replace(/[^\d]/g, ""), 10);
+      if (v >= 1900 && v <= new Date().getFullYear()) state.birthYear = v; else delete state.birthYear;
+      saveState();
+      renderTimeline();
+    });
   }
 
   function wireMemory() {
@@ -8909,6 +9061,7 @@
     wireManual();
     wireMovieInfo();
     wireMemory();
+    wireTimeline();
 
     // close popovers on scroll（ただしポップオーバー内部のスクロールでは閉じない）
     window.addEventListener("scroll", (e) => {
