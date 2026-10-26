@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Tiari",
   "short_name": "Tiari",
-  "description": "鑑賞した映画をランク付けして、自分だけの映画ランキングを作れるツール",
+  "description": "観た映画を好きな順に並べて、自分だけの映画ランキングを作れるツール",
   "lang": "ja",
   "start_url": "./?source=pwa",
   "scope": "./",
@@ -17,7 +17,7 @@
     { "src": "icons/icon-maskable-512.png?v=4", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "対戦でランク付け", "short_name": "対戦", "url": "./?open=battle", "icons": [{ "src": "icons/icon-192.png?v=4", "sizes": "192x192" }] },
+    { "name": "二択で振り分け", "short_name": "対戦", "url": "./?open=battle", "icons": [{ "src": "icons/icon-192.png?v=4", "sizes": "192x192" }] },
     { "name": "統計を見る", "short_name": "統計", "url": "./?open=stats", "icons": [{ "src": "icons/icon-192.png?v=4", "sizes": "192x192" }] }
   ]
 }

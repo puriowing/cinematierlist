@@ -6643,7 +6643,7 @@
     const kicker = isBest ? `MY BEST ${n || share.count}` : "MY TIER LIST";
     const sub = isBest
       ? (total > n ? `${total}本の中から選んだベスト${n}` : `ベスト${n}`)
-      : `${total}本をランク付け`;
+      : `${total}本を好きな順に`;
 
     card.innerHTML =
       `<div class="sc-head">` +
@@ -6875,7 +6875,7 @@
       ? `\n${top.tier.label}：${top.items.slice(0, 3).map((m) => m.title).join("、")}${top.items.length > 3 ? " ほか" : ""}`
       : "";
     const total = rows.reduce((a, r) => a + r.items.length, 0);
-    return `「${theme}」${total}本をティア表でランク付けしました🎬${topLine}\n${tags}`;
+    return `「${theme}」${total}本を好きな順に並べました🎬${topLine}\n${tags}`;
   }
 
   let shareTextTouched = false;
@@ -7315,7 +7315,7 @@
     // ランク付けの進み具合
     out.push({
       icon: "🗂️",
-      text: `登録 ${s.total} 本のうち ${s.ranked} 本（${pct(s.ranked, s.total)}%）をランク付け済み。` +
+      text: `登録 ${s.total} 本のうち ${s.ranked} 本（${pct(s.ranked, s.total)}%）をティアに振り分け済み。` +
         (s.unranked ? `未分類が ${s.unranked} 本（${pct(s.unranked, s.total)}%）残っています。` : "すべて分類済みです。"),
     });
 
@@ -7326,7 +7326,7 @@
       const share = pct(topCount, s.ranked);
       out.push({
         icon: "🏆",
-        text: `最上位「${top.label}」ティアは ${topCount} 本（ランク付けの ${share}%）。` +
+        text: `最上位「${top.label}」ティアは ${topCount} 本（振り分けた作品の ${share}%）。` +
           (share >= 40 ? "高評価に寄せる“甘め”の傾向です。"
             : share <= 15 ? "トップを絞る“辛口”の傾向です。"
             : "上下バランスよく分類できています。"),
@@ -7701,7 +7701,7 @@
     const yearSpan = s.minYear ? `${s.minYear}–${s.maxYear}` : "—";
     const kpis = [
       { value: s.total, cap: "総登録", unit: "本" },
-      { value: `${rankPct}%`, cap: "ランク付け率" },
+      { value: `${rankPct}%`, cap: "振り分け率" },
       { value: yearSpan, cap: "収録年代" },
       { value: s.dirTotal, cap: "監督", unit: "人" },
       { value: s.actTotal, cap: "出演者", unit: "人" },
@@ -8012,7 +8012,7 @@
     const topPct = a.topPct * 100;
     const kpis = [
       { v: a.n.toLocaleString(), u: "本", cap: "作品数", sub: `<span class="ta-kpi-sub">全${a.N.toLocaleString()}本中</span>` },
-      { v: a.idx === state.tiers.length - 1 ? "—" : (topPct < 10 ? topPct.toFixed(1) : Math.round(topPct)) + "%", u: "", cap: "上位", sub: `<span class="ta-kpi-sub">ランク付け作品の中で</span>` },
+      { v: a.idx === state.tiers.length - 1 ? "—" : (topPct < 10 ? topPct.toFixed(1) : Math.round(topPct)) + "%", u: "", cap: "上位", sub: `<span class="ta-kpi-sub">振り分けた作品の中で</span>` },
       { v: a.avgYear ? Math.round(a.avgYear) : "—", u: "年", cap: "平均公開年", sub: yearDelta },
       { v: pct(a.jpRate), u: "", cap: "邦画の割合", sub: deltaPt(a.jpRate, a.allJpRate) },
       { v: pct(a.animeRate), u: "", cap: "アニメの割合", sub: deltaPt(a.animeRate, a.allAnimeRate) },
