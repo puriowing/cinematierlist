@@ -812,9 +812,13 @@
     if (movie.fav || hasMemory(movie)) {
       const fb = document.createElement("div");
       fb.className = "movie-fav-badge" + (movie.fav ? "" : " is-memory");
-      fb.innerHTML = window.picktureIcon
+      fb.innerHTML = (window.picktureIcon
         ? window.picktureIcon(movie.fav ? "heart" : "book")
-        : (movie.fav ? "♥" : "📖");
+        : (movie.fav ? "♥" : "📖")) + (movie.fav ? "<span>偏愛</span>" : "");
+      if (movie.fav) {
+        card.classList.add("is-fav");
+        if (justFavId === movie.id) { card.classList.add("fav-pop"); justFavId = null; }
+      }
       fb.title = movie.fav ? "偏愛作品" : "思い出あり";
       card.appendChild(fb);
     }
@@ -2631,6 +2635,7 @@
   const MEMORY_FIELDS = ["when", "where", "with", "note"];
   let memoryMovieId = null;
   let memoryFav = false;
+  let justFavId = null;
 
   function hasMemory(m) {
     return !!(m && m.memory && MEMORY_FIELDS.some((k) => m.memory[k]));
@@ -2640,7 +2645,7 @@
     const found = findMovie(movie.id);
     if (!found) return;
     const m = found.movie;
-    if (m.fav) delete m.fav; else m.fav = true;
+    if (m.fav) delete m.fav; else { m.fav = true; justFavId = m.id; }
     render();
     toast(m.fav ? `「${m.title}」を偏愛作品にしました` : `「${m.title}」の偏愛を外しました`);
   }
@@ -2692,6 +2697,7 @@
     };
     MEMORY_FIELDS.forEach((k) => { if (!mem[k]) delete mem[k]; });
     if (Object.keys(mem).length) m.memory = mem; else delete m.memory;
+    if (memoryFav && !m.fav) justFavId = m.id;
     if (memoryFav) m.fav = true; else delete m.fav;
     closeModal("memoryModal");
     memoryMovieId = null;

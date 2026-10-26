@@ -6346,35 +6346,95 @@ body.theme-pop .tier-analyze {
 }
 
 /* ---------- 偏愛マーク・思い出カード ---------- */
+body .movie-card.is-fav,
+body.theme-pop .movie-card.is-fav {
+  box-shadow: 0 0 0 2.5px #e0245e, 0 6px 18px rgba(224, 36, 94, 0.38);
+}
+
+body .movie-card.is-fav:hover,
+body.theme-pop .movie-card.is-fav:hover {
+  box-shadow: 0 0 0 2.5px #e0245e, 0 12px 26px rgba(224, 36, 94, 0.5);
+}
+
+body .movie-card.is-fav .movie-title,
+body.theme-pop .movie-card.is-fav .movie-title {
+  background: linear-gradient(90deg, #c2185b, #e0245e 55%, #ff5c8a);
+  color: #fff;
+}
+
 .movie-fav-badge {
   position: absolute;
-  top: calc(var(--poster-h) - 24px);
+  top: calc(var(--poster-h) - 26px);
   left: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #e8456b;
-  color: #fff;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 3px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff5c8a, #c2185b);
+  border: 1.5px solid #fff;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  transform: rotate(-6deg);
   pointer-events: none;
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 6px rgba(194, 24, 91, 0.55);
 }
 
 .movie-fav-badge svg {
   width: 12px;
   height: 12px;
   fill: currentColor;
+  flex-shrink: 0;
 }
 
 .movie-fav-badge.is-memory {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.62);
+  border: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .movie-fav-badge.is-memory svg {
   fill: none;
+}
+
+body.compact .movie-fav-badge span {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .movie-fav-badge {
+    top: calc(var(--poster-h) - 21px);
+    left: 3px;
+    gap: 2px;
+    padding: 2px 5px 2px 4px;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  .movie-fav-badge svg {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+.movie-card.fav-pop .movie-fav-badge {
+  animation: fav-pop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes fav-pop {
+  0% { transform: rotate(-6deg) scale(0.2); opacity: 0; }
+  45% { transform: rotate(-6deg) scale(1.45); opacity: 1; }
+  70% { transform: rotate(-6deg) scale(0.9); }
+  100% { transform: rotate(-6deg) scale(1); }
 }
 
 .move-fav-btn.is-on {
