@@ -63,6 +63,15 @@
   let filterMode = "and"; // "and" | "or"
   // 複数テーマの区切り記号（AND=×／OR=／）。ラベル表示に使う。
   function filterJoiner() { return filterMode === "or" ? " / " : " × "; }
+  // 「ドラマシリーズ × (2020年 / 恋愛)」のように、種類は常に掛け合わせとして表示する
+  function joinedFilterLabels() {
+    const media = activeFilters.find((f) => f.type === "media");
+    const rest = activeFilters.filter((f) => f.type !== "media").map(filterLabel);
+    const body = rest.join(filterJoiner());
+    if (!media) return body;
+    if (!rest.length) return filterLabel(media);
+    return filterLabel(media) + " × " + (rest.length > 1 && filterMode === "or" ? `(${body})` : body);
+  }
   function hasFilter() { return activeFilters.length > 0; }
   function hasFilterVal(type, value) {
     return activeFilters.some((f) => f.type === type && f.value === value);
@@ -3554,10 +3563,24 @@
 
   function matchesFilter(movie) {
     // AND: 選択中のテーマをすべて満たす作品 / OR: いずれかを満たす作品
+    // 作品の種類（映画／ドラマ／アニメ）は AND・OR に関係なく常に掛け合わせる
     if (!activeFilters.length) return true;
+    const media = mediaFilter();
+    if (media && !matchesOne(movie, media)) return false;
+    const rest = activeFilters.filter((f) => f.type !== "media");
+    if (!rest.length) return true;
     return filterMode === "or"
-      ? activeFilters.some((f) => matchesOne(movie, f))
-      : activeFilters.every((f) => matchesOne(movie, f));
+      ? rest.some((f) => matchesOne(movie, f))
+      : rest.every((f) => matchesOne(movie, f));
+  }
+
+  function mediaFilter() {
+    return activeFilters.find((f) => f.type === "media") || null;
+  }
+
+  function setMediaFilter(media) {
+    activeFilters = activeFilters.filter((f) => f.type !== "media");
+    if (media) activeFilters.unshift({ type: "media", value: media });
   }
 
   function matchesOne(movie, f) {
@@ -3597,6 +3620,11 @@
   }
 
   // テーマ候補を集計して {years, directors, actors} を返す
+  function themeBaseMovies() {
+    const media = mediaFilter();
+    return media ? allMovies().filter((m) => matchesOne(m, media)) : allMovies();
+  }
+
   function getThemeData() {
     const yearCount = new Map();
     const dirCount = new Map();
@@ -3608,7 +3636,7 @@
     let favCount = 0;
     let memoryCount = 0;
     const genreSet = new Set(GENRES.map((g) => g.label));
-    allMovies().forEach((m) => {
+    themeBaseMovies().forEach((m) => {
       if (m.year) yearCount.set(m.year, (yearCount.get(m.year) || 0) + 1);
       if (m.kind) kindCount.set(m.kind, (kindCount.get(m.kind) || 0) + 1);
       if (m.fav) favCount++;
@@ -3625,14 +3653,9 @@
       cols.forEach((label) => { if (genreSet.has(label)) gset.add(label); });
       gset.forEach((label) => genreCount.set(label, (genreCount.get(label) || 0) + 1));
     });
-    const mediaCount = new Map();
-    allMovies().forEach((m) => { const k = m.media || "movie"; mediaCount.set(k, (mediaCount.get(k) || 0) + 1); });
-    const kinds = (mediaCount.size > 1
-      ? MEDIA_DEFS.filter(([k]) => mediaCount.get(k)).map(([k, label]) => ({ value: "media:" + k, label, count: mediaCount.get(k) }))
-      : []
-    ).concat(KIND_DEFS
+    const kinds = KIND_DEFS
       .filter(([k]) => kindCount.get(k))
-      .map(([k, label]) => ({ value: "kind:" + k, label, count: kindCount.get(k) })));
+      .map(([k, label]) => ({ value: "kind:" + k, label, count: kindCount.get(k) }));
     const years = [...yearCount.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([v, n]) => ({ value: "year:" + v, label: `${v}年`, count: n }));
@@ -3682,7 +3705,7 @@
   function themeButtonLabel() {
     if (!activeFilters.length) return "すべて表示 ▾";
     const parts = activeFilters.map(filterLabel);
-    const joined = parts.join(filterJoiner());
+    const joined = joinedFilterLabels();
     const label = joined.length > 28 ? `${parts[0]} 他${parts.length - 1}件` : joined;
     return `${label} ▾`;
   }
@@ -3729,7 +3752,7 @@
       closeThemePanel();
       return;
     }
-    const data = getThemeData();
+    let data = getThemeData();
     // 有効なカテゴリの初期選択
     const cats = [
       { key: "special", label: "❤ 偏愛・思い出" },
@@ -3754,6 +3777,7 @@
       (asSheet
         ? `<div class="theme-sheet-head"><b>🎯 テーマで絞り込み</b><button type="button" class="theme-sheet-close">完了</button></div>`
         : "") +
+      `<div class="theme-media" role="group" aria-label="作品の種類"></div>` +
       `<div class="theme-active"></div>` +
       `<div class="theme-cats">` +
       cats
@@ -3769,16 +3793,46 @@
     const search = pop.querySelector(".theme-search");
     const optionsWrap = pop.querySelector(".theme-options");
     const activeWrap = pop.querySelector(".theme-active");
+    const mediaWrap = pop.querySelector(".theme-media");
+
+    // 作品の種類（映画／ドラマ／アニメ）。他のテーマと常に掛け合わせる
+    const renderMediaSeg = () => {
+      const counts = new Map();
+      allMovies().forEach((m) => { const k = m.media || "movie"; counts.set(k, (counts.get(k) || 0) + 1); });
+      mediaWrap.style.display = counts.size > 1 || mediaFilter() ? "" : "none";
+      const cur = mediaFilter() ? mediaFilter().value : "";
+      mediaWrap.innerHTML = [["", "すべて"], ["movie", "映画"], ["drama", "ドラマ"], ["anime", "アニメ"]]
+        .map(([k, label]) => `<button class="theme-media-btn${cur === k ? " active" : ""}" data-media="${k}">${label}` +
+          `<span class="cat-n">${k ? counts.get(k) || 0 : allMovies().length}</span></button>`)
+        .join("");
+      mediaWrap.querySelectorAll("[data-media]").forEach((b) => b.addEventListener("click", () => {
+        setMediaFilter(b.dataset.media);
+        zoneLimits.clear();
+        render();
+        refreshPanel();
+      }));
+    };
+    const refreshPanel = () => {
+      data = getThemeData();
+      pop.querySelectorAll(".theme-cat").forEach((b) => {
+        const n = b.querySelector(".cat-n");
+        if (n) n.textContent = (data[b.dataset.cat] || []).length;
+      });
+      renderMediaSeg();
+      renderActiveChips();
+      renderOptions();
+    };
 
     // 選択中テーマ（チップ）を描画。× で個別解除できる。
     // 2件以上選ぶと AND（すべて満たす）／OR（いずれか）の切替を表示する。
     const renderActiveChips = () => {
-      if (!activeFilters.length) {
+      const restN = activeFilters.filter((f) => f.type !== "media").length;
+      if (!restN) {
         activeWrap.innerHTML =
           `<span class="theme-active-hint">タップで選択（複数選ぶと重ねて絞り込み）</span>`;
         return;
       }
-      const modeToggle = activeFilters.length > 1
+      const modeToggle = restN > 1
         ? `<div class="theme-mode" role="group" aria-label="複数テーマの条件">` +
           `<button class="theme-mode-btn${filterMode === "and" ? " active" : ""}" data-mode="and">すべて満たす<span class="theme-mode-sub">AND</span></button>` +
           `<button class="theme-mode-btn${filterMode === "or" ? " active" : ""}" data-mode="or">いずれか<span class="theme-mode-sub">OR</span></button>` +
@@ -3788,12 +3842,12 @@
         modeToggle +
         activeFilters
           .map(
-            (f, i) =>
+            (f, i) => f.type === "media" ? "" :
               `<button class="theme-chip" data-chip="${i}" title="このテーマを解除">` +
               `<span>${escapeHtml(filterLabel(f))}</span><span class="theme-chip-x">✕</span></button>`
           )
           .join("") +
-        (activeFilters.length > 1
+        (restN > 1
           ? `<button class="theme-chip-clear" data-chip-clear="1">すべて解除</button>`
           : "");
       activeWrap.querySelectorAll("[data-mode]").forEach((b) =>
@@ -3814,7 +3868,7 @@
         }));
       const clearAll = activeWrap.querySelector("[data-chip-clear]");
       if (clearAll) clearAll.addEventListener("click", () => {
-        activeFilters = [];
+        activeFilters = activeFilters.filter((f) => f.type === "media");
         filterMode = "and";
         zoneLimits.clear();
         render();
@@ -3848,7 +3902,7 @@
       const needsAnalysis = isPerson || isKind;
       const pending = needsAnalysis ? unanalyzedCount() : 0;
       let html =
-        `<button class="theme-option${!hasFilter() ? " current" : ""}" data-value="">すべて表示（解除）</button>`;
+        `<button class="theme-option${!activeFilters.some((f) => f.type !== "media") ? " current" : ""}" data-value="">すべて表示（解除）</button>`;
       // タグ: いつでも新規作成できるボタンを先頭に置く
       if (themePanelCat === "userTheme") {
         html += `<button class="theme-create" data-create="1">＋ 新しいタグを作成</button>`;
@@ -3933,8 +3987,10 @@
           // スワイプ直後のクリックは選択とみなさない（スクロール操作のため）
           if (swipeMoved) { swipeMoved = false; return; }
           if (!b.dataset.value) {
-            // 「すべて表示（解除）」は全解除してパネルを閉じる
+            // 「すべて表示（解除）」は種類以外のテーマを解除してパネルを閉じる
+            const media = mediaFilter();
             applyThemeFilter("");
+            if (media) { setMediaFilter(media.value); render(); }
             closeThemePanel();
             return;
           }
@@ -3978,6 +4034,7 @@
       pop.querySelector(".theme-sheet-close").addEventListener("click", closeThemePanel);
       document.body.appendChild(pop);
       document.body.classList.add("sheet-open");
+      renderMediaSeg();
       renderActiveChips();
       renderOptions();
       currentThemePanel = pop;
@@ -3997,6 +4054,7 @@
     pop.style.left = left + "px";
     pop.style.top = top + "px";
 
+    renderMediaSeg();
     renderActiveChips();
     renderOptions();
     currentThemePanel = pop;
@@ -4235,7 +4293,7 @@
   // 絞り込み内容を人間向けの名前にする（複数選択時は「×」で連結）
   function themeFilterName() {
     if (!activeFilters.length) return "";
-    return activeFilters.map(filterLabel).join(filterJoiner());
+    return joinedFilterLabels();
   }
 
   function moveRank(id, delta) {

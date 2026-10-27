@@ -7410,3 +7410,42 @@ body.compact .movie-fav-badge span {
 #seriesGrid .movie-media-badge {
   display: none;
 }
+
+.theme-media {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.theme-media-btn {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.theme-media-btn .cat-n {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.theme-media-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
