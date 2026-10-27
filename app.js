@@ -2676,7 +2676,8 @@
           `<div class="soc-friend"><button type="button" class="soc-friend-open" data-i="${i}">` +
           `<b>${escapeHtml(c.title)}</b><small>${c.owner ? "作成したお題" : "参加中"}</small></button>` +
           `<button type="button" class="soc-friend-del" data-i="${i}" title="一覧から外す">✕</button></div>`).join("") + `</div>`
-        : `<p class="soc-empty">まだお題はありません。</p>`);
+        : `<p class="soc-empty">まだお題はありません。</p>`) +
+      `<div id="socDemoChallenges"></div>`;
     box.querySelectorAll(".soc-friend-open").forEach((b) => b.addEventListener("click", () => {
       closeModal("socialModal");
       openChallengeResults(list[Number(b.dataset.i)].id);
@@ -2686,6 +2687,23 @@
       saveState();
       renderChallengeList();
       render();
+    }));
+    renderDemoChallenges();
+  }
+
+  async function renderDemoChallenges() {
+    let r = null;
+    try { r = await apiJSON("/api/demo"); } catch (e) {}
+    const wrap = document.getElementById("socDemoChallenges");
+    const list = (r && r.ok && r.data.challenges) || [];
+    if (!wrap || !list.length) return;
+    wrap.innerHTML = `<h4 class="soc-h">🎭 デモのお題に参加してみる</h4>` +
+      `<p class="soc-note">仮のユーザーが作ったお題です。参加して送った結果は、サーバーの再起動で消えます。</p><div class="soc-friends">` +
+      list.map((c) => `<div class="soc-friend"><button type="button" class="soc-friend-open" data-id="${escapeHtml(c.id)}">` +
+        `<b>${escapeHtml(c.title)}</b><small>${escapeHtml(c.creator)} さん</small></button></div>`).join("") + `</div>`;
+    wrap.querySelectorAll(".soc-friend-open").forEach((b) => b.addEventListener("click", () => {
+      closeModal("socialModal");
+      openChallengeLanding(b.dataset.id);
     }));
   }
 

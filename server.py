@@ -1641,9 +1641,61 @@ def _challenge_path(cid):
     return os.path.join(CHALLENGES_DIR, cid + ".json")
 
 
+DEMO_CHALLENGES = [
+    ("ghibli", "ジブリで一番好きなのは？", 17, "ナウシカからトトロ、最新作まで。あなたの一番を決めてください。",
+     ["風の谷のナウシカ", "天空の城ラピュタ", "となりのトトロ", "魔女の宅急便", "もののけ姫", "千と千尋の神隠し",
+      "ハウルの動く城", "君たちはどう生きるか"]),
+    ("scifi", "人生ベストSF", 1, "宇宙・タイムトラベル・AI。SFの名作をティア分けしよう。",
+     ["2001年宇宙の旅", "スター・ウォーズ", "エイリアン", "ブレードランナー", "E.T.", "バック・トゥ・ザ・フューチャー",
+      "ジュラシック・パーク", "マトリックス", "アバター", "インセプション", "ゼロ・グラビティ", "インターステラー",
+      "TENET テネット", "DUNE/デューン 砂の惑星"]),
+    ("hogaku", "2010年代以降の邦画ベスト", 15, "",
+     ["告白", "桐島、部活やめるってよ", "湯を沸かすほどの熱い愛", "シン・ゴジラ", "怒り", "万引き家族", "カメラを止めるな！",
+      "ドライブ・マイ・カー", "ゴジラ-1.0", "怪物", "PERFECT DAYS", "君の名は。", "この世界の片隅に", "すずめの戸締まり"]),
+    ("namida", "泣ける映画ティア", 10, "ハンカチ必須の作品を集めました。",
+     ["ショーシャンクの空に", "グリーンマイル", "ライフ・イズ・ビューティフル", "スタンド・バイ・ミー", "フォレスト・ガンプ",
+      "リメンバー・ミー", "カールじいさんの空飛ぶ家", "おくりびと", "コーダ あいのうた", "グラン・トリノ",
+      "ミリオンダラー・ベイビー", "セッション"]),
+]
+_demo_challenges_cache = None
+
+
+def _demo_challenges():
+    """デモのお題はメモリ上だけで持つ（参加・送信もディスクには保存しない）。"""
+    global _demo_challenges_cache
+    if _demo_challenges_cache is not None or not DEMO_SOCIAL:
+        return _demo_challenges_cache or {}
+    users = _demo_users()
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_movies.json"), encoding="utf-8") as f:
+            pool = json.load(f)
+    except (OSError, ValueError):
+        pool = []
+    out = {}
+    for slug, title, owner_i, note, titles in DEMO_CHALLENGES:
+        picked = [next((m for m in pool if m["title"].startswith(t)), None) for t in titles]
+        movies = _clean_challenge_movies([m for m in picked if m])
+        if len(movies) < 2:
+            continue
+        keys = {m["key"] for m in movies}
+        entries = {}
+        for i, u in enumerate(users):
+            r = {k: v for k, v in u["ratings"].items() if k in keys}
+            if len(r) >= 2:
+                entries["demo-pid-%02d" % i] = {"name": u["display"], "ratings": r, "at": 1793000000000 + i * 3600000}
+        cid = "demo-" + slug
+        out[cid] = {"id": cid, "title": title, "note": note, "creator": DEMO_NAMES[owner_i],
+                    "ownerPid": "demo-pid-%02d" % owner_i, "createdAt": 1792900000000,
+                    "movies": movies, "entries": entries}
+    _demo_challenges_cache = out
+    return out
+
+
 def _load_challenge(cid):
     if not CHALLENGE_ID_RE.match(cid or ""):
         return None
+    if cid in _demo_challenges():
+        return _demo_challenges()[cid]
     try:
         with open(_challenge_path(cid), encoding="utf-8") as f:
             return json.load(f)
@@ -1652,6 +1704,8 @@ def _load_challenge(cid):
 
 
 def _save_challenge(ch):
+    if ch["id"] in _demo_challenges():
+        return
     _ensure_data_dirs()
     path = _challenge_path(ch["id"])
     with open(path + ".tmp", "w", encoding="utf-8") as f:
@@ -1968,8 +2022,12 @@ class Handler(SimpleHTTPRequestHandler):
         self._send_private_json(res)
 
     def _h_demo(self):
+        with _data_lock:
+            chs = _demo_challenges()
         self._send_private_json({"friends": [{"name": d["display"], "token": d["share"]}
-                                             for d in _demo_users() if d["share"]]})
+                                             for d in _demo_users() if d["share"]],
+                                 "challenges": [{"id": c["id"], "title": c["title"], "creator": c["creator"]}
+                                                for c in chs.values()]})
 
     def _h_compare(self, token):
         data = self._read_json_body() or {}
