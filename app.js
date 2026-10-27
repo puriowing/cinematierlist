@@ -1363,6 +1363,112 @@
     }));
   }
 
+  // ---- プロフィール（属性）：本人が入力した値だけを保存し、ほかの人には表示しない ----
+  // 生まれた年は年表と共用のため state.birthYear、それ以外は state.profile.values。
+  // meta には入力した日と入力した画面、asks には「あとで」「答えない」の記録を残す。
+  const PREFECTURES = ["北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県",
+    "埼玉県", "千葉県", "東京都", "神奈川県", "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県",
+    "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県",
+    "山口県", "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県",
+    "沖縄県", "海外"];
+  const STREAM_SERVICES = ["Netflix", "Amazon Prime Video", "U-NEXT", "Disney+", "Hulu", "ABEMA", "DMM TV", "Lemino",
+    "FOD", "TELASA", "Apple TV+", "dアニメストア", "WOWOWオンデマンド", "Rakuten TV"];
+  const PROFILE_OPTIONS = {
+    gender: [["female", "女性"], ["male", "男性"], ["other", "その他"], ["none", "答えない"]],
+    theaterFreq: [["0", "ほとんど行かない"], ["1-2", "年に1〜2回"], ["3-5", "年に3〜5回"], ["6-11", "年に6〜11回"],
+      ["12-23", "月に1〜2回"], ["24+", "月に3回以上"]],
+  };
+
+  function ensureProfile() {
+    if (!state.profile || typeof state.profile !== "object") state.profile = {};
+    ["values", "meta", "asks"].forEach((k) => {
+      if (!state.profile[k] || typeof state.profile[k] !== "object") state.profile[k] = {};
+    });
+    return state.profile;
+  }
+
+  function profileValue(key) {
+    if (key === "birthYear") return state.birthYear || null;
+    return state.profile && state.profile.values ? state.profile.values[key] : undefined;
+  }
+
+  function setProfile(key, value, src) {
+    const p = ensureProfile();
+    const empty = value == null || value === "" || (Array.isArray(value) && !value.length);
+    if (key === "birthYear") { if (empty) delete state.birthYear; else state.birthYear = value; }
+    else if (empty) delete p.values[key];
+    else p.values[key] = value;
+    if (empty) delete p.meta[key];
+    else p.meta[key] = { at: Date.now(), src: src || "mypage" };
+  }
+
+  function renderProfileSettings() {
+    const box = document.getElementById("profileBody");
+    if (!box) return;
+    const sel = (key, opts, cur) =>
+      `<select class="pf-input" data-key="${key}"><option value="">未設定</option>` +
+      opts.map(([v, l]) => `<option value="${escapeHtml(v)}"${String(cur) === v ? " selected" : ""}>${escapeHtml(l)}</option>`).join("") +
+      `</select>`;
+    const row = (label, ctl) => `<label class="pf-row"><span class="pf-label">${label}</span>${ctl}</label>`;
+    const theaters = profileValue("theaters") || [];
+    const services = profileValue("services") || [];
+    box.innerHTML =
+      `<p class="hint">ここに入力した内容は、ほかの人には一切表示されません。個人が分からない形の集計にだけ使います。どれも任意で、いつでも変更・削除できます。</p>` +
+      `<div class="pv-group">` +
+      row("生まれた年", `<input class="pf-input" data-key="birthYear" type="text" inputmode="numeric" maxlength="4" placeholder="例: 1990" value="${escapeHtml(String(profileValue("birthYear") || ""))}" />`) +
+      row("性別", sel("gender", PROFILE_OPTIONS.gender, profileValue("gender") || "")) +
+      row("住んでいる地域", sel("prefecture", PREFECTURES.map((x) => [x, x]), profileValue("prefecture") || "")) +
+      row("映画館に行く回数", sel("theaterFreq", PROFILE_OPTIONS.theaterFreq, profileValue("theaterFreq") || "")) +
+      `</div>` +
+      `<div class="pv-group"><p class="pv-title">よく行く映画館<small>3つまで</small></p>` +
+      [0, 1, 2].map((i) => `<input class="pf-input pf-theater" data-i="${i}" type="text" maxlength="40" placeholder="例: TOHOシネマズ新宿" value="${escapeHtml(theaters[i] || "")}" />`).join("") +
+      `</div>` +
+      `<div class="pv-group"><p class="pv-title">加入している配信サービス<small>いくつでも</small></p><div class="mem-chips pf-services">` +
+      STREAM_SERVICES.map((sv) => {
+        const on = services.includes(sv);
+        return `<button type="button" class="mem-chip${on ? " is-on" : ""}" data-sv="${escapeHtml(sv)}" aria-pressed="${on}">${escapeHtml(sv)}</button>`;
+      }).join("") +
+      `</div></div>` +
+      `<div class="settings-actions"><button type="button" id="profileClear" class="btn btn-ghost btn-sm">プロフィールをすべて削除</button></div>`;
+
+    const saved = () => { saveState(); toast("プロフィールを保存しました"); };
+    box.querySelectorAll(".pf-input[data-key]").forEach((el) => el.addEventListener("change", () => {
+      const k = el.dataset.key;
+      let v = el.value.trim();
+      if (k === "birthYear") {
+        const n = parseInt(v.replace(/[^\d]/g, ""), 10);
+        v = n >= 1900 && n <= new Date().getFullYear() ? n : null;
+        el.value = v || "";
+      }
+      setProfile(k, v, "mypage");
+      saved();
+    }));
+    box.querySelectorAll(".pf-theater").forEach((el) => el.addEventListener("change", () => {
+      const list = [...box.querySelectorAll(".pf-theater")].map((x) => x.value.trim()).filter(Boolean);
+      setProfile("theaters", [...new Set(list)], "mypage");
+      saved();
+    }));
+    box.querySelector(".pf-services").addEventListener("click", (e) => {
+      const b = e.target.closest(".mem-chip");
+      if (!b) return;
+      const cur = (profileValue("services") || []).slice();
+      const i = cur.indexOf(b.dataset.sv);
+      if (i >= 0) cur.splice(i, 1); else cur.push(b.dataset.sv);
+      setProfile("services", cur, "mypage");
+      b.classList.toggle("is-on", i < 0);
+      b.setAttribute("aria-pressed", String(i < 0));
+      saved();
+    });
+    document.getElementById("profileClear").addEventListener("click", () => {
+      if (!confirm("プロフィールをすべて削除しますか？（生まれた年も消え、年表の年齢表示もなくなります）")) return;
+      delete state.profile;
+      delete state.birthYear;
+      saveState();
+      renderProfileSettings();
+      toast("プロフィールを削除しました");
+    });
+  }
+
   // マイページの折りたたみは1つずつ開き、開いた項目の見出しを見える位置へ
   function wireMyPageFolds() {
     const folds = [...document.querySelectorAll("#settingsModal .mp-fold")];
@@ -1382,6 +1488,7 @@
     renderAuth();
     renderBackupList();
     renderPrivacySettings();
+    renderProfileSettings();
     openModal("settingsModal");
   }
 
@@ -2755,13 +2862,64 @@
   }
 
   // ---- 偏愛マーク・思い出カード（ティアの評価とは別軸の記録） ----
-  const MEMORY_FIELDS = ["when", "where", "with", "note"];
+  const MEMORY_FIELDS = ["when", "where", "with", "note", "whereType", "withType"];
+  const WHERE_TYPES = [
+    ["theater", "映画館", "映画館名 例: TOHOシネマズ新宿"],
+    ["stream", "配信", "サービス名 例: Netflix"],
+    ["tv", "テレビ", "番組名など 例: 日曜洋画劇場"],
+    ["disc", "ソフト・レンタル", "くわしく（任意）"],
+    ["other", "その他", "くわしく（任意） 例: 機内で"],
+  ];
+  const WITH_TYPES = [
+    ["alone", "ひとりで"], ["friend", "友人"], ["partner", "恋人・パートナー"],
+    ["family", "家族"], ["kids", "子どもと"], ["other", "その他"],
+  ];
   let memoryMovieId = null;
+  let memoryWhereType = "";
+  let memoryWithType = [];
   let memoryFav = false;
   let justFavId = null;
 
   function hasMemory(m) {
-    return !!(m && m.memory && MEMORY_FIELDS.some((k) => m.memory[k]));
+    return !!(m && m.memory && MEMORY_FIELDS.some((k) => {
+      const v = m.memory[k];
+      return Array.isArray(v) ? v.length > 0 : !!v;
+    }));
+  }
+
+  function memoryWhereLabel(mem) {
+    if (mem.where) return mem.where;
+    const t = WHERE_TYPES.find((x) => x[0] === mem.whereType);
+    return t ? t[1] + "で" : "";
+  }
+
+  function memoryWithLabel(mem) {
+    if (mem.with) return mem.with;
+    const labels = (Array.isArray(mem.withType) ? mem.withType : [])
+      .map((k) => (WITH_TYPES.find((x) => x[0] === k) || [])[1]).filter(Boolean);
+    if (!labels.length) return "";
+    return labels.join("・") + (mem.withType.includes("alone") ? "" : "と");
+  }
+
+  function renderMemoryChips() {
+    const where = document.getElementById("memoryWhereType");
+    where.innerHTML = WHERE_TYPES.map(([k, l]) =>
+      `<button type="button" class="mem-chip${memoryWhereType === k ? " is-on" : ""}" data-k="${k}" aria-pressed="${memoryWhereType === k}">${l}</button>`).join("");
+    const withBox = document.getElementById("memoryWithType");
+    withBox.innerHTML = WITH_TYPES.map(([k, l]) => {
+      const on = memoryWithType.includes(k);
+      return `<button type="button" class="mem-chip${on ? " is-on" : ""}" data-k="${k}" aria-pressed="${on}">${l}</button>`;
+    }).join("");
+    const t = WHERE_TYPES.find((x) => x[0] === memoryWhereType);
+    const input = document.getElementById("memoryWhere");
+    input.placeholder = t ? t[2] : "例: 日曜洋画劇場 / TOHOシネマズ新宿";
+    const list = document.getElementById("memoryWhereList");
+    let opts = [];
+    if (memoryWhereType === "theater") {
+      opts = [...new Set([...(profileValue("theaters") || []),
+        ...allMovies().map((m) => m.memory && m.memory.whereType === "theater" && m.memory.where).filter(Boolean)])];
+    } else if (memoryWhereType === "stream") opts = STREAM_SERVICES;
+    list.innerHTML = opts.map((o) => `<option value="${escapeHtml(o)}"></option>`).join("");
   }
 
   function toggleFav(movie) {
@@ -2789,6 +2947,9 @@
     $("memoryWhere").value = mem.where || "";
     $("memoryWith").value = mem.with || "";
     $("memoryNote").value = mem.note || "";
+    memoryWhereType = mem.whereType || "";
+    memoryWithType = Array.isArray(mem.withType) ? mem.withType.slice() : [];
+    renderMemoryChips();
     $("memoryTitle").textContent = movie.title || "";
     $("memoryYear").textContent = movie.year ? `${movie.year}年` : "";
     const tierId = currentZoneOf(movie.id);
@@ -2817,8 +2978,10 @@
       where: $("memoryWhere").value.trim(),
       with: $("memoryWith").value.trim(),
       note: $("memoryNote").value.trim(),
+      whereType: memoryWhereType,
+      withType: memoryWithType.slice(),
     };
-    MEMORY_FIELDS.forEach((k) => { if (!mem[k]) delete mem[k]; });
+    MEMORY_FIELDS.forEach((k) => { if (Array.isArray(mem[k]) ? !mem[k].length : !mem[k]) delete mem[k]; });
     if (Object.keys(mem).length) m.memory = mem; else delete m.memory;
     if (memoryFav && !m.fav) justFavId = m.id;
     if (memoryFav) m.fav = true; else delete m.fav;
@@ -2894,7 +3057,7 @@
   function timelineCard(m, readOnly) {
     const mem = m.memory || {};
     const tier = m.tier;
-    const sub = [mem.where, mem.with].filter(Boolean).map(escapeHtml).join("・");
+    const sub = [memoryWhereLabel(mem), memoryWithLabel(mem)].filter(Boolean).map(escapeHtml).join("・");
     const poster = m.poster
       ? `<img class="tl-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
       : `<div class="tl-poster tl-poster-fb">${escapeHtml(m.title || "")}</div>`;
@@ -3069,13 +3232,28 @@
     });
     document.getElementById("timelineBirth").addEventListener("change", (e) => {
       const v = parseInt(String(e.target.value).replace(/[^\d]/g, ""), 10);
-      if (v >= 1900 && v <= new Date().getFullYear()) state.birthYear = v; else delete state.birthYear;
+      setProfile("birthYear", v >= 1900 && v <= new Date().getFullYear() ? v : null, "timeline");
       saveState();
       renderTimeline();
     });
   }
 
   function wireMemory() {
+    document.getElementById("memoryWhereType").addEventListener("click", (e) => {
+      const b = e.target.closest(".mem-chip");
+      if (!b) return;
+      memoryWhereType = memoryWhereType === b.dataset.k ? "" : b.dataset.k;
+      renderMemoryChips();
+    });
+    document.getElementById("memoryWithType").addEventListener("click", (e) => {
+      const b = e.target.closest(".mem-chip");
+      if (!b) return;
+      const k = b.dataset.k;
+      if (memoryWithType.includes(k)) memoryWithType = memoryWithType.filter((x) => x !== k);
+      else if (k === "alone") memoryWithType = ["alone"];
+      else memoryWithType = memoryWithType.filter((x) => x !== "alone").concat(k);
+      renderMemoryChips();
+    });
     document.getElementById("memoryFavBtn").addEventListener("click", () => {
       memoryFav = !memoryFav;
       renderMemoryFav();

@@ -390,6 +390,11 @@
           <div class="mp-fold-body"><div id="privacyBody"></div></div>
         </details>
 
+        <details id="mpProfile" class="mp-fold">
+          <summary>プロフィール（非公開）</summary>
+          <div class="mp-fold-body"><div id="profileBody"></div></div>
+        </details>
+
         <details class="mp-fold">
           <summary>ファイルで書き出す・読み込む</summary>
           <div class="mp-fold-body">
@@ -694,19 +699,20 @@
           </div>
         </div>
         <p class="hint memory-lead">ティアの評価とは別に、この作品との思い出を残せます。「いつ観た」に年や年齢を書くと、人生年表に並びます。</p>
-        <div class="memory-grid">
-          <label class="field">
-            <span>いつ観た</span>
-            <input id="memoryWhen" type="text" placeholder="例: 2016年6月 / 10歳 / 小学生の頃" />
-          </label>
-          <label class="field">
-            <span>どこで</span>
-            <input id="memoryWhere" type="text" placeholder="例: 日曜洋画劇場 / TOHOシネマズ新宿" />
-          </label>
-          <label class="field">
-            <span>誰と</span>
-            <input id="memoryWith" type="text" placeholder="例: 父と / ひとりで" />
-          </label>
+        <label class="field">
+          <span>いつ観た</span>
+          <input id="memoryWhen" type="text" placeholder="例: 2016年6月 / 10歳 / 小学生の頃" />
+        </label>
+        <div class="field">
+          <span>どこで</span>
+          <div id="memoryWhereType" class="mem-chips" role="group" aria-label="どこで観たか"></div>
+          <input id="memoryWhere" type="text" list="memoryWhereList" placeholder="例: 日曜洋画劇場 / TOHOシネマズ新宿" />
+          <datalist id="memoryWhereList"></datalist>
+        </div>
+        <div class="field">
+          <span>誰と<small class="mem-multi">（いくつでも）</small></span>
+          <div id="memoryWithType" class="mem-chips" role="group" aria-label="誰と観たか"></div>
+          <input id="memoryWith" type="text" placeholder="くわしく（任意） 例: 父と" />
         </div>
         <label class="field">
           <span>思い出</span>

@@ -6566,6 +6566,51 @@ body.compact .movie-fav-badge span {
   }
 }
 
+.mem-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+
+.mem-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mem-chip.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+
+.mem-multi { font-size: 11px; font-weight: 500; color: var(--text-dim); }
+
+/* ---------- マイページ：プロフィール ---------- */
+.pf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.pv-group .pf-row:first-child { border-top: none; }
+.pf-label { flex: 0 0 auto; }
+.pf-row .pf-input { width: 55%; max-width: 220px; }
+.pf-theater { display: block; width: 100%; margin-top: 6px; }
+.pf-services { margin-top: 6px; }
+
 /* ---------- 思い出の人生年表 ---------- */
 .timeline-modal {
   max-width: 620px;

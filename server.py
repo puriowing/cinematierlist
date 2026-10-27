@@ -1490,7 +1490,13 @@ def _public_timeline(u, obj):
         mem = m.get("memory")
         if not isinstance(mem, dict):
             return
-        mem = {k: _s(mem.get(k), 600 if k == "note" else 80) for k in fields}
+        raw = mem
+        mem = {k: _s(raw.get(k), 600 if k == "note" else 80) for k in fields}
+        if "where" in fields and raw.get("whereType") in ("theater", "stream", "tv", "disc", "other"):
+            mem["whereType"] = raw["whereType"]
+        if "with" in fields and isinstance(raw.get("withType"), list):
+            mem["withType"] = [x for x in raw["withType"][:6]
+                               if x in ("alone", "friend", "partner", "family", "kids", "other")]
         mem = {k: v for k, v in mem.items() if v}
         if not mem:
             return
