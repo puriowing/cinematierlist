@@ -576,11 +576,30 @@ def _filmarks_ld_season(html_text):
     return None
 
 
-def filmarks_series_search(query, media, limit=20):
-    """Filmarks のドラマ／アニメ検索。シーズンをシリーズごとにまとめ、
-    最初のシーズンを代表にしてシリーズ名・開始年・ポスターを返す。"""
-    q = urllib.parse.quote(query, safe="")
-    html_text = _fetch(f"https://filmarks.com/search/{SERIES_PATH[media]}?q={q}")
+RE_SEASON_SUFFIX = re.compile(
+    r"[\s　]*(?:"
+    r"[<＜〈(（\[【][^<＜〈>＞〉]*シーズン[^>＞〉)）\]】]*[>＞〉)）\]】]"
+    r"|(?:シーズン|Season|SEASON|season)[\s　]*[0-9０-９一二三四五六七八九十]+.*"
+    r"|[0-9０-９]+(?:st|nd|rd|th)[\s　]*(?:Season|season|SEASON).*"
+    r"|The Final Season.*|ファイナルシーズン.*|ファイナル・シーズン.*"
+    r"|第[0-9０-９一二三四五六七八九十]+(?:期|シリーズ|シーズン|クール|部|章).*"
+    r"|(?:Part|PART)\.?[\s　]*[0-9０-９]+.*"
+    r"|(?<=[\s　])[0-9]+(?:st|nd|rd|th)"
+    r")$"
+)
+RE_ROMAN_TAIL = re.compile(r"[\s　]+[ⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫ]+$|[\s　]+(?:II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV)$")
+
+
+def _series_title_guess(title):
+    """シーズン名から「シーズン3」「第2期」などを外してシリーズ名を推定する。
+    登録後に作品詳細のシリーズ名で正しく置き換わるので、一覧表示用の簡易版。"""
+    t = RE_SEASON_SUFFIX.sub("", title or "").strip()
+    t = RE_ROMAN_TAIL.sub("", t).strip()
+    return t or title
+
+
+def _parse_series_cassettes(html_text):
+    """一覧・検索ページのカセットを、出てきた順にシリーズごとへまとめる。"""
     groups = {}
     for chunk in html_text.split('class="js-cassette"')[1:]:
         sm = RE_FM_S_SERIES.search(chunk)
@@ -596,16 +615,70 @@ def filmarks_series_search(query, media, limit=20):
         g.append({"season": season, "title": _clean(tm.group(1)),
                   "date": "".join(dm.groups()) if dm else "99999999",
                   "poster": pm.group(1) if pm else ""})
+    return groups
+
+
+def filmarks_series_list(media, kind, value="", start=1, pages=2):
+    """ドラマ／アニメの一覧（人気・年別・ジャンル・国）をシリーズ単位で返す。"""
+    base = "list-drama" if media == "drama" else "list-anime"
+    if kind == "trend":
+        url = f"https://filmarks.com/{base}/trend"
+    elif kind == "year":
+        y = int(value)
+        url = f"https://filmarks.com/{base}/year/{y // 10 * 10}s/{y}"
+    elif kind in ("genre", "country") and media == "drama":
+        url = f"https://filmarks.com/{base}/{kind}/{int(value)}"
+    else:
+        raise ValueError("bad_kind")
+    page_urls = [url + ("" if pg == 1 else f"?page={pg}") for pg in range(start, start + pages)]
+    _prefetch(page_urls)
+    out, seen, has_more = [], set(), False
+    for pg, pu in zip(range(start, start + pages), page_urls):
+        try:
+            html_text = _fetch(pu)
+        except urllib.error.HTTPError as exc:
+            if exc.code in (404, 410):
+                has_more = False
+                break
+            raise
+        groups = _parse_series_cassettes(html_text)
+        if not groups:
+            has_more = False
+            break
+        has_more = f"page={pg + 1}" in html_text
+        for series, seasons in groups.items():
+            if series in seen:
+                continue
+            seen.add(series)
+            rep = min(seasons, key=lambda s: int(s["season"]))
+            year = "" if rep["date"].startswith("9999") else rep["date"][:4]
+            out.append({
+                "id": f"{SERIES_PREFIX[media]}{series}-{rep['season']}",
+                "title": _series_title_guess(rep["title"]), "year": year,
+                "poster": _poster_url(rep["poster"]), "media": media,
+            })
+    return out, has_more
+
+
+def filmarks_series_search(query, media, limit=20, resolve=True):
+    """Filmarks のドラマ／アニメ検索。シーズンをシリーズごとにまとめ、
+    最初のシーズンを代表にしてシリーズ名・開始年・ポスターを返す。"""
+    q = urllib.parse.quote(query, safe="")
+    html_text = _fetch(f"https://filmarks.com/search/{SERIES_PATH[media]}?q={q}")
+    groups = _parse_series_cassettes(html_text)
     reps = []
     for series, seasons in list(groups.items())[:limit]:
         rep = min(seasons, key=lambda s: int(s["season"]))
         reps.append((series, rep, len(seasons), "" if rep["date"].startswith("9999") else rep["date"][:4]))
     urls = [f"https://filmarks.com/{SERIES_PATH[media]}/{s}/{r['season']}" for s, r, _, _ in reps]
-    _prefetch(urls)
+    if resolve:
+        _prefetch(urls)
     results = []
     for (series, rep, n, year), url in zip(reps, urls):
-        title = rep["title"]
+        title = rep["title"] if resolve else _series_title_guess(rep["title"])
         try:
+            if not resolve:
+                raise LookupError
             ld = _filmarks_ld_season(_fetch(url)) or {}
             sr = ld.get(media + "Series") or {}
             title = (sr.get("title") or "").strip() or title
@@ -780,7 +853,8 @@ def _series_details(html_text, media, empty):
             "year": sd[:4] if re.match(r"\d{4}", sd) else "",
             "country": countries[0] if countries else "", "jp": "日本" in countries,
             "anime": media == "anime", "genres": genres, "genreIds": [],
-            "rating": rating, "ratingCount": rating_count, "media": media}
+            "rating": rating, "ratingCount": rating_count, "media": media,
+            "seriesTitle": ((ld.get(media + "Series") or {}).get("title") or "").strip()}
 
 
 def batch_filmarks_details(ids):
@@ -1267,7 +1341,7 @@ _ratings_loaded = False
 def _movie_key(m):
     fid = str(m.get("filmarksId") or "").strip()
     if fid:
-        return "f:" + fid
+        return "f:" + (fid.split("-")[0] if RE_SERIES_FID.match(fid) else fid)
     title = _KEY_STRIP.sub("", unicodedata.normalize("NFKC", m.get("title") or "").lower())
     if not title:
         return None
@@ -1960,9 +2034,33 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             try:
                 if media in SERIES_PATH:
-                    self._send_json({"results": filmarks_series_search(query, media)})
+                    lim = (params.get("limit") or ["20"])[0]
+                    quick = (params.get("quick") or [""])[0] == "1"
+                    self._send_json({"results": filmarks_series_search(
+                        query, media, max(1, min(20, int(lim) if lim.isdigit() else 20)), not quick)})
                     return
                 self._send_json({"results": filmarks_search(query)})
+            except Exception as exc:  # noqa: BLE001
+                self._send_json({"error": str(exc), "results": []}, 502)
+            return
+        if parsed.path == "/api/filmarks/series_list":
+            params = urllib.parse.parse_qs(parsed.query)
+            media = (params.get("media") or [""])[0]
+            kind = (params.get("kind") or [""])[0]
+            value = (params.get("value") or [""])[0]
+            start = (params.get("start") or ["1"])[0]
+            pages = (params.get("pages") or ["2"])[0]
+            if media not in SERIES_PATH or (kind != "trend" and not value.isdigit()):
+                self._send_json({"error": "bad_params", "results": []}, 400)
+                return
+            try:
+                results, has_more = filmarks_series_list(
+                    media, kind, value,
+                    max(1, int(start) if start.isdigit() else 1),
+                    max(1, min(4, int(pages) if pages.isdigit() else 2)))
+                self._send_json({"results": results, "hasMore": has_more})
+            except ValueError:
+                self._send_json({"error": "bad_params", "results": []}, 400)
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
             return

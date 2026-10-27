@@ -40,6 +40,12 @@
   const MEDIA_DEFS = [["movie", "映画"], ["drama", "ドラマシリーズ"], ["anime", "アニメシリーズ"]];
   const MEDIA_FILTER_LABEL = Object.fromEntries(MEDIA_DEFS);
 
+  // シリーズの ID（"a314-469"）は代表シーズンが入手元で変わり得るので、シリーズ部分で同一視する
+  function fidKey(fid) {
+    const s = String(fid || "").trim();
+    return /^[da]\d+-\d+$/.test(s) ? s.split("-")[0] : s;
+  }
+
   function filmarksUrl(m) {
     const s = String(m.filmarksId || "").match(/^([da])(\d+)-(\d+)$/);
     if (s) return `https://filmarks.com/${s[1] === "d" ? "dramas" : "animes"}/${s[2]}/${s[3]}`;
@@ -923,7 +929,7 @@
   // 同一作品かどうか。作品IDが両方にあればIDで決め、無ければタイトル＋公開年（±1年）で照合する。
   // 同名の別作品（リメイク等）を「登録済」と誤判定しないため、タイトルだけでは一致させない。
   function sameMovie(m, q, nt) {
-    if (q.filmarksId && m.filmarksId) return String(m.filmarksId) === String(q.filmarksId);
+    if (q.filmarksId && m.filmarksId) return fidKey(m.filmarksId) === fidKey(q.filmarksId);
     if (q.eigaId && m.eigaId) return String(m.eigaId) === String(q.eigaId);
     if (q.tmdbId && m.tmdbId) return String(m.tmdbId) === String(q.tmdbId);
     if (!nt || normTitle(m.title) !== nt) return false;
@@ -961,6 +967,7 @@
       if (f.tmdbId) m.tmdbId = f.tmdbId;
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
+      if (f.media) { m.media = f.media; m.genreCheckedV = GENRE_FIX_VERSION; }
       const id = uid();
       justAddedIds.add(id);
       state.watchlist.push({ id, ...m });
@@ -1680,7 +1687,7 @@
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
   function movieKey(m) {
-    const fid = String(m.filmarksId || "").trim();
+    const fid = fidKey(m.filmarksId);
     if (fid) return "f:" + fid;
     const t = String(m.title || "").normalize("NFKC").toLowerCase().replace(KEY_STRIP, "");
     return t ? "t:" + t + "|" + String(m.year || "").trim() : null;
@@ -2202,11 +2209,11 @@
           const i = next++;
           const t = titles[i];
           let results = [];
-          try { results = await searchFilmarks(t.title); } catch (e) {}
+          try { results = await searchFilmarks(t.title, (col && col.media) || "", true); } catch (e) {}
           const m = pickPosterMatch(results, t.title, t.year) || results[0];
           out[i] = m
-            ? { title: m.title || t.title, year: t.year || m.year || "", poster: m.poster || "", filmarksId: m.filmarksId }
-            : { title: t.title, year: t.year || "", poster: "" };
+            ? { title: m.title || t.title, year: t.year || m.year || "", poster: m.poster || "", filmarksId: m.filmarksId, media: m.media || "" }
+            : { title: t.title, year: t.year || "", poster: "", media: (col && col.media) || "" };
         }
       };
       await Promise.all([1, 2, 3, 4].map(worker));
@@ -3240,10 +3247,11 @@
   // データ取得元は Filmarks に一元化している（検索・ポスター・監督/出演・人物）。
   // =======================================================================
   // Filmarks 検索（ポスターが安定して付くので検索・ポスター補完の主ソース）
-  async function searchFilmarks(query, media = "") {
+  async function searchFilmarks(query, media = "", quick = false) {
     let res;
     try {
-      res = await fetch("/api/filmarks/search?q=" + encodeURIComponent(query) + (media ? "&media=" + media : ""));
+      res = await fetch("/api/filmarks/search?q=" + encodeURIComponent(query) +
+        (media ? "&media=" + media : "") + (media && quick ? "&limit=5&quick=1" : ""));
     } catch (e) {
       throw new Error("NO_SERVER");
     }
@@ -4502,6 +4510,7 @@
   // =======================================================================
   function normTitle(s) {
     return (s || "")
+      .normalize("NFKC")
       .toLowerCase()
       .replace(/[\s　]+/g, "")
       .replace(/[!-/:-@[-`{-~！-／：-＠［-｀｛-～、。・「」『』〜～]/g, "");
@@ -4682,6 +4691,7 @@
       const k = m.media ? null : classifyKind(cr);
       if (k) m.kind = k;
       // Filmarks 詳細にはジャンルIDも含まれるので、同時に確定して別リクエストを節約
+      if (m.media && cr.seriesTitle) m.title = cr.seriesTitle;
       if (m.media && Array.isArray(cr.genres)) {
         const known = new Set(GENRES.map((g) => g.label));
         const labels = cr.genres.filter((g) => known.has(g));
@@ -4844,6 +4854,7 @@
          <div class="result-title">${escapeHtml(f.title)}</div>
          <div class="result-year">${escapeHtml(sub)}</div>
        </div>` +
+      (MEDIA_LABEL[f.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[f.media]}</div>` : "") +
       `<div class="pick-badge">${added ? "✓ 登録済" : "選ぶ"}</div>`;
     if (!added) {
       card.addEventListener("click", () => {
@@ -4871,6 +4882,7 @@
       if (f.tmdbId) m.tmdbId = f.tmdbId;
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
+      if (f.media) { m.media = f.media; m.genreCheckedV = GENRE_FIX_VERSION; }
       removeFromWatchlistByMatch(m);
       const id = uid();
       justAddedIds.add(id);
@@ -5111,6 +5123,156 @@
       notifyBulkAdded("recallAddBtn", "recallGrid", c);
       updateRecallMoreBtn();
     }
+  }
+
+  // =======================================================================
+  // ドラマシリーズ／アニメシリーズ（人気・年別・国・ジャンル・タイトル検索）
+  // =======================================================================
+  const SERIES_VALUES = {
+    country: [["144", "日本"], ["147", "韓国"], ["5", "アメリカ"], ["11", "イギリス"], ["140", "中国"]],
+    genre: [["9", "ドラマ"], ["17", "恋愛"], ["7", "コメディ"], ["13", "ミステリー"], ["8", "サスペンス"],
+      ["23", "クライム"], ["28", "スリラー"], ["1", "アクション"], ["4", "SF"], ["11", "ファンタジー"],
+      ["12", "ホラー"], ["22", "青春"], ["10", "ファミリー"], ["29", "時代劇"], ["16", "歴史"],
+      ["30", "伝記"], ["21", "スポーツ"], ["6", "音楽"], ["2", "アドベンチャー・冒険"], ["18", "ドキュメンタリー"]],
+  };
+  const SERIES_MODE_LABEL = { trend: "いま人気", year: "年別", country: "国・地域", genre: "ジャンル" };
+  function newSeriesSession() {
+    return { mode: "", value: "", next: 1, hasMore: false, seen: new Set(), films: [], token: 0 };
+  }
+  let seriesSessions = { drama: newSeriesSession(), anime: newSeriesSession() };
+
+  function initSeriesTab(media) {
+    if (!seriesSessions[media].mode) loadSeries(media, "trend");
+  }
+
+  function seriesValueOptions(media, mode) {
+    if (mode === "year") {
+      const curY = new Date().getFullYear();
+      return Array.from({ length: curY - 1959 }, (_, i) => [String(curY - i), (curY - i) + "年"]);
+    }
+    return SERIES_VALUES[mode] || [];
+  }
+
+  function setSeriesMode(media, mode, value) {
+    document.querySelectorAll(`#${media}ModeChips .role-chip`).forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+    const row = document.getElementById(media + "PickRow");
+    const sel = document.getElementById(media + "Value");
+    const opts = seriesValueOptions(media, mode);
+    row.style.display = opts.length ? "" : "none";
+    if (opts.length && sel.dataset.mode !== mode) {
+      sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+      sel.dataset.mode = mode;
+    }
+    if (value) sel.value = value;
+    return opts.length ? sel.value : "";
+  }
+
+  function addSeriesCards(media, films) {
+    const grid = document.getElementById(media + "Grid");
+    films.forEach((f) => grid.appendChild(makePickCard(f, {
+      subtitle: [f.year, f.subtitle].filter(Boolean).join(" ・ "),
+      onToggle: () => setPickBtn(media + "AddBtn", media + "Grid"),
+    })));
+    document.getElementById(media + "Actions").style.display = grid.querySelector(".pick-card") ? "flex" : "none";
+    setPickBtn(media + "AddBtn", media + "Grid");
+  }
+
+  async function fetchSeriesBatch(media, s) {
+    let res;
+    try {
+      res = await fetch(`/api/filmarks/series_list?media=${media}&kind=${s.mode}&value=${encodeURIComponent(s.value)}&start=${s.next}&pages=2`);
+    } catch (e) {
+      throw new Error("NO_SERVER");
+    }
+    if (!res.ok) throw new Error("HTTP_" + res.status);
+    const data = await res.json();
+    s.next += 2;
+    s.hasMore = !!data.hasMore;
+    const out = [];
+    (data.results || []).forEach((r) => {
+      const k = fidKey(r.id);
+      if (s.seen.has(k)) return;
+      s.seen.add(k);
+      out.push({ title: r.title, year: r.year || "", poster: r.poster || "", filmarksId: r.id, media });
+    });
+    s.films.push(...out);
+    return out;
+  }
+
+  function updateSeriesStatus(media) {
+    const s = seriesSessions[media];
+    const status = document.getElementById(media + "Status");
+    document.getElementById(media + "MoreWrap").style.display = s.hasMore && s.films.length ? "flex" : "none";
+    if (!s.films.length) { status.textContent = "作品が見つかりませんでした。"; return; }
+    const sel = document.getElementById(media + "Value");
+    const what = s.mode === "search" ? `「${s.value}」の検索結果`
+      : s.mode === "trend" ? "いま人気の作品"
+      : `${sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : ""}の作品`;
+    status.textContent = `${what}を ${s.films.length}件表示中。観た作品をタップして選び、まとめて追加できます。`;
+  }
+
+  async function loadSeries(media, mode, value) {
+    const v = mode === "search" ? value : setSeriesMode(media, mode, value);
+    if (mode === "search") setSeriesMode(media, "");
+    const s = seriesSessions[media] = newSeriesSession();
+    s.mode = mode; s.value = v || "";
+    const token = ++seriesLoadToken;
+    s.token = token;
+    const grid = document.getElementById(media + "Grid");
+    const status = document.getElementById(media + "Status");
+    grid.innerHTML = "";
+    status.textContent = "";
+    document.getElementById(media + "Actions").style.display = "none";
+    document.getElementById(media + "MoreWrap").style.display = "none";
+    showLoading(grid, mode === "search" ? `「${v}」を検索中…` : "作品を取得中…");
+    try {
+      let films;
+      if (mode === "search") {
+        films = (await searchFilmarks(v, media)).map((r) => ({
+          title: r.title, year: r.year, poster: r.poster, filmarksId: r.filmarksId, media,
+          subtitle: r.seasons > 1 ? `全${r.seasons}シーズン` : "",
+        }));
+        s.films = films;
+      } else {
+        films = await fetchSeriesBatch(media, s);
+      }
+      if (s.token !== seriesLoadToken) return;
+      clearLoading(grid);
+      addSeriesCards(media, films);
+      updateSeriesStatus(media);
+    } catch (e) {
+      if (s.token !== seriesLoadToken) return;
+      clearLoading(grid);
+      status.textContent = e.message === "NO_SERVER" ? recallServerHint() : "取得に失敗しました: " + e.message;
+    }
+  }
+  let seriesLoadToken = 0;
+
+  async function loadMoreSeries(media) {
+    const s = seriesSessions[media];
+    const btn = document.getElementById(media + "MoreBtn");
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "読み込み中…";
+    try {
+      let films = [], tries = 0;
+      while (s.hasMore && !films.length && tries < 4) { films = await fetchSeriesBatch(media, s); tries++; }
+      if (seriesSessions[media] === s) { addSeriesCards(media, films); updateSeriesStatus(media); }
+    } catch (e) {
+      document.getElementById(media + "Status").textContent = "取得に失敗しました: " + e.message;
+    }
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
+  function bulkAddSeries(media) {
+    const grid = document.getElementById(media + "Grid");
+    const c = addFilms(collectPicked(grid));
+    if (!c) return;
+    const films = [...grid.querySelectorAll(".pick-card")].map((x) => x._film);
+    grid.innerHTML = "";
+    addSeriesCards(media, films);
+    notifyBulkAdded(media + "AddBtn", media + "Grid", c);
   }
 
   // =======================================================================
@@ -6239,6 +6401,40 @@
     { id: "space", label: "宇宙・スペースSF", emoji: "🚀", titles: ["2001年宇宙の旅", "エイリアン", "コンタクト", "アポロ13", "ゼロ・グラビティ", "インターステラー", "オデッセイ", "アド・アストラ", "DUNE/デューン 砂の惑星"] },
     { id: "roadmovie", label: "ロードムービー", emoji: "🛣️", titles: ["イージー・ライダー", "レインマン", "テルマ&ルイーズ", "リトル・ミス・サンシャイン", "モーターサイクル・ダイアリーズ", "はじまりへの旅", "ノマドランド", "グリーンブック"] },
     { id: "tearjerker", label: "泣ける名作", emoji: "😢", titles: ["きみに読む物語", "グリーンマイル", "ライフ・イズ・ビューティフル", "手紙 (映画)", "世界の中心で、愛をさけぶ", "余命1ヶ月の花嫁", "おくりびと", "湯を沸かすほどの熱い愛", "そして、バトンは渡された"] },
+    { id: "jp_drama", label: "日本の名作ドラマ", emoji: "📺", media: "drama", titles: [
+      "アンナチュラル", "MIU404", "逃げるは恥だが役に立つ", "半沢直樹", "リーガル・ハイ", "警部補 古畑任三郎",
+      "踊る大捜査線", "ロングバケーション", { title: "HERO", year: "2001" }, "結婚できない男", "最高の離婚", "カルテット",
+      "あまちゃん", "下町ロケット", "TRICK", "VIVANT", "不適切にもほどがある！", "silent",
+      "大豆田とわ子と三人の元夫", "孤独のグルメ", "コンフィデンスマンJP", "義母と娘のブルース",
+      "GTO", "ドクターX ～外科医・大門未知子～", "相棒", "北の国から", "東京ラブストーリー", "池袋ウエストゲートパーク",
+    ] },
+    { id: "us_drama", label: "海外ドラマの定番", emoji: "🌎", media: "drama", titles: [
+      "フレンズ", "ブレイキング・バッド", "ゲーム・オブ・スローンズ", "ストレンジャー・シングス 未知の世界",
+      "プリズン・ブレイク", "24 -TWENTY FOUR-", "ウォーキング・デッド", "SHERLOCK(シャーロック)", "LOST",
+      "ザ・ボーイズ", "ウェンズデー", "ハウス・オブ・カード 野望の階段", "SUITS/スーツ", "ベター・コール・ソウル",
+      "THE LAST OF US", "SHOGUN 将軍", "セックス・アンド・ザ・シティ", "ER 緊急救命室", "ツイン・ピークス",
+      "X-ファイル", "ダウントン・アビー", "ザ・クラウン", "ゴシップガール", "グレイズ・アナトミー",
+    ] },
+    { id: "kr_drama", label: "韓国ドラマの名作", emoji: "🇰🇷", media: "drama", titles: [
+      "愛の不時着", "イカゲーム", "梨泰院クラス", "冬のソナタ", "宮廷女官チャングムの誓い", "賢い医師生活",
+      "ザ・グローリー ～輝かしき復讐～", "涙の女王", "ウ・ヨンウ弁護士は天才肌", "私の解放日誌",
+      "トッケビ～君がくれた愛しい日々～", "椿の花咲く頃", "シグナル", "マイ・ディア・ミスター ～私のおじさん～",
+      "恋のスケッチ～応答せよ1988～", "ヴィンチェンツォ", "キム秘書はいったい、なぜ?", "サイコだけど大丈夫", "二十五、二十一",
+      "財閥家の末息子 ～Reborn Rich～", "ムービング", "還魂",
+    ] },
+    { id: "anime_classic", label: "アニメの名作シリーズ", emoji: "🎞️", media: "anime", titles: [
+      "新世紀エヴァンゲリオン", "カウボーイビバップ", "鋼の錬金術師 FULLMETAL ALCHEMIST", "進撃の巨人",
+      "鬼滅の刃", "呪術廻戦", "葬送のフリーレン", "STEINS;GATE", "コードギアス 反逆のルルーシュ",
+      "魔法少女まどか☆マギカ", "けいおん!", "涼宮ハルヒの憂鬱", "SPY×FAMILY", "【推しの子】", "チェンソーマン",
+      "ぼっち・ざ・ろっく！", "薬屋のひとりごと", "ハイキュー!!", "宇宙兄弟", "四月は君の嘘", "攻殻機動隊 STAND ALONE COMPLEX",
+      "モブサイコ100", "ヴァイオレット・エヴァーガーデン", "HUNTER×HUNTER", "ジョジョの奇妙な冒険", "銀魂",
+    ] },
+    { id: "anime_kids", label: "あの頃のテレビアニメ", emoji: "📼", media: "anime", titles: [
+      "ドラゴンボール", "ドラゴンボールZ", "SLAM DUNK", "名探偵コナン",
+      "ポケットモンスター", "美少女戦士セーラームーン", "幽☆遊☆白書", "るろうに剣心 -明治剣客浪漫譚-",
+      "ワンピース", "NARUTO -ナルト-", "ドラえもん", "キャプテン翼", "聖闘士星矢", "北斗の拳", "シティーハンター",
+      "らんま1/2", "デジモンアドベンチャー", "遊☆戯☆王デュエルモンスターズ", "カードキャプターさくら", "BLEACH",
+    ] },
   ];
 
   // ジャンル（コレクション・映画賞とは独立して常時表示する）
@@ -6452,7 +6648,7 @@
     _collMap = new Map();
     [...COLLECTIONS, ...AWARDS].forEach((col) => {
       (col.titles || []).forEach((t) => {
-        const k = normTitle(typeof t === "string" ? t : t.title);
+        const k = (col.media || "movie") + "|" + normTitle(typeof t === "string" ? t : t.title);
         if (!_collMap.has(k)) _collMap.set(k, []);
         if (!_collMap.get(k).includes(col.label)) _collMap.get(k).push(col.label);
       });
@@ -6462,7 +6658,7 @@
 
   // その作品が属するコレクション名の一覧（タイトル一致＋コレクション追加時のタグ）
   function movieCollections(movie) {
-    const set = new Set(collMap().get(normTitle(movie.title)) || []);
+    const set = new Set(collMap().get((movie.media || "movie") + "|" + normTitle(movie.title)) || []);
     if (movie.collection) set.add(movie.collection);
     return [...set];
   }
@@ -6501,6 +6697,7 @@
     renderGenreChips();
   }
 
+  let collectionMedia = "all";
   function renderCollectionChips() {
     const wrap = document.getElementById("collectionList");
     const input = document.getElementById("collectionSearchInput");
@@ -6509,9 +6706,10 @@
     const label = document.querySelector('[data-panel="collection"] .suggest-label');
     wrap.innerHTML = "";
     // 検索中は一致する全コレクションを表示。未入力時はおすすめ10件をランダム表示。
+    const pool = COLLECTIONS.filter((c) => collectionMedia === "all" || (c.media || "movie") === collectionMedia);
     const cols = q
-      ? COLLECTIONS.filter((c) => c.label.toLowerCase().includes(q))
-      : pickRandom(COLLECTIONS, 10);
+      ? pool.filter((c) => c.label.toLowerCase().includes(q))
+      : (collectionMedia === "all" || collectionMedia === "movie" ? pickRandom(pool, 10) : pool);
     if (shuffleBtn) shuffleBtn.style.display = q ? "none" : "";
     if (label) label.textContent = q ? `「${input.value.trim()}」の検索結果（${cols.length}件）` : "おすすめのコレクション";
     if (q && !cols.length) {
@@ -6797,7 +6995,7 @@
         const year = typeof t === "object" ? t.year : "";
         let results = [];
         try {
-          results = await searchFilmarks(title);
+          results = await searchFilmarks(title, col.media || "", true);
         } catch (e) {
           if (e.message === "NO_SERVER") { serverDown = true; return; }
         }
@@ -6807,8 +7005,8 @@
         // 年が指定されている作品（受賞作リストなど）は、日本公開年やリメイク版に
         // 引きずられないよう、指定された製作年を優先して表示する
         found[i] = m
-          ? { title: m.title || title, poster: m.poster || "", year: year || m.year || "", filmarksId: m.filmarksId, collection: col.label }
-          : { title, poster: "", year: year || "", collection: col.label };
+          ? { title: m.title || title, poster: m.poster || "", year: year || m.year || "", filmarksId: m.filmarksId, collection: col.label, media: m.media || "" }
+          : { title, poster: "", year: year || "", collection: col.label, media: col.media || "" };
         flush();
       }
     };
@@ -9093,12 +9291,14 @@
     });
     // 候補グリッド・人物一覧をクリア
     clearHtml(["searchResults", "recallGrid", "recommendGrid", "collectionGrid",
-      "genreGrid", "awardGrid", "filmGrid", "personResults"]);
+      "genreGrid", "awardGrid", "filmGrid", "personResults", "dramaGrid", "animeGrid"]);
     clearText(["searchStatus", "recallStatus", "recommendStatus", "collectionStatus",
-      "genreStatus", "awardStatus", "personStatus"]);
+      "genreStatus", "awardStatus", "personStatus", "dramaStatus", "animeStatus"]);
     // 「もっと見る」・下部の追加アクションバーを隠す
-    hide(["recallMoreWrap", "collectionMoreWrap", "genreMoreWrap", "awardMoreWrap",
-      "recallActions", "recommendActions", "collectionActions", "genreActions", "awardActions", "personActions"]);
+    hide(["recallMoreWrap", "collectionMoreWrap", "genreMoreWrap", "awardMoreWrap", "dramaMoreWrap", "animeMoreWrap",
+      "recallActions", "recommendActions", "collectionActions", "genreActions", "awardActions", "personActions",
+      "dramaActions", "animeActions"]);
+    seriesSessions = { drama: newSeriesSession(), anime: newSeriesSession() };
     personPicked.clear();
     // 人物のフィルモグラフィ表示を閉じる
     const pf = document.getElementById("personFilmography");
@@ -9123,7 +9323,7 @@
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
     // フッターの追加バーは共有なので、アクティブなタブの分だけ（かつ候補がある場合のみ）表示する
-    ["recall", "recommend", "collection", "genre", "award", "person"].forEach((t) => {
+    ["recall", "recommend", "collection", "genre", "award", "person", "drama", "anime"].forEach((t) => {
       const actions = document.getElementById(t + "Actions");
       const grid = document.getElementById(t === "person" ? "filmGrid" : t + "Grid");
       if (!actions) return;
@@ -9136,6 +9336,7 @@
     else if (name === "award") initAwardUI();
     else if (name === "person") { if (!document.getElementById("personSuggest").children.length) renderPersonSuggest(); }
     else if (name === "recommend" && !recommendFilms.length && !recBuilding) buildRecommendations();
+    else if (name === "drama" || name === "anime") initSeriesTab(name);
   }
 
   function renderSearchResults(results) {
@@ -9463,6 +9664,32 @@
 
     // コレクション
     document.getElementById("collectionShuffleBtn").addEventListener("click", renderCollectionChips);
+    document.querySelectorAll("#collectionMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
+      collectionMedia = b.dataset.media;
+      document.querySelectorAll("#collectionMediaChips .role-chip").forEach((x) => x.classList.toggle("active", x === b));
+      renderCollectionChips();
+    }));
+    document.querySelectorAll("#recallMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
+      const media = b.dataset.media;
+      if (!media) return;
+      const year = document.getElementById("recallYear").value;
+      switchTab(media);
+      loadSeries(media, "year", year);
+    }));
+    ["drama", "anime"].forEach((media) => {
+      document.querySelectorAll(`#${media}ModeChips .role-chip`).forEach((b) =>
+        b.addEventListener("click", () => loadSeries(media, b.dataset.mode)));
+      document.getElementById(media + "Value").addEventListener("change", (e) => {
+        const s = seriesSessions[media];
+        if (s.mode && s.mode !== "search") loadSeries(media, s.mode, e.target.value);
+      });
+      const input = document.getElementById(media + "SearchInput");
+      const go = () => { const q = input.value.trim(); if (q) loadSeries(media, "search", q); };
+      document.getElementById(media + "SearchBtn").addEventListener("click", go);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) go(); });
+      document.getElementById(media + "MoreBtn").addEventListener("click", () => loadMoreSeries(media));
+      document.getElementById(media + "AddBtn").addEventListener("click", () => bulkAddSeries(media));
+    });
     document.getElementById("collectionSearchInput").addEventListener("input", renderCollectionChips);
     document.getElementById("collectionAddBtn").addEventListener("click", () => bulkAddCollection(COLLECTION_CTX));
     document.getElementById("awardAddBtn").addEventListener("click", () => awardMode === "fm" ? fmBulkAdd(awardCtrl) : bulkAddCollection(AWARD_CTX));

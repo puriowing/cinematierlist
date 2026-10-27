@@ -150,6 +150,8 @@
 
       <div class="tabs">
         <button class="tab active" data-tab="search">🔍 検索して追加</button>
+        <button class="tab" data-tab="drama">📺 ドラマシリーズ</button>
+        <button class="tab" data-tab="anime">🎞️ アニメシリーズ</button>
         <button class="tab" data-tab="recall">🕰️ 公開年</button>
         <button class="tab" data-tab="recommend">✨ おすすめ</button>
         <button class="tab" data-tab="collection">📚 コレクション</button>
@@ -174,11 +176,62 @@
         <div id="searchResults" class="search-results"></div>
       </div>
 
+      <div class="tab-panel" data-panel="drama">
+        <p class="hint" style="margin-top:0">
+          ドラマはシリーズ単位で1作品として登録します（シーズンが複数あっても1枚）。観た作品をタップして選び、まとめて追加できます。
+        </p>
+        <div class="search-row">
+          <input id="dramaSearchInput" type="text" placeholder="ドラマのタイトルで探す（例: アンナチュラル）" />
+          <button id="dramaSearchBtn" class="btn btn-primary">検索</button>
+        </div>
+        <div class="role-chips" id="dramaModeChips">
+          <button class="role-chip" data-mode="trend">いま人気</button>
+          <button class="role-chip" data-mode="year">年別</button>
+          <button class="role-chip" data-mode="country">国・地域</button>
+          <button class="role-chip" data-mode="genre">ジャンル</button>
+        </div>
+        <div class="cal-controls" id="dramaPickRow" style="display:none">
+          <select id="dramaValue" aria-label="絞り込み"></select>
+        </div>
+        <p id="dramaStatus" class="search-status"></p>
+        <div id="dramaGrid" class="search-results"></div>
+        <div id="dramaMoreWrap" class="recall-more" style="display:none">
+          <button id="dramaMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="anime">
+        <p class="hint" style="margin-top:0">
+          アニメはシリーズ単位で1作品として登録します（シーズンが複数あっても1枚）。観た作品をタップして選び、まとめて追加できます。
+        </p>
+        <div class="search-row">
+          <input id="animeSearchInput" type="text" placeholder="アニメのタイトルで探す（例: 葬送のフリーレン）" />
+          <button id="animeSearchBtn" class="btn btn-primary">検索</button>
+        </div>
+        <div class="role-chips" id="animeModeChips">
+          <button class="role-chip" data-mode="trend">いま人気</button>
+          <button class="role-chip" data-mode="year">年別</button>
+        </div>
+        <div class="cal-controls" id="animePickRow" style="display:none">
+          <select id="animeValue" aria-label="絞り込み"></select>
+        </div>
+        <p id="animeStatus" class="search-status"></p>
+        <div id="animeGrid" class="search-results"></div>
+        <div id="animeMoreWrap" class="recall-more" style="display:none">
+          <button id="animeMoreBtn" class="btn btn-ghost">もっと見る</button>
+        </div>
+      </div>
+
       <!-- Recall by release (公開) year tab -->
       <div class="tab-panel" data-panel="recall">
         <p class="hint" style="margin-top:0">
           公開年を選ぶと、その年に日本で公開された作品を話題作から順に一覧表示します。観た作品をタップして選び、まとめて追加できます。リバイバル上映はオリジナルの公開年で扱います。「もっと見る」でさらに続きを読み込めます。
         </p>
+        <div class="role-chips" id="recallMediaChips">
+          <button class="role-chip active" data-media="">映画</button>
+          <button class="role-chip" data-media="drama">ドラマシリーズ</button>
+          <button class="role-chip" data-media="anime">アニメシリーズ</button>
+        </div>
         <div class="cal-controls">
           <select id="recallYear" aria-label="公開年"></select>
           <button id="recallShowBtn" class="btn btn-primary">この年の作品を見る</button>
@@ -207,6 +260,12 @@
         <p class="hint" style="margin-top:0">
           人気シリーズや名作スタジオの作品を、観たものだけチェックしてまとめて追加できます。
         </p>
+        <div class="role-chips" id="collectionMediaChips">
+          <button class="role-chip active" data-media="all">すべて</button>
+          <button class="role-chip" data-media="movie">映画</button>
+          <button class="role-chip" data-media="drama">ドラマシリーズ</button>
+          <button class="role-chip" data-media="anime">アニメシリーズ</button>
+        </div>
         <div class="suggest-head">
           <span class="suggest-label">おすすめのコレクション</span>
           <button id="collectionShuffleBtn" class="btn btn-ghost btn-sm">🔀 ほかの候補</button>
@@ -310,6 +369,14 @@
 
       <div class="modal-footer">
         <div class="footer-actions">
+          <div class="filmo-actions filmo-actions-footer" id="dramaActions" style="display:none">
+            <button id="dramaAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="animeActions" style="display:none">
+            <button id="animeAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
+            <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
           <div class="filmo-actions filmo-actions-footer" id="recallActions" style="display:none">
             <button id="recallAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
             <span class="filmo-note">観た作品をタップ→まとめて追加</span>
