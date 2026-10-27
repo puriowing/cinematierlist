@@ -5343,6 +5343,7 @@ div.battle-poster {
 .soc-h { margin: 18px 0 8px; font-size: 14px; }
 .soc-sub { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--text-dim); }
 .soc-note { font-size: 12px; color: var(--text-dim); }
+.soc-demo { font-size: 12px; color: var(--text-dim); background: var(--surface-2, rgba(127,127,127,.1)); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
 .soc-dim { color: var(--text-dim); font-size: 12px; }
 .soc-empty {
   font-size: 13px; color: var(--text-dim); background: var(--bg-elev-2);

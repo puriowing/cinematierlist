@@ -1960,6 +1960,7 @@
     let html = `<p class="hint soc-lead">ログインしているユーザー全員のティアリストを、作品ごとに平均した「みんなのティア」です。` +
       `ティアの段数が違っても比べられるよう、一番上のティア＝10点、一番下＝0点に換算しています。` +
       `個人の評価が分からないよう、あなた以外の${min}人以上が評価した作品だけを表示します。</p>`;
+    if (top.data.demo) html += `<p class="soc-demo">🎭 いまはデモ表示です。仮のユーザー${top.data.demo}人分の評価がまざっています。</p>`;
 
     if (currentUser && social && social.ok) {
       html += `<label class="field field-check soc-optin"><input id="socOptIn" type="checkbox" ${social.data.community ? "checked" : ""}/>` +
@@ -2032,6 +2033,7 @@
       `<h4 class="soc-h">📩 友だちのリンクで比べる</h4>` +
       `<div class="soc-paste"><input id="socPasteInput" type="text" placeholder="友だちから届いたリンクを貼り付け" />` +
       `<button id="socPasteBtn" class="btn btn-primary btn-sm">比べる</button></div>` +
+      `<div id="socDemoFriends"></div>` +
       `<div id="socFriendList"></div>` +
       `<div id="socCompareBox"></div>`;
     document.getElementById("socPasteBtn").addEventListener("click", () => {
@@ -2041,6 +2043,20 @@
     });
     renderFriendList();
     renderMyLink();
+    renderDemoFriends();
+  }
+
+  async function renderDemoFriends() {
+    const wrap = document.getElementById("socDemoFriends");
+    let r = null;
+    try { r = await apiJSON("/api/demo"); } catch (e) {}
+    const friends = (r && r.ok && r.data.friends) || [];
+    if (!wrap || !friends.length) return;
+    wrap.innerHTML = `<h4 class="soc-h">🎭 デモの友だちと比べてみる</h4><div class="soc-friends">` +
+      friends.map((f) => `<div class="soc-friend"><button type="button" class="soc-friend-open" data-token="${escapeHtml(f.token)}">` +
+        `<b>${escapeHtml(f.name)}</b><small>仮のユーザー</small></button></div>`).join("") + `</div>`;
+    wrap.querySelectorAll(".soc-friend-open").forEach((b) =>
+      b.addEventListener("click", () => runCompare(b.dataset.token)));
   }
 
   function renderFriendList() {
@@ -2124,7 +2140,7 @@
       return;
     }
     const d = res.data;
-    if (!d.self) {
+    if (!d.self && !token.startsWith("demo-")) {
       state.friends = (state.friends || []).filter((f) => f.token !== token);
       state.friends.unshift({ token, name: d.name, match: d.match, at: Date.now() });
       saveState();

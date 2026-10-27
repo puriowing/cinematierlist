@@ -1376,6 +1376,48 @@ def _ratings_from_list(obj):
     return out
 
 
+# デモ用の仮ユーザー（users.json には保存しない。DEMO_SOCIAL=0 で無効）
+DEMO_SOCIAL = os.environ.get("DEMO_SOCIAL", "1") != "0"
+DEMO_NAMES = ["あおい", "シネマ太郎", "ポップコーン", "ゆうき", "夜更かし映画部", "みなと", "はるか", "レイトショー",
+              "こはる", "けんじ", "映画好きOL", "そら", "たくみ", "ミニシアター通い", "りん", "ゴジラ党",
+              "さくら", "ジブリっ子", "だいすけ", "名画座の常連", "めぐみ", "アクション命", "なつき", "旧作ハンター"]
+DEMO_FRIENDS = 4
+_demo_users_cache = None
+
+
+def _demo_users():
+    global _demo_users_cache
+    if _demo_users_cache is not None or not DEMO_SOCIAL:
+        return _demo_users_cache or []
+    import random
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_movies.json"), encoding="utf-8") as f:
+            movies = json.load(f)
+    except (OSError, ValueError):
+        movies = []
+    rng = random.Random(20261027)
+    base = {m["filmarksId"]: min(0.95, max(0.2, rng.gauss(0.62, 0.17))) for m in movies}
+    genres = sorted({g for m in movies for g in m.get("genres") or []})
+    users = []
+    for i, name in enumerate(DEMO_NAMES):
+        likes = set(rng.sample(genres, 3))
+        dislikes = set(rng.sample([g for g in genres if g not in likes], 2))
+        era = rng.uniform(-0.15, 0.15)
+        picked = rng.sample(movies, rng.randint(40, min(95, len(movies)))) if movies else []
+        ratings = {}
+        for m in picked:
+            gs = set(m.get("genres") or [])
+            s = base[m["filmarksId"]] + rng.gauss(0, 0.15)
+            s += 0.22 * bool(gs & likes) - 0.22 * bool(gs & dislikes)
+            s += era if (m.get("year") or "9999") < "1990" else -era
+            ratings[_movie_key(m)] = round(min(4, max(0, round(s * 4))) / 4, 4)
+            _meta_cache.setdefault(_movie_key(m), _movie_meta(m))
+        users.append({"id": "demo:%02d" % i, "display": name, "ratings": ratings,
+                      "share": "demo-%02d" % i if i < DEMO_FRIENDS else None})
+    _demo_users_cache = users
+    return users
+
+
 def _ensure_ratings():
     """呼び出し側で _data_lock を保持していること。"""
     global _ratings_loaded
@@ -1383,6 +1425,8 @@ def _ensure_ratings():
         return
     for u in _load_users().values():
         _ratings_cache[u["id"]] = _ratings_from_list(_load_list(u["id"]))
+    for d in _demo_users():
+        _ratings_cache[d["id"]] = d["ratings"]
     _ratings_loaded = True
 
 
@@ -1416,6 +1460,9 @@ def _hide_counts(agg):
 def _user_by_share(token):
     if not token:
         return None
+    for d in _demo_users():
+        if d["share"] and d["share"] == token:
+            return d
     for u in _load_users().values():
         if u.get("share") and hmac.compare_digest(u["share"], token):
             return u
@@ -1866,13 +1913,17 @@ class Handler(SimpleHTTPRequestHandler):
             d = dict(_meta_cache.get(k) or {})
             d.update({"key": k}, **a)
             items.append(d)
-        res = {"items": items, "min": COMMUNITY_MIN}
+        res = {"items": items, "min": COMMUNITY_MIN, "demo": len(_demo_users())}
         if self._is_admin():
             res["raters"] = raters
         else:
             for d in items:
                 d.pop("count", None)
         self._send_private_json(res)
+
+    def _h_demo(self):
+        self._send_private_json({"friends": [{"name": d["display"], "token": d["share"]}
+                                             for d in _demo_users() if d["share"]]})
 
     def _h_compare(self, token):
         data = self._read_json_body() or {}
@@ -2013,6 +2064,9 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/api/challenge/"):
             params = urllib.parse.parse_qs(parsed.query)
             self._h_challenge_get(parsed.path[len("/api/challenge/"):], (params.get("pid") or [""])[0])
+            return
+        if parsed.path == "/api/demo":
+            self._h_demo()
             return
         if parsed.path == "/api/community/top":
             params = urllib.parse.parse_qs(parsed.query)
