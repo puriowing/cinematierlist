@@ -7365,3 +7365,48 @@ body.compact .movie-fav-badge span {
   top: 6px;
   left: 6px;
 }
+
+.add-media-chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.add-media-chip {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.add-media-chip:hover {
+  color: var(--text);
+}
+
+.add-media-chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+@media (max-width: 420px) {
+  .add-media-chip {
+    font-size: 12px;
+  }
+}
+
+#seriesGrid .movie-media-badge {
+  display: none;
+}

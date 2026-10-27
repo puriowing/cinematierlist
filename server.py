@@ -626,6 +626,8 @@ def filmarks_series_list(media, kind, value="", start=1, pages=2):
     elif kind == "year":
         y = int(value)
         url = f"https://filmarks.com/{base}/year/{y // 10 * 10}s/{y}"
+    elif kind == "person":
+        url = f"https://filmarks.com/people/{int(value)}/{SERIES_PATH[media]}"
     elif kind in ("genre", "country") and media == "drama":
         url = f"https://filmarks.com/{base}/{kind}/{int(value)}"
     else:

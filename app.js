@@ -3403,9 +3403,12 @@
   async function loadFilmographyRaw(person) {
     const status = document.getElementById("personStatus");
     status.textContent = "";
+    const media = addMedia;
     let res;
     try {
-      res = await fetch("/api/filmarks/person/movies?id=" + encodeURIComponent(person.id));
+      res = await fetch(media === "movie"
+        ? "/api/filmarks/person/movies?id=" + encodeURIComponent(person.id)
+        : `/api/filmarks/series_list?media=${media}&kind=person&value=${encodeURIComponent(person.id)}&pages=4`);
     } catch (e) {
       status.textContent = "取得に失敗しました。";
       return;
@@ -3415,7 +3418,8 @@
       return;
     }
     const data = await res.json();
-    personFilms = data.results || [];
+    if (media !== addMedia) return;
+    personFilms = (data.results || []).map((f) => (media === "movie" ? f : { ...f, media }));
     personPicked.clear();
     currentPersonName = person.name;
     personRoleFilter = "all";
@@ -3477,7 +3481,7 @@
   const personPicked = new Set();
 
   function personFilm(f) {
-    return { title: f.title, poster: f.poster || "", year: f.year || "", filmarksId: f.id, role: f.role || "" };
+    return { title: f.title, poster: f.poster || "", year: f.year || "", filmarksId: f.id, role: f.role || "", media: f.media || "" };
   }
 
   function renderFilmGrid() {
@@ -5135,17 +5139,17 @@
       ["12", "ホラー"], ["22", "青春"], ["10", "ファミリー"], ["29", "時代劇"], ["16", "歴史"],
       ["30", "伝記"], ["21", "スポーツ"], ["6", "音楽"], ["2", "アドベンチャー・冒険"], ["18", "ドキュメンタリー"]],
   };
-  const SERIES_MODE_LABEL = { trend: "いま人気", year: "年別", country: "国・地域", genre: "ジャンル" };
-  function newSeriesSession() {
-    return { mode: "", value: "", next: 1, hasMore: false, seen: new Set(), films: [], token: 0 };
+  // ドラマ・アニメ選択中に、各タブをシリーズ一覧のどの切り口で開くか
+  const SERIES_TAB_MODE = { search: "search", trend: "trend", recall: "year", genre: "genre", country: "country" };
+  let addMedia = "movie";
+  let seriesSessions = {};
+  let seriesLoadToken = 0;
+  function newSeriesSession(mode, value) {
+    return { mode, value: value || "", next: 1, hasMore: false, seen: new Set(), films: [] };
   }
-  let seriesSessions = { drama: newSeriesSession(), anime: newSeriesSession() };
+  function seriesLabel() { return MEDIA_LABEL[addMedia] || ""; }
 
-  function initSeriesTab(media) {
-    if (!seriesSessions[media].mode) loadSeries(media, "trend");
-  }
-
-  function seriesValueOptions(media, mode) {
+  function seriesValueOptions(mode) {
     if (mode === "year") {
       const curY = new Date().getFullYear();
       return Array.from({ length: curY - 1959 }, (_, i) => [String(curY - i), (curY - i) + "年"]);
@@ -5153,28 +5157,68 @@
     return SERIES_VALUES[mode] || [];
   }
 
-  function setSeriesMode(media, mode, value) {
-    document.querySelectorAll(`#${media}ModeChips .role-chip`).forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
-    const row = document.getElementById(media + "PickRow");
-    const sel = document.getElementById(media + "Value");
-    const opts = seriesValueOptions(media, mode);
+  // シリーズ用パネルを、いまの種類×タブの組み合わせで開く（取得済みなら再表示だけ）
+  function openSeriesPanel(tab) {
+    const mode = SERIES_TAB_MODE[tab];
+    const label = seriesLabel();
+    const hint = {
+      search: `${label}のタイトルで探します。`,
+      trend: `Filmarks でいま人気の${label}です。`,
+      year: `その年に放送・配信された${label}を、話題作から順に表示します。`,
+      genre: `ジャンル別に${label}を表示します。`,
+      country: `国・地域別に${label}を表示します。`,
+    }[mode];
+    document.getElementById("seriesHint").textContent =
+      `${hint}シリーズ単位で1作品として登録します（シーズンが複数あっても1枚）。観た作品をタップして選び、まとめて追加できます。`;
+    document.getElementById("seriesSearchRow").style.display = mode === "search" ? "" : "none";
+    const input = document.getElementById("seriesSearchInput");
+    input.placeholder = `${label}のタイトルを入力（例: ${addMedia === "anime" ? "葬送のフリーレン" : "アンナチュラル"}）`;
+    const row = document.getElementById("seriesPickRow");
+    const sel = document.getElementById("seriesValue");
+    const opts = seriesValueOptions(mode);
     row.style.display = opts.length ? "" : "none";
     if (opts.length && sel.dataset.mode !== mode) {
       sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
       sel.dataset.mode = mode;
+      if (mode === "year") sel.value = String(new Date().getFullYear() - 1);
     }
-    if (value) sel.value = value;
-    return opts.length ? sel.value : "";
+    const key = addMedia + ":" + mode;
+    const s = seriesSessions[key];
+    if (s) {
+      if (opts.length) sel.value = s.value;
+      if (mode === "search") input.value = s.value;
+      renderSeriesGrid(s);
+      return;
+    }
+    if (mode === "search") {
+      input.value = "";
+      renderSeriesGrid(null);
+      return;
+    }
+    loadSeries(mode, sel.value);
   }
 
-  function addSeriesCards(media, films) {
-    const grid = document.getElementById(media + "Grid");
+  function renderSeriesGrid(s) {
+    const grid = document.getElementById("seriesGrid");
+    grid.innerHTML = "";
+    if (!s) {
+      document.getElementById("seriesStatus").textContent = "";
+      document.getElementById("seriesActions").style.display = "none";
+      document.getElementById("seriesMoreWrap").style.display = "none";
+      return;
+    }
+    addSeriesCards(s.films);
+    updateSeriesStatus(s);
+  }
+
+  function addSeriesCards(films) {
+    const grid = document.getElementById("seriesGrid");
     films.forEach((f) => grid.appendChild(makePickCard(f, {
       subtitle: [f.year, f.subtitle].filter(Boolean).join(" ・ "),
-      onToggle: () => setPickBtn(media + "AddBtn", media + "Grid"),
+      onToggle: () => setPickBtn("seriesAddBtn", "seriesGrid"),
     })));
-    document.getElementById(media + "Actions").style.display = grid.querySelector(".pick-card") ? "flex" : "none";
-    setPickBtn(media + "AddBtn", media + "Grid");
+    document.getElementById("seriesActions").style.display = grid.querySelector(".pick-card") ? "flex" : "none";
+    setPickBtn("seriesAddBtn", "seriesGrid");
   }
 
   async function fetchSeriesBatch(media, s) {
@@ -5199,80 +5243,94 @@
     return out;
   }
 
-  function updateSeriesStatus(media) {
-    const s = seriesSessions[media];
-    const status = document.getElementById(media + "Status");
-    document.getElementById(media + "MoreWrap").style.display = s.hasMore && s.films.length ? "flex" : "none";
+  function updateSeriesStatus(s) {
+    const status = document.getElementById("seriesStatus");
+    document.getElementById("seriesMoreWrap").style.display = s.hasMore && s.films.length ? "flex" : "none";
     if (!s.films.length) { status.textContent = "作品が見つかりませんでした。"; return; }
-    const sel = document.getElementById(media + "Value");
+    const opt = seriesValueOptions(s.mode).find(([v]) => v === s.value);
     const what = s.mode === "search" ? `「${s.value}」の検索結果`
-      : s.mode === "trend" ? "いま人気の作品"
-      : `${sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : ""}の作品`;
-    status.textContent = `${what}を ${s.films.length}件表示中。観た作品をタップして選び、まとめて追加できます。`;
+      : s.mode === "trend" ? `いま人気の${seriesLabel()}`
+      : s.mode === "genre" ? `ジャンル「${opt ? opt[1] : ""}」の${seriesLabel()}`
+      : s.mode === "year" ? `${opt ? opt[1] : ""}に放送・配信された${seriesLabel()}`
+      : `${opt ? opt[1] : ""}の${seriesLabel()}`;
+    status.textContent = `${what}を ${s.films.length}件表示中。`;
   }
 
-  async function loadSeries(media, mode, value) {
-    const v = mode === "search" ? value : setSeriesMode(media, mode, value);
-    if (mode === "search") setSeriesMode(media, "");
-    const s = seriesSessions[media] = newSeriesSession();
-    s.mode = mode; s.value = v || "";
+  async function loadSeries(mode, value) {
+    const media = addMedia;
+    const s = newSeriesSession(mode, value);
+    seriesSessions[media + ":" + mode] = s;
     const token = ++seriesLoadToken;
-    s.token = token;
-    const grid = document.getElementById(media + "Grid");
-    const status = document.getElementById(media + "Status");
+    const grid = document.getElementById("seriesGrid");
+    const status = document.getElementById("seriesStatus");
     grid.innerHTML = "";
     status.textContent = "";
-    document.getElementById(media + "Actions").style.display = "none";
-    document.getElementById(media + "MoreWrap").style.display = "none";
-    showLoading(grid, mode === "search" ? `「${v}」を検索中…` : "作品を取得中…");
+    document.getElementById("seriesActions").style.display = "none";
+    document.getElementById("seriesMoreWrap").style.display = "none";
+    showLoading(grid, mode === "search" ? `「${value}」を検索中…` : "作品を取得中…");
     try {
-      let films;
       if (mode === "search") {
-        films = (await searchFilmarks(v, media)).map((r) => ({
+        s.films = (await searchFilmarks(value, media)).map((r) => ({
           title: r.title, year: r.year, poster: r.poster, filmarksId: r.filmarksId, media,
           subtitle: r.seasons > 1 ? `全${r.seasons}シーズン` : "",
         }));
-        s.films = films;
       } else {
-        films = await fetchSeriesBatch(media, s);
+        await fetchSeriesBatch(media, s);
       }
-      if (s.token !== seriesLoadToken) return;
+      if (token !== seriesLoadToken) return;
       clearLoading(grid);
-      addSeriesCards(media, films);
-      updateSeriesStatus(media);
+      renderSeriesGrid(s);
     } catch (e) {
-      if (s.token !== seriesLoadToken) return;
+      if (token !== seriesLoadToken) return;
+      delete seriesSessions[media + ":" + mode];
       clearLoading(grid);
       status.textContent = e.message === "NO_SERVER" ? recallServerHint() : "取得に失敗しました: " + e.message;
     }
   }
-  let seriesLoadToken = 0;
 
-  async function loadMoreSeries(media) {
-    const s = seriesSessions[media];
-    const btn = document.getElementById(media + "MoreBtn");
+  async function loadMoreSeries() {
+    const s = seriesSessions[addMedia + ":" + SERIES_TAB_MODE[currentAddTab]];
+    if (!s) return;
+    const btn = document.getElementById("seriesMoreBtn");
     const label = btn.textContent;
     btn.disabled = true;
     btn.textContent = "読み込み中…";
     try {
       let films = [], tries = 0;
-      while (s.hasMore && !films.length && tries < 4) { films = await fetchSeriesBatch(media, s); tries++; }
-      if (seriesSessions[media] === s) { addSeriesCards(media, films); updateSeriesStatus(media); }
+      while (s.hasMore && !films.length && tries < 4) { films = await fetchSeriesBatch(addMedia, s); tries++; }
+      if (seriesSessions[addMedia + ":" + SERIES_TAB_MODE[currentAddTab]] === s) { addSeriesCards(films); updateSeriesStatus(s); }
     } catch (e) {
-      document.getElementById(media + "Status").textContent = "取得に失敗しました: " + e.message;
+      document.getElementById("seriesStatus").textContent = "取得に失敗しました: " + e.message;
     }
     btn.disabled = false;
     btn.textContent = label;
   }
 
-  function bulkAddSeries(media) {
-    const grid = document.getElementById(media + "Grid");
+  function bulkAddSeries() {
+    const grid = document.getElementById("seriesGrid");
     const c = addFilms(collectPicked(grid));
     if (!c) return;
     const films = [...grid.querySelectorAll(".pick-card")].map((x) => x._film);
     grid.innerHTML = "";
-    addSeriesCards(media, films);
-    notifyBulkAdded(media + "AddBtn", media + "Grid", c);
+    addSeriesCards(films);
+    notifyBulkAdded("seriesAddBtn", "seriesGrid", c);
+  }
+
+  // 追加ウィンドウ上部の「映画／ドラマシリーズ／アニメシリーズ」切り替え
+  function setAddMedia(media) {
+    addMedia = media;
+    document.querySelectorAll("#addMediaChips .add-media-chip").forEach((b) => b.classList.toggle("active", b.dataset.media === media));
+    document.querySelectorAll("#addMovieModal .tab").forEach((t) => {
+      t.style.display = (t.dataset.media || "").split(" ").includes(media) ? "" : "none";
+    });
+    // 人物の作品一覧は種類ごとに取り直す
+    const pf = document.getElementById("personFilmography");
+    if (pf) pf.classList.add("hidden");
+    document.getElementById("filmGrid").innerHTML = "";
+    personPicked.clear();
+    collectionMedia = media;
+    const cur = document.querySelector(`#addMovieModal .tab[data-tab="${currentAddTab}"]`);
+    switchTab(cur && cur.style.display !== "none" ? currentAddTab : "search");
   }
 
   // =======================================================================
@@ -6697,7 +6755,7 @@
     renderGenreChips();
   }
 
-  let collectionMedia = "all";
+  let collectionMedia = "movie";
   function renderCollectionChips() {
     const wrap = document.getElementById("collectionList");
     const input = document.getElementById("collectionSearchInput");
@@ -6706,11 +6764,11 @@
     const label = document.querySelector('[data-panel="collection"] .suggest-label');
     wrap.innerHTML = "";
     // 検索中は一致する全コレクションを表示。未入力時はおすすめ10件をランダム表示。
-    const pool = COLLECTIONS.filter((c) => collectionMedia === "all" || (c.media || "movie") === collectionMedia);
+    const pool = COLLECTIONS.filter((c) => (c.media || "movie") === collectionMedia);
     const cols = q
       ? pool.filter((c) => c.label.toLowerCase().includes(q))
-      : (collectionMedia === "all" || collectionMedia === "movie" ? pickRandom(pool, 10) : pool);
-    if (shuffleBtn) shuffleBtn.style.display = q ? "none" : "";
+      : (collectionMedia === "movie" ? pickRandom(pool, 10) : pool);
+    if (shuffleBtn) shuffleBtn.style.display = q || collectionMedia !== "movie" ? "none" : "";
     if (label) label.textContent = q ? `「${input.value.trim()}」の検索結果（${cols.length}件）` : "おすすめのコレクション";
     if (q && !cols.length) {
       const p = document.createElement("p");
@@ -9291,14 +9349,14 @@
     });
     // 候補グリッド・人物一覧をクリア
     clearHtml(["searchResults", "recallGrid", "recommendGrid", "collectionGrid",
-      "genreGrid", "awardGrid", "filmGrid", "personResults", "dramaGrid", "animeGrid"]);
+      "genreGrid", "awardGrid", "filmGrid", "personResults", "seriesGrid"]);
     clearText(["searchStatus", "recallStatus", "recommendStatus", "collectionStatus",
-      "genreStatus", "awardStatus", "personStatus", "dramaStatus", "animeStatus"]);
+      "genreStatus", "awardStatus", "personStatus", "seriesStatus"]);
     // 「もっと見る」・下部の追加アクションバーを隠す
-    hide(["recallMoreWrap", "collectionMoreWrap", "genreMoreWrap", "awardMoreWrap", "dramaMoreWrap", "animeMoreWrap",
+    hide(["recallMoreWrap", "collectionMoreWrap", "genreMoreWrap", "awardMoreWrap", "seriesMoreWrap",
       "recallActions", "recommendActions", "collectionActions", "genreActions", "awardActions", "personActions",
-      "dramaActions", "animeActions"]);
-    seriesSessions = { drama: newSeriesSession(), anime: newSeriesSession() };
+      "seriesActions"]);
+    seriesSessions = {};
     personPicked.clear();
     // 人物のフィルモグラフィ表示を閉じる
     const pf = document.getElementById("personFilmography");
@@ -9319,24 +9377,28 @@
     switchTab("search");
   }
 
+  let currentAddTab = "search";
   function switchTab(name) {
+    currentAddTab = name;
+    const series = addMedia !== "movie" && SERIES_TAB_MODE[name];
+    const panel = series ? "series" : name;
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === panel));
     // フッターの追加バーは共有なので、アクティブなタブの分だけ（かつ候補がある場合のみ）表示する
-    ["recall", "recommend", "collection", "genre", "award", "person", "drama", "anime"].forEach((t) => {
+    ["recall", "recommend", "collection", "genre", "award", "person", "series"].forEach((t) => {
       const actions = document.getElementById(t + "Actions");
       const grid = document.getElementById(t === "person" ? "filmGrid" : t + "Grid");
       if (!actions) return;
       const hasCards = grid && grid.querySelector(".pick-card");
-      actions.style.display = name === t && hasCards ? "flex" : "none";
+      actions.style.display = panel === t && hasCards ? "flex" : "none";
     });
+    if (series) { openSeriesPanel(name); return; }
     if (name === "recall") initRecallUI();
     else if (name === "collection") initCollectionUI();
     else if (name === "genre") initGenreUI();
     else if (name === "award") initAwardUI();
     else if (name === "person") { if (!document.getElementById("personSuggest").children.length) renderPersonSuggest(); }
     else if (name === "recommend" && !recommendFilms.length && !recBuilding) buildRecommendations();
-    else if (name === "drama" || name === "anime") initSeriesTab(name);
   }
 
   function renderSearchResults(results) {
@@ -9381,7 +9443,6 @@
     });
   }
 
-  let searchMedia = "";
   async function doSearch() {
     const q = document.getElementById("movieSearchInput").value.trim();
     const status = document.getElementById("searchStatus");
@@ -9391,7 +9452,7 @@
     box.innerHTML = "";
     showLoading(box, `「${q}」を検索中…`);
     try {
-      const results = await searchFilmarks(q, searchMedia);
+      const results = await searchFilmarks(q);
       clearLoading(box);
       status.textContent = results.length
         ? `${results.length}件見つかりました（クリックで追加）`
@@ -9439,7 +9500,9 @@
         toast("タイトルを入力してください");
         return;
       }
-      const ok = addMovie({ title, poster: manualPosterData || "" });
+      const ok = addMovie(addMedia === "movie"
+        ? { title, poster: manualPosterData || "" }
+        : { title, poster: manualPosterData || "", media: addMedia, genreCheckedV: GENRE_FIX_VERSION, kindIdTried: true });
       if (!ok) return; // 重複時は addMovie 側のトーストを尊重（入力は残す）
       toast(addTarget === "watchlist" ? `🔖 「${title}」を観たいリストに追加しました` : `「${title}」を追加しました`);
       document.getElementById("manualTitle").value = "";
@@ -9620,16 +9683,6 @@
 
     // search
     document.getElementById("movieSearchBtn").addEventListener("click", doSearch);
-    document.querySelectorAll("#searchMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
-      searchMedia = b.dataset.media;
-      document.querySelectorAll("#searchMediaChips .role-chip").forEach((x) => x.classList.toggle("active", x === b));
-      document.getElementById("movieSearchInput").placeholder = {
-        "": "映画のタイトルを入力（例: インセプション）",
-        drama: "ドラマのタイトルを入力（例: アンナチュラル）",
-        anime: "アニメのタイトルを入力（例: 進撃の巨人）",
-      }[searchMedia];
-      if (document.getElementById("movieSearchInput").value.trim()) doSearch();
-    }));
     document.getElementById("movieSearchInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
     });
@@ -9664,32 +9717,18 @@
 
     // コレクション
     document.getElementById("collectionShuffleBtn").addEventListener("click", renderCollectionChips);
-    document.querySelectorAll("#collectionMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
-      collectionMedia = b.dataset.media;
-      document.querySelectorAll("#collectionMediaChips .role-chip").forEach((x) => x.classList.toggle("active", x === b));
-      renderCollectionChips();
-    }));
-    document.querySelectorAll("#recallMediaChips .role-chip").forEach((b) => b.addEventListener("click", () => {
-      const media = b.dataset.media;
-      if (!media) return;
-      const year = document.getElementById("recallYear").value;
-      switchTab(media);
-      loadSeries(media, "year", year);
-    }));
-    ["drama", "anime"].forEach((media) => {
-      document.querySelectorAll(`#${media}ModeChips .role-chip`).forEach((b) =>
-        b.addEventListener("click", () => loadSeries(media, b.dataset.mode)));
-      document.getElementById(media + "Value").addEventListener("change", (e) => {
-        const s = seriesSessions[media];
-        if (s.mode && s.mode !== "search") loadSeries(media, s.mode, e.target.value);
-      });
-      const input = document.getElementById(media + "SearchInput");
-      const go = () => { const q = input.value.trim(); if (q) loadSeries(media, "search", q); };
-      document.getElementById(media + "SearchBtn").addEventListener("click", go);
-      input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) go(); });
-      document.getElementById(media + "MoreBtn").addEventListener("click", () => loadMoreSeries(media));
-      document.getElementById(media + "AddBtn").addEventListener("click", () => bulkAddSeries(media));
+    document.querySelectorAll("#addMediaChips .add-media-chip").forEach((b) =>
+      b.addEventListener("click", () => setAddMedia(b.dataset.media)));
+    document.getElementById("seriesValue").addEventListener("change", (e) => {
+      const mode = SERIES_TAB_MODE[currentAddTab];
+      if (mode && mode !== "search") loadSeries(mode, e.target.value);
     });
+    const seriesInput = document.getElementById("seriesSearchInput");
+    const seriesGo = () => { const q = seriesInput.value.trim(); if (q) loadSeries("search", q); };
+    document.getElementById("seriesSearchBtn").addEventListener("click", seriesGo);
+    seriesInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) seriesGo(); });
+    document.getElementById("seriesMoreBtn").addEventListener("click", loadMoreSeries);
+    document.getElementById("seriesAddBtn").addEventListener("click", bulkAddSeries);
     document.getElementById("collectionSearchInput").addEventListener("input", renderCollectionChips);
     document.getElementById("collectionAddBtn").addEventListener("click", () => bulkAddCollection(COLLECTION_CTX));
     document.getElementById("awardAddBtn").addEventListener("click", () => awardMode === "fm" ? fmBulkAdd(awardCtrl) : bulkAddCollection(AWARD_CTX));
