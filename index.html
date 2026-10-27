@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261027mp" />
+  <link rel="stylesheet" href="styles.css?v=20261027up" />
 </head>
 <body>
   <header class="app-header">
@@ -608,10 +608,11 @@
       <div class="settings-body">
         <div class="up-intro">
           <p class="hint" style="margin:0">
-            あなたのティアリストの傾向（監督・出演者・ジャンル・種別）をもとに、これから公開される作品からおすすめを提案します。各作品の「作品情報 ↗」で詳細を確認してから、観たいリストに追加できます。
+            あなたのティアリストの傾向（監督・出演者・ジャンル・種別）をもとに、これから公開・放送される作品からおすすめを提案します。もう観た作品は「観た」、これから観たい作品は「観たい」で登録できます（押し直すと取り消せます）。
           </p>
           <button id="upcomingRefreshBtn" class="btn btn-ghost btn-sm">🔄 候補を更新</button>
         </div>
+        <div id="upcomingMedia" class="up-media" role="tablist" aria-label="作品の種類"></div>
         <p id="upcomingStatus" class="search-status"></p>
         <div id="upcomingGrid" class="up-list"></div>
         <div id="upcomingMoreWrap" class="recall-more" style="display:none">
@@ -948,6 +949,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261027mp"></script>
+  <script src="app.js?v=20261027up"></script>
 </body>
 </html>

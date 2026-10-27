@@ -7495,3 +7495,36 @@ body.compact .movie-fav-badge span {
   background: var(--accent);
   color: #fff;
 }
+
+/* ---------- これから公開：種類の切替 ---------- */
+.up-media {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.up-media-btn {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.up-media-btn.is-active {
+  background: var(--bg-elev);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.up-actions .up-added { cursor: pointer; }

@@ -5958,8 +5958,26 @@
   let upcomingProf = null;
   let upcomingRun = 0;
 
+  let upcomingMedia = "movie";
+
+  function renderUpcomingMedia() {
+    const wrap = document.getElementById("upcomingMedia");
+    if (!wrap) return;
+    wrap.innerHTML = MEDIA_DEFS.map(([k, l]) =>
+      `<button type="button" class="up-media-btn${k === upcomingMedia ? " is-active" : ""}" data-media="${k}" role="tab" aria-selected="${k === upcomingMedia}">${escapeHtml(l)}</button>`
+    ).join("");
+    wrap.querySelectorAll(".up-media-btn").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.media === upcomingMedia) return;
+      upcomingMedia = b.dataset.media;
+      renderUpcomingMedia();
+      buildUpcoming();
+    }));
+  }
+
   async function buildUpcoming() {
     const run = ++upcomingRun;
+    renderUpcomingMedia();
+    const media = upcomingMedia;
     const status = document.getElementById("upcomingStatus");
     const grid = document.getElementById("upcomingGrid");
     grid.innerHTML = "";
@@ -5970,10 +5988,10 @@
 
     // 1) 公開予定リストを取得
     status.textContent = "";
-    showLoading(grid, "これから公開される作品を集めています…");
+    showLoading(grid, media === "movie" ? "これから公開される作品を集めています…" : "これから始まる作品を集めています…");
     let list = [];
     try {
-      const res = await fetch("/api/filmarks/coming?pages=8");
+      const res = await fetch(media === "movie" ? "/api/filmarks/coming?pages=8" : `/api/filmarks/series_coming?media=${media}`);
       if (!res.ok) throw new Error("bad");
       const data = await res.json();
       list = data.results || [];
@@ -5989,16 +6007,19 @@
     const seen = new Set();
     list.forEach((f) => {
       if (!f.id || seen.has(f.id)) return;
-      if (f.date && f.date < today) return;
+      if (f.date && f.date.length >= 10 && f.date < today) return;
       if (movieExists({ filmarksId: f.id, title: f.title, year: f.year })) return;
       seen.add(f.id);
-      upcomingCands.push({ title: f.title, poster: f.poster || "", year: f.year || "",
-        date: f.date || "", filmarksId: f.id });
+      const c = { title: f.title, poster: f.poster || "", year: f.year || "", date: f.date || "", filmarksId: f.id };
+      if (f.media) { c.media = f.media; c.seasonTitle = f.seasonTitle || ""; }
+      upcomingCands.push(c);
     });
     upcomingCands.sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
     if (!upcomingCands.length) {
       clearLoading(grid);
-      status.textContent = "公開予定の新作が見つかりませんでした。少し時間をおいて再度お試しください。";
+      status.textContent = media === "movie"
+        ? "公開予定の新作が見つかりませんでした。少し時間をおいて再度お試しください。"
+        : "これから始まる作品が見つかりませんでした。少し時間をおいて再度お試しください。";
       return;
     }
 
@@ -6035,6 +6056,7 @@
       return {
         title: m.title, poster: m.poster, year: m.year, date: m.date,
         filmarksId: m.filmarksId, reason, _score: score,
+        media: m.media || "", seasonTitle: m.seasonTitle || "",
         directors: (m.meta && m.meta.directors) || [],
         cast: (m.meta && m.meta.cast) || [],
         genres: m.genres || [], kind: m.kind || "",
@@ -6052,7 +6074,9 @@
     const status = document.getElementById("upcomingStatus");
     const matched = upcomingFilms.filter((f) => f._score > 0).length;
     const n = upcomingFilms.length;
-    if (!upcomingProf || !upcomingProf.count) {
+    if (upcomingMedia !== "movie") {
+      status.textContent = `これから始まる${MEDIA_LABEL[upcomingMedia]}${n}本を、あなたの好みに近い順に表示しています。`;
+    } else if (!upcomingProf || !upcomingProf.count) {
       status.textContent = `公開が近い${n}本を表示しています。観た映画を登録すると、あなたの好みに合わせて並び替えます。`;
     } else if (matched) {
       status.textContent = `公開が近い${n}本を、あなたの好みに近い順に表示しています。「もっと見る」で、さらに先の公開作も確認できます。`;
@@ -6093,13 +6117,27 @@
     return { cls: "up-match-none", label: "参考" };
   }
 
+  function upcomingItem(f) {
+    const m = { title: f.title, poster: f.poster || "", year: f.year || "", filmarksId: f.filmarksId };
+    if (f.media) { m.media = f.media; m.genreCheckedV = GENRE_FIX_VERSION; }
+    return m;
+  }
+
+  function removeFromPoolByMatch(q) {
+    const nt = q.title ? normTitle(q.title) : "";
+    const before = state.pool.length;
+    state.pool = state.pool.filter((m) => !sameMovie(m, q, nt));
+    return state.pool.length !== before;
+  }
+
   function makeUpcomingCard(f, matchPct) {
     const card = document.createElement("div");
     card.className = "up-card";
-    const inWatch = watchlistExists({ filmarksId: f.filmarksId, title: f.title, year: f.year });
     const dateStr = f.date ? f.date.replace(/-/g, "/") : (f.year || "");
-    const kindLabel = f.kind ? (KIND_LABEL[f.kind] || "") : "";
+    const kindLabel = f.media ? (MEDIA_LABEL[f.media] || "") : (f.kind ? (KIND_LABEL[f.kind] || "") : "");
+    const startWord = f.media ? "開始" : "公開";
     const metaBits = [];
+    if (f.seasonTitle && f.seasonTitle !== f.title) metaBits.push(f.seasonTitle);
     if (f.directors.length) metaBits.push("監督: " + f.directors.slice(0, 2).join("・"));
     if (f.cast.length) metaBits.push("出演: " + f.cast.slice(0, 3).join("・"));
     if (f.genres.length) metaBits.push("ジャンル: " + f.genres.slice(0, 3).join("・"));
@@ -6124,28 +6162,52 @@
         : `<div class="up-poster up-poster-fallback">🎬</div>`) +
       `<div class="up-info">
          <div class="up-title">${escapeHtml(f.title)}</div>
-         <div class="up-sub">📅 ${escapeHtml(dateStr)}公開${kindLabel ? " ・ " + escapeHtml(kindLabel) : ""}</div>
+         <div class="up-sub">📅 ${escapeHtml(dateStr)}${startWord}${kindLabel ? " ・ " + escapeHtml(kindLabel) : ""}</div>
          ${matchHtml}
          ${metaBits.length ? `<div class="up-meta">${escapeHtml(metaBits.join(" ／ "))}</div>` : ""}
          <div class="up-actions">
-           <button class="btn btn-sm up-add ${inWatch ? "up-added" : "btn-primary"}"${inWatch ? " disabled" : ""}>${inWatch ? "✓ 観たいリストに追加済み" : "🔖 観たいリストに追加"}</button>
+           <button type="button" class="btn btn-sm up-seen"></button>
+           <button type="button" class="btn btn-sm up-add"></button>
            <a class="btn btn-ghost btn-sm" href="${filmarksUrl(f)}" target="_blank" rel="noopener">作品情報 ↗</a>
          </div>
        </div>`;
-    const addBtn = card.querySelector(".up-add");
-    if (!inWatch) {
-      addBtn.addEventListener("click", () => {
-        const ok = addToWatchlist({
-          title: f.title, poster: f.poster || "", year: f.year || "", filmarksId: f.filmarksId,
-        });
-        if (ok) {
-          addBtn.disabled = true;
-          addBtn.classList.remove("btn-primary");
-          addBtn.classList.add("up-added");
-          addBtn.textContent = "✓ 観たいリストに追加済み";
-        }
-      });
-    }
+    const seenBtn = card.querySelector(".up-seen");
+    const wantBtn = card.querySelector(".up-add");
+    const q = { filmarksId: f.filmarksId, title: f.title, year: f.year };
+    const sync = () => {
+      const seen = movieExists(q);
+      const want = !seen && watchlistExists(q);
+      seenBtn.className = "btn btn-sm up-seen " + (seen ? "up-added" : "btn-ghost");
+      seenBtn.textContent = seen ? "✓ 観た（取り消す）" : "✓ 観た";
+      seenBtn.title = seen ? "未分類から取り除きます" : "観た作品として未分類に追加します";
+      wantBtn.className = "btn btn-sm up-add " + (want ? "up-added" : "btn-primary");
+      wantBtn.textContent = want ? "🔖 観たい（解除する）" : "🔖 観たい";
+      wantBtn.title = want ? "観たいリストから外します" : "観たいリストに追加します";
+      wantBtn.disabled = seen;
+    };
+    seenBtn.addEventListener("click", () => {
+      if (movieExists(q)) {
+        if (removeFromPoolByMatch(q)) { render(); toast(`「${f.title}」を未分類から取り除きました`); }
+        else toast("ティアに振り分け済みのため、ここでは取り消せません");
+      } else {
+        removeFromWatchlistByMatch(q);
+        state.pool.push({ id: uid(), ...upcomingItem(f) });
+        render();
+        toast(`✓ 「${f.title}」を観た作品として未分類に追加しました`);
+      }
+      sync();
+    });
+    wantBtn.addEventListener("click", () => {
+      if (watchlistExists(q)) {
+        removeFromWatchlistByMatch(q);
+        render();
+        toast(`「${f.title}」を観たいリストから外しました`);
+      } else if (addToWatchlist(upcomingItem(f))) {
+        toast(`🔖 「${f.title}」を観たいリストに追加しました`);
+      }
+      sync();
+    });
+    sync();
     return card;
   }
 

@@ -553,7 +553,7 @@ RE_FM_S_SERIES = re.compile(r"(drama|anime)_series_id&quot;:(\d+),&quot;(?:drama
 RE_FM_S_POSTER_ANY = re.compile(
     r'<img alt="[^"]*"[^>]*?src="(https://[^"]+cloudfront[^"]+/variants/[^"]+)"'
 )
-RE_FM_S_DATE = re.compile(r"公開日：</h4><span>(\d{4})年(\d{2})月(\d{2})日")
+RE_FM_S_DATE = re.compile(r"公開日：</h4><span>(\d{4})年(\d{2})月(?:(\d{2})日)?")
 
 
 def _series_url(fid):
@@ -613,7 +613,7 @@ def _parse_series_cassettes(html_text):
         if any(s["season"] == season for s in g):
             continue
         g.append({"season": season, "title": _clean(tm.group(1)),
-                  "date": "".join(dm.groups()) if dm else "99999999",
+                  "date": dm.group(1) + dm.group(2) + (dm.group(3) or "00") if dm else "99999999",
                   "poster": pm.group(1) if pm else ""})
     return groups
 
@@ -660,6 +660,52 @@ def filmarks_series_list(media, kind, value="", start=1, pages=2):
                 "poster": _poster_url(rep["poster"]), "media": media,
             })
     return out, has_more
+
+
+def filmarks_series_coming(media):
+    """これから放送・配信が始まるドラマ／アニメ（シーズン単位）を開始日の早い順に返す。
+    ドラマは年別一覧（今年・来年）、アニメは放送時期別一覧（今期から3クール分）から拾う。"""
+    now = time.localtime()
+    today = time.strftime("%Y%m%d", now)
+    base = "list-drama" if media == "drama" else "list-anime"
+    urls = []
+    if media == "drama":
+        for y in (now.tm_year, now.tm_year + 1):
+            u = f"https://filmarks.com/{base}/year/{y // 10 * 10}s/{y}"
+            urls += [u] + [f"{u}?page={pg}" for pg in range(2, 6)]
+    else:
+        y, m = now.tm_year, (now.tm_mon - 1) // 3 * 3 + 1
+        for _ in range(3):
+            u = f"https://filmarks.com/{base}/release_year/{y}/{m}"
+            urls += [u, f"{u}?page=2"]
+            m += 3
+            if m > 12:
+                y, m = y + 1, 1
+    _prefetch(urls)
+    best = {}
+    for u in urls:
+        try:
+            html_text = _fetch(u)
+        except Exception:  # noqa: BLE001
+            continue
+        for series, seasons in _parse_series_cassettes(html_text).items():
+            for se in seasons:
+                d = se["date"]
+                if d.startswith("9999") or (d < today and not (d.endswith("00") and d[:6] > today[:6])):
+                    continue
+                cur = best.get(series)
+                if not cur or d < cur["date"]:
+                    best[series] = dict(se, date=d)
+    out = []
+    for series, se in sorted(best.items(), key=lambda kv: kv[1]["date"]):
+        d = se["date"]
+        out.append({
+            "id": f"{SERIES_PREFIX[media]}{series}-{se['season']}",
+            "title": _series_title_guess(se["title"]), "seasonTitle": se["title"],
+            "year": d[:4], "date": f"{d[:4]}-{d[4:6]}" + ("" if d.endswith("00") else f"-{d[6:8]}"),
+            "poster": _poster_url(se["poster"]), "media": media,
+        })
+    return out
 
 
 def filmarks_series_search(query, media, limit=20, resolve=True):
@@ -2102,6 +2148,17 @@ class Handler(SimpleHTTPRequestHandler):
                         query, media, max(1, min(20, int(lim) if lim.isdigit() else 20)), not quick)})
                     return
                 self._send_json({"results": filmarks_search(query)})
+            except Exception as exc:  # noqa: BLE001
+                self._send_json({"error": str(exc), "results": []}, 502)
+            return
+        if parsed.path == "/api/filmarks/series_coming":
+            params = urllib.parse.parse_qs(parsed.query)
+            media = (params.get("media") or [""])[0]
+            if media not in SERIES_PATH:
+                self._send_json({"error": "bad_params", "results": []}, 400)
+                return
+            try:
+                self._send_json({"results": filmarks_series_coming(media)})
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
             return
