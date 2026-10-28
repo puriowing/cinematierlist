@@ -7528,3 +7528,107 @@ body.compact .movie-fav-badge span {
 }
 
 .up-actions .up-added { cursor: pointer; }
+
+/* ---------- 引っぱって更新 ---------- */
+.ptr {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) - 44px);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  transform: translate(-50%, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.ptr.show { opacity: 1; }
+.ptr-ic { display: inline-block; transition: transform 0.2s; }
+.ptr.ready { color: var(--accent); }
+.ptr.ready .ptr-ic { transform: rotate(180deg); }
+.ptr.loading .ptr-ic { animation: list-spin 0.8s linear infinite; }
+
+/* ---------- ボトムシートのつまみ（下に引いて閉じられる目印） ---------- */
+@media (max-width: 768px) {
+  .modal-overlay .modal > .modal-header { position: sticky; padding-top: 22px; }
+  .modal-overlay .modal > .modal-header::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 5px;
+    margin-left: -20px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+}
+
+/* ---------- シェア：順位なしのとき ---------- */
+.sc-rank1.sc-tierbadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 72px;
+  height: 72px;
+  padding: 0 14px;
+  border-radius: 16px;
+  font-size: 40px;
+}
+
+.share-rank-note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.share-rank-note span { color: var(--text-dim); }
+.share-rank-note .mp-link { margin-left: 4px; }
+
+/* ---------- 作品情報：タグの候補 ---------- */
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
+
+.tag-chip {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tag-chip.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  color: var(--accent);
+}
+
+.tag-chips-empty { margin: 0; font-size: 11px; color: var(--text-dim); }
+
+/* 絞り込み中に該当する未分類がないときは枠をたたむ */
+.pool.pool-filter-empty .pool-items { display: none !important; }
+.pool.pool-filter-empty .pool-header { margin-bottom: 0; }
+.pool.pool-filter-empty .pool-sub { display: none; }
+.pool.pool-filter-empty .pool-count::after {
+  content: "絞り込み中・該当なし";
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+}

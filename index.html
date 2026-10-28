@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261027up" />
+  <link rel="stylesheet" href="styles.css?v=20261028fx" />
 </head>
 <body>
   <header class="app-header">
@@ -786,10 +786,10 @@
           <input id="infoCast" type="text" placeholder="例: レオナルド・ディカプリオ, 渡辺謙" />
         </label>
         <label class="field">
-          <span>タグ（カンマ区切り・自由）</span>
-          <input id="infoUserThemes" type="text" list="userThemeList" placeholder="例: 泣ける, デート向け, 人生ベスト" />
-          <datalist id="userThemeList"></datalist>
+          <span>タグ（下の候補から選ぶか、新しいタグをカンマ区切りで入力）</span>
+          <input id="infoUserThemes" type="text" placeholder="例: 泣ける, デート向け, 人生ベスト" />
         </label>
+        <div id="infoTagChips" class="tag-chips"></div>
         <label class="field">
           <span>コメント・感想</span>
           <textarea id="infoComment" rows="4" placeholder="この作品の感想やメモを自由に残せます"></textarea>
@@ -882,6 +882,7 @@
         </div>
         <div class="share-side">
           <p id="shareThemeNote" class="share-theme-note"></p>
+          <p id="shareRankNote" class="share-rank-note hidden"></p>
           <label class="share-field">
             <span class="share-opt-label">タイトル</span>
             <input id="shareTitleInput" type="text" maxlength="40" />
@@ -949,6 +950,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261027up"></script>
+  <script src="app.js?v=20261028fx"></script>
 </body>
 </html>

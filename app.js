@@ -779,7 +779,18 @@
     const poolEmpty = state.pool.length === 0 && !hasFilter();
     el.poolEmptyHint.style.display = poolEmpty ? "block" : "none";
     el.poolItems.closest(".pool").classList.toggle("pool-empty", poolEmpty);
+    // 絞り込み中に該当する未分類がなければ、空の枠を広げない
+    el.poolItems.closest(".pool").classList.toggle("pool-filter-empty",
+      (hasFilter() || !!searchQuery) && visibleItems(state.pool).length === 0);
     document.body.classList.toggle("is-empty", total === 0);
+  }
+
+  // ポスターが一時的に取れなかったときは、画面に戻ってきた・通信が戻ったタイミングで描き直す
+  let posterFailCount = 0;
+  function retryFailedPosters() {
+    if (!posterFailCount || document.visibilityState !== "visible") return;
+    posterFailCount = 0;
+    render();
   }
 
   function buildMovieCard(movie) {
@@ -814,6 +825,7 @@
           setTimeout(() => { if (img.isConnected) img.src = base + (base.includes("?") ? "&" : "?") + "r=" + n; }, 1500 * n * n);
           return;
         }
+        posterFailCount++;
         const fb = buildFallback(movie.title);
         img.replaceWith(fb);
       });
@@ -2733,12 +2745,7 @@
     $("infoDirectors").value = ((movie.meta && movie.meta.directors) || []).join(", ");
     $("infoCast").value = ((movie.meta && movie.meta.cast) || []).join(", ");
     $("infoUserThemes").value = (movie.userThemes || []).join(", ");
-    const utList = $("userThemeList");
-    if (utList) {
-      utList.innerHTML = allUserThemeNames()
-        .map((t) => `<option value="${escapeHtml(t)}"></option>`)
-        .join("");
-    }
+    renderInfoTagChips();
     $("infoComment").value = movie.comment || "";
     $("infoPosterUrl").value = "";
     const fileInput = $("infoPosterFile");
@@ -3905,6 +3912,29 @@
         memoryCount && { value: "memory:1", label: "📖 思い出のある作品", count: memoryCount },
       ].filter(Boolean),
     };
+  }
+
+  // 作品情報：登録済みのタグをチップで選べるようにする（入力欄のカンマ区切りと連動）
+  function infoTagValues() {
+    return document.getElementById("infoUserThemes").value.split(/[,、]/).map((x) => x.trim()).filter(Boolean);
+  }
+
+  function renderInfoTagChips() {
+    const box = document.getElementById("infoTagChips");
+    if (!box) return;
+    const cur = new Set(infoTagValues());
+    const names = [...new Set([...allUserThemeNames(), ...cur])].sort((a, b) => a.localeCompare(b, "ja"));
+    if (!names.length) { box.innerHTML = `<p class="tag-chips-empty">まだタグはありません。上の欄に入力すると作れます。</p>`; return; }
+    box.innerHTML = names.map((t) =>
+      `<button type="button" class="tag-chip${cur.has(t) ? " is-on" : ""}" data-tag="${escapeHtml(t)}">${cur.has(t) ? "✓ " : "＋ "}${escapeHtml(t)}</button>`
+    ).join("");
+    box.querySelectorAll(".tag-chip").forEach((b) => b.addEventListener("click", () => {
+      const vals = infoTagValues();
+      const t = b.dataset.tag;
+      const next = vals.includes(t) ? vals.filter((v) => v !== t) : [...vals, t];
+      document.getElementById("infoUserThemes").value = next.join(", ");
+      renderInfoTagChips();
+    }));
   }
 
   // 登録済みの全タグ名（重複なし・五十音）
@@ -5447,10 +5477,11 @@
     const sel = document.getElementById("seriesValue");
     const opts = seriesValueOptions(mode);
     row.style.display = opts.length ? "" : "none";
+    const pickWord = { year: "年", genre: "ジャンル", country: "国・地域" }[mode] || "";
     if (opts.length && sel.dataset.mode !== mode) {
-      sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+      sel.innerHTML = `<option value="" disabled>${pickWord}を選んでください</option>` +
+        opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
       sel.dataset.mode = mode;
-      if (mode === "year") sel.value = String(new Date().getFullYear() - 1);
     }
     const key = addMedia + ":" + mode;
     const s = seriesSessions[key];
@@ -5463,6 +5494,13 @@
     if (mode === "search") {
       input.value = "";
       renderSeriesGrid(null);
+      return;
+    }
+    if (opts.length) {
+      // 年・ジャンル・国は、選ばれるまで取得を始めない
+      sel.value = "";
+      renderSeriesGrid(null);
+      document.getElementById("seriesStatus").textContent = `上の欄で${pickWord}を選ぶと、${label}を表示します。`;
       return;
     }
     loadSeries(mode, sel.value);
@@ -7516,13 +7554,15 @@
 
   // ベスト用の並び：保存済みランキング → ティア上位順（未分類は除く）
   function shareBestIds() {
-    if (share.rankIds) return share.rankIds.slice();
+    if (share.rankIds) { share.rankedCount = share.rankIds.length; return share.rankIds.slice(); }
     const tierIds = [];
     state.tiers.forEach((t) => (t.items || []).forEach((m) => { if (matchesFilter(m)) tierIds.push(m.id); }));
     const key = rankKey();
     const saved = key && state.rankings && Array.isArray(state.rankings[key]) ? state.rankings[key] : [];
     const valid = new Set(allMovies().filter(matchesFilter).map((m) => m.id));
     const ids = saved.filter((id) => valid.has(id));
+    // 順位をつけた作品だけに番号を振る（残りはティア内の並び＝登録順なので順位ではない）
+    share.rankedCount = ids.length;
     const seen = new Set(ids);
     tierIds.forEach((id) => { if (!seen.has(id)) ids.push(id); });
     return ids;
@@ -7595,9 +7635,10 @@
     const rows = isBest ? [] : shareTierRows();
     const total = isBest ? ids.length : rows.reduce((a, r) => a + r.items.length, 0);
     const n = Math.min(share.count, ids.length);
-    const kicker = isBest ? `MY BEST ${n || share.count}` : "MY TIER LIST";
+    const ranked = isBest && (share.rankedCount || 0) >= n;
+    const kicker = isBest ? (ranked ? `MY BEST ${n || share.count}` : `MY TOP ${n || share.count}`) : "MY TIER LIST";
     const sub = isBest
-      ? (total > n ? `${total}本の中から選んだベスト${n}` : `ベスト${n}`)
+      ? (ranked ? (total > n ? `${total}本の中から選んだベスト${n}` : `ベスト${n}`) : `上位ティアから${n}本`)
       : `${total}本を好きな順に`;
 
     card.innerHTML =
@@ -7636,6 +7677,45 @@
     const wide = share.size === "wide";
     const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
     const [first, ...rest] = movies;
+    const rankedN = Math.min(share.rankedCount || 0, movies.length);
+    const tierOf = (m) => state.tiers.find((t) => t.items.includes(m));
+    // 順位がないときは1本目を大きくせず、同じ大きさで並べる（ティアの印つき）
+    if (!rankedN) {
+      const W0 = body.clientWidth, H0 = body.clientHeight, gap0 = 10, titleH0 = 30;
+      const grid = document.createElement("div");
+      grid.className = "sc-rest sc-flat";
+      const { p, cols } = fitGrid(W0, H0, movies.length, gap0, titleH0);
+      grid.style.gridTemplateColumns = `repeat(${cols}, ${p}px)`;
+      grid.style.gap = gap0 + "px";
+      grid.style.justifyContent = "center";
+      grid.style.alignContent = "center";
+      grid.style.width = W0 + "px";
+      grid.style.height = H0 + "px";
+      movies.forEach((m) => {
+        const it = document.createElement("div");
+        it.className = "sc-item";
+        const ps = sharePoster(m);
+        ps.style.width = p + "px";
+        ps.style.height = Math.round(p * 1.5) + "px";
+        const t0 = tierOf(m);
+        if (t0) {
+          const badge = document.createElement("span");
+          badge.className = "sc-rank sc-tiermark";
+          badge.style.background = t0.color;
+          badge.style.color = textColorOn(t0.color);
+          badge.textContent = t0.label;
+          ps.appendChild(badge);
+        }
+        const t = document.createElement("div");
+        t.className = "sc-item-title";
+        t.textContent = m.title || "";
+        it.appendChild(ps);
+        it.appendChild(t);
+        grid.appendChild(it);
+      });
+      body.appendChild(grid);
+      return;
+    }
 
     const hero = document.createElement("div");
     hero.className = "sc-hero";
@@ -7675,8 +7755,11 @@
     hero.appendChild(hp);
     const info = document.createElement("div");
     info.className = "sc-hero-info";
+    const ft = tierOf(first);
     info.innerHTML =
-      `<div class="sc-rank1">1<small>st</small></div>` +
+      (rankedN >= 1
+        ? `<div class="sc-rank1">1<small>st</small></div>`
+        : (ft ? `<div class="sc-rank1 sc-tierbadge" style="background:${ft.color};color:${textColorOn(ft.color)}">${escapeHtml(ft.label)}</div>` : "")) +
       `<div class="sc-hero-title">${escapeHtml(first.title || "")}</div>` +
       (first.year ? `<div class="sc-hero-year">${escapeHtml(String(first.year))}</div>` : "");
     hero.appendChild(info);
@@ -7694,10 +7777,12 @@
       const ps = sharePoster(m);
       ps.style.width = p + "px";
       ps.style.height = Math.round(p * 1.5) + "px";
-      const badge = document.createElement("span");
-      badge.className = "sc-rank" + (i < 2 ? " sc-rank-top" : "");
-      badge.textContent = String(i + 2);
-      ps.appendChild(badge);
+      if (i + 2 <= rankedN) {
+        const badge = document.createElement("span");
+        badge.className = "sc-rank" + (i < 2 ? " sc-rank-top" : "");
+        badge.textContent = String(i + 2);
+        ps.appendChild(badge);
+      }
       const t = document.createElement("div");
       t.className = "sc-item-title";
       t.textContent = m.title || "";
@@ -7818,12 +7903,14 @@
     const tags = "#Tiari #映画好きと繋がりたい";
     if (share.mode === "best") {
       const marks = ["🥇", "🥈", "🥉"];
+      const rankedN = share.rankedCount || 0;
       const lines = ids.slice(0, 5).map((id, i) => {
         const m = (findMovie(id) || {}).movie;
-        return m ? `${marks[i] || i + 1 + "."} ${m.title}` : "";
+        return m ? `${i < rankedN ? (marks[i] || i + 1 + ".") : "・"} ${m.title}` : "";
       }).filter(Boolean);
       const more = ids.length > 5 ? `\n…ほか${ids.length - 5}本` : "";
-      return `「${theme}」わたしのベスト${ids.length}🎬\n${lines.join("\n")}${more}\n${tags}`;
+      const head = rankedN >= ids.length ? `わたしのベスト${ids.length}` : `わたしの上位${ids.length}本`;
+      return `「${theme}」${head}🎬\n${lines.join("\n")}${more}\n${tags}`;
     }
     const top = rows[0];
     const topLine = top
@@ -7857,6 +7944,18 @@
     else renderShareTier(body, rows);
 
     if (!shareTextTouched) document.getElementById("shareText").value = defaultShareText(ids, rows);
+    const rankNote = document.getElementById("shareRankNote");
+    if (rankNote) {
+      const need = share.mode === "best" && ids.length && (share.rankedCount || 0) < ids.length;
+      rankNote.classList.toggle("hidden", !need);
+      if (need) {
+        rankNote.innerHTML = `まだ順位をつけていないため、番号なしで上位ティアから並べています。` +
+          (hasFilter() ? `<button type="button" class="mp-link" id="shareRankGo">🏆 順位をつける</button>`
+            : `<span>（テーマで絞り込むと「🏆 ランキングをつける」で順位を決められます）</span>`);
+        const go = document.getElementById("shareRankGo");
+        if (go) go.addEventListener("click", () => { closeModal("shareModal"); openRankingModal(); });
+      }
+    }
 
     await waitImages(card);
     if (seq !== share.seq) return;
@@ -10072,6 +10171,8 @@
     wireManual();
     wireNudge();
     wireMyPageFolds();
+    wireTouchGestures();
+    document.getElementById("infoUserThemes").addEventListener("input", renderInfoTagChips);
     wireMovieInfo();
     wireMemory();
     wireTimeline();
@@ -10503,6 +10604,94 @@
     document.getElementById("nudgeLaterBtn").addEventListener("click", () => {
       closeModal("nudgeModal");
       if (nudgeMode === "onboard") openAddModal();
+    });
+  }
+
+  // =======================================================================
+  // タッチ操作：一覧の一番上で下に引いて更新／ポップアップを下に引いて閉じる
+  // =======================================================================
+  function wireTouchGestures() {
+    document.addEventListener("visibilitychange", retryFailedPosters);
+    window.addEventListener("online", retryFailedPosters);
+    if (!("ontouchstart" in window)) return;
+
+    const ptr = document.createElement("div");
+    ptr.className = "ptr";
+    ptr.innerHTML = `<span class="ptr-ic">↓</span><span class="ptr-tx">引っぱって更新</span>`;
+    document.body.appendChild(ptr);
+    const PTR_GO = 90;
+    let ptrY = null, ptrDy = 0;
+    document.addEventListener("touchstart", (e) => {
+      // ブラウザには標準の「引っぱって更新」があるので、ホーム画面から開いたアプリのときだけ使う
+      const app = document.body.classList.contains("is-standalone");
+      ptrY = (app && window.scrollY <= 0 && !anyModalOpen() && e.touches.length === 1) ? e.touches[0].clientY : null;
+      ptrDy = 0;
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (ptrY == null) return;
+      ptrDy = e.touches[0].clientY - ptrY;
+      if (ptrDy <= 0 || window.scrollY > 0) { ptr.style.transform = ""; ptr.classList.remove("show", "ready"); return; }
+      const d = Math.min(PTR_GO * 1.4, ptrDy * 0.5);
+      ptr.classList.add("show");
+      ptr.classList.toggle("ready", d >= PTR_GO);
+      ptr.querySelector(".ptr-tx").textContent = d >= PTR_GO ? "離すと更新" : "引っぱって更新";
+      ptr.style.transform = `translate(-50%, ${d}px)`;
+    }, { passive: true });
+    document.addEventListener("touchend", () => {
+      if (ptrY == null) return;
+      const go = ptr.classList.contains("ready");
+      ptrY = null;
+      if (go) {
+        ptr.classList.add("loading");
+        ptr.querySelector(".ptr-tx").textContent = "更新しています…";
+        setTimeout(() => location.reload(), 150);
+        return;
+      }
+      ptr.style.transform = "";
+      ptr.classList.remove("show", "ready");
+    });
+
+    // ボトムシート（ポップアップ）：中身が一番上のときに下へ引くと閉じる
+    let sheet = null, sy = 0, sdy = 0, sx = 0, locked = false;
+    document.addEventListener("touchstart", (e) => {
+      const m = e.target.closest(".modal-overlay:not(.hidden) .modal");
+      if (!m || e.touches.length !== 1 || window.innerWidth > 768) { sheet = null; return; }
+      if (e.target.closest("input, textarea, select, .tl-switch, [data-no-swipe]")) { sheet = null; return; }
+      const inHeader = !!e.target.closest(".modal-header");
+      if (!inHeader && m.scrollTop > 0) { sheet = null; return; }
+      // 横スクロール中の領域や、内側でスクロールしている領域では反応しない
+      for (let el = e.target; el && el !== m; el = el.parentElement) {
+        if (el.scrollTop > 0) { sheet = null; return; }
+      }
+      sheet = m; sy = e.touches[0].clientY; sx = e.touches[0].clientX; sdy = 0; locked = false;
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (!sheet) return;
+      const dy = e.touches[0].clientY - sy;
+      const dx = Math.abs(e.touches[0].clientX - sx);
+      if (!locked) {
+        if (Math.abs(dy) < 8 && dx < 8) return;
+        if (dx > Math.abs(dy) || dy < 0) { sheet = null; return; }
+        locked = true;
+        sheet.style.transition = "none";
+      }
+      sdy = Math.max(0, dy);
+      sheet.style.transform = `translateY(${sdy}px)`;
+    }, { passive: true });
+    document.addEventListener("touchend", () => {
+      if (!sheet) return;
+      const m = sheet;
+      sheet = null;
+      if (!locked) return;
+      m.style.transition = "transform 0.2s ease";
+      if (sdy > 110) {
+        m.style.transform = "translateY(100%)";
+        const ov = m.closest(".modal-overlay");
+        setTimeout(() => { closeModal(ov.id); m.style.transform = ""; m.style.transition = ""; }, 180);
+      } else {
+        m.style.transform = "";
+        setTimeout(() => { m.style.transition = ""; }, 220);
+      }
     });
   }
   // =======================================================================

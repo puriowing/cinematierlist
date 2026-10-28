@@ -2135,14 +2135,45 @@ class Handler(SimpleHTTPRequestHandler):
         if not target.startswith(("http://", "https://")):
             self._send_json({"error": "bad_url"}, 400)
             return
+        # ポスターは変わらないので端末をまたいでディスクに保存し、取得失敗時は1回だけ再試行する
+        hh = hashlib.sha256(target.encode("utf-8")).hexdigest()
+        img_dir = os.path.join(CACHE_DIR, "img")
+        path = os.path.join(img_dir, hh)
+        data, ctype = None, "image/jpeg"
         try:
-            req = urllib.request.Request(target, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = resp.read()
-                ctype = resp.headers.get("Content-Type", "image/jpeg")
-        except Exception as exc:  # noqa: BLE001
-            self._send_json({"error": str(exc)}, 502)
-            return
+            if time.time() - os.path.getmtime(path) < 30 * 24 * 3600:
+                with open(path, "rb") as f:
+                    data = f.read()
+                with open(path + ".type", encoding="utf-8") as f:
+                    ctype = f.read().strip() or ctype
+        except Exception:  # noqa: BLE001
+            data = None
+        if data is None:
+            err = None
+            for attempt in range(2):
+                try:
+                    req = urllib.request.Request(target, headers={"User-Agent": UA})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = resp.read(5_000_000)
+                        ctype = resp.headers.get("Content-Type", "image/jpeg")
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    err = exc
+                    if attempt == 0:
+                        time.sleep(0.6)
+            if data is None:
+                self._send_json({"error": str(err)}, 502)
+                return
+            if ctype.startswith("image/"):
+                try:
+                    os.makedirs(img_dir, exist_ok=True)
+                    with open(path + ".tmp", "wb") as f:
+                        f.write(data)
+                    with open(path + ".type", "w", encoding="utf-8") as f:
+                        f.write(ctype)
+                    os.replace(path + ".tmp", path)
+                except Exception:  # noqa: BLE001
+                    pass
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Access-Control-Allow-Origin", "*")
