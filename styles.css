@@ -8026,7 +8026,8 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
 /* ---------- みんな：タブを行き来しても画面がガタつかないように ---------- */
 #socialModal .modal { height: min(86vh, 860px); }
 @media (max-width: 768px) {
-  #socialModal .modal { height: calc(var(--vv-h, 100dvh) - 24px); max-height: none; }
+  #socialModal .modal,
+  #upcomingModal .modal { height: calc(var(--vv-h, 100dvh) - 24px); max-height: none; }
 }
 
 #socialModal .soc-tabs {
