@@ -1605,12 +1605,63 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
-PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote")
+PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic")
+# これまで本人だけのメモとして書かれてきたため、コメントの公開だけは本人が選ぶまでオフ
+PRIVACY_OFF_BY_DEFAULT = {"cmtPublic"}
 
 
 def _privacy(u):
     p = u.get("privacy") if isinstance(u.get("privacy"), dict) else {}
-    return {k: p.get(k) is not False for k in PRIVACY_KEYS}
+    return {k: (p.get(k) is True) if k in PRIVACY_OFF_BY_DEFAULT else (p.get(k) is not False) for k in PRIVACY_KEYS}
+
+
+DEMO_COMMENTS = {
+    "high": ["何度観ても胸が熱くなる。文句なしの一本です。", "ラストで鳥肌が立った。映画館で観られて本当によかった。",
+             "音楽と映像の重なり方が完璧。人生ベスト級。", "登場人物みんなが愛おしい。また観返したい。",
+             "公開当時に観て衝撃を受けました。今観ても色あせない。"],
+    "mid": ["前半は少し長く感じたけれど、後半の盛り上がりは見事。", "好みは分かれそうだけど、映像は一見の価値あり。",
+            "期待しすぎたかも。でも主演の演技はとても良かった。", "雰囲気は好き。もう一度観たら印象が変わりそう。"],
+    "low": ["自分には合わなかったけれど、熱狂的なファンがいるのはわかる。", "話題作だったので観たものの、展開が読めてしまった。",
+            "映像はきれいだが、物語に入り込めなかった。"],
+}
+
+
+def _demo_comments(key, n_max=5):
+    import random
+    rng = random.Random(hashlib.sha256(("demo-cmt:" + key).encode("utf-8")).hexdigest())
+    names = rng.sample(DEMO_NAMES, min(len(DEMO_NAMES), rng.randint(3, n_max)))
+    out = []
+    for name in names:
+        sc = rng.choice([1, 1, 0.75, 0.75, 0.75, 0.5, 0.25])
+        pool = DEMO_COMMENTS["high" if sc >= 0.75 else "mid" if sc >= 0.5 else "low"]
+        out.append({"name": name, "score": sc, "text": rng.choice(pool), "demo": True})
+    return out
+
+
+def _movie_comments(key, exclude_uid=None, limit=30):
+    """コメントの公開を選んだ利用者の、この作品へのコメント（評価つき）。"""
+    out = []
+    for u in _load_users().values():
+        if u.get("id") == exclude_uid or u.get("community") is False or not _privacy(u)["cmtPublic"]:
+            continue
+        obj = _load_list(u["id"]) or {}
+        n = len(obj.get("tiers") or [])
+        found = None
+        for i, t in enumerate(obj.get("tiers") or []):
+            for m in (t.get("items") or []):
+                if isinstance(m, dict) and _movie_key(m) == key:
+                    found = (m, 1.0 if n <= 1 else (n - 1 - i) / (n - 1))
+                    break
+            if found:
+                break
+        if not found:
+            continue
+        text = _s(found[0].get("comment"), 600).strip()
+        if text:
+            out.append({"name": _display_name(u), "score": round(found[1], 4), "text": text})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _timeline_settings(u):
@@ -2163,8 +2214,13 @@ class Handler(SimpleHTTPRequestHandler):
             pick = rng.sample(pool, min(8, len(pool)))
             also = [dict(_meta_cache.get(k) or {}, key=k, avg=agg[k]["avg"]) for k in sorted(pick, key=lambda k: -agg[k]["avg"])]
             demo = demo or bool(also)
+        with _data_lock:
+            comments = _movie_comments(key, exclude_uid=uid)
+        if not comments and DEMO_SOCIAL:
+            comments = _demo_comments(key)
+            demo = True
         res = {"agg": a, "rank": rank, "total": len(avgs) + 1, "also": [x for x in also if x.get("title")],
-               "demo": demo, "min": COMMUNITY_MIN}
+               "comments": comments, "demo": demo, "min": COMMUNITY_MIN}
         if not self._is_admin():
             res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
         self._send_private_json(res)

@@ -8148,3 +8148,58 @@ body { transition: opacity 0.2s ease; }
 body.page-leave { opacity: 0; }
 body.page-enter { animation: page-enter 0.35s ease; }
 @keyframes page-enter { from { opacity: 0; } to { opacity: 1; } }
+
+/* ポスターは読み込めたらふわっと表示 */
+img.movie-poster { opacity: 0; transform: scale(0.985); transition: opacity 0.45s ease, transform 0.45s ease; }
+img.movie-poster.is-loaded { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { img.movie-poster { opacity: 1; transform: none; } }
+
+/* 作品ごとのみんなのティア：順位の位置・分布の見出し・コメント */
+.comm-pos {
+  position: relative;
+  height: 6px;
+  margin: 8px 0 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.3));
+}
+.comm-pos span {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #6d4aff;
+  transform: translate(-50%, -50%);
+}
+.comm-pos-labels { display: flex; justify-content: space-between; font-size: 10px; opacity: 0.85; }
+.comm-score-side { flex: 1 1 auto; min-width: 0; }
+
+.comm-dist-row { grid-template-columns: max-content 1fr 64px; }
+.comm-dist-label { white-space: nowrap; min-width: 88px; }
+
+.cmt-list { display: flex; flex-direction: column; gap: 8px; }
+.cmt {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-elev);
+}
+.cmt-mine { background: color-mix(in srgb, var(--accent) 7%, var(--bg-elev)); border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.cmt-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.cmt-head b { font-weight: 800; }
+.cmt-av {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(125deg, #6d4aff, #ff5fa2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.cmt-text { margin: 6px 0 0 34px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.cmt-foot { margin: 6px 0 0 34px; font-size: 11px; color: var(--text-dim); }
+.cmt-count { margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--text-dim); }

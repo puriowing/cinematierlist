@@ -849,6 +849,8 @@
       // CORS対応のプロキシ(/api/img)経由で1度だけ再試行し、それでも駄目なら
       // タイトルのフォールバックにする。
       img.crossOrigin = "anonymous";
+      img.decoding = "async";
+      img.addEventListener("load", () => img.classList.add("is-loaded"));
       let retries = 0;
       img.addEventListener("error", () => {
         const src = img.getAttribute("src") || "";
@@ -1483,7 +1485,10 @@
       `<small>${tl.public ? "公開中" : "非公開"}</small></p><p class="pv-note">${PRIVACY_GROUPS[1].note}</p>` +
       sw("tlPublic", !!tl.public, "年表をリンクで公開する") +
       PRIVACY_GROUPS[1].items.map(([k, l]) => sw(k, pv[k] !== false, l)).join("") +
-      sw("tlAge", !!tl.showAge, "年齢（生まれた年が分かります）") + `</div>`;
+      sw("tlAge", !!tl.showAge, "年齢（生まれた年が分かります）") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">作品へのコメント<small>${pv.cmtPublic ? "公開中" : "非公開"}</small></p>` +
+      `<p class="pv-note">作品情報に書いたコメント（感想）を、その作品の「みんなのティア」に表示名つきで載せます。これまで自分用のメモとして書いてきた人もいるため、この項目だけは最初はオフです。</p>` +
+      sw("cmtPublic", pv.cmtPublic === true, "作品へのコメントを公開する") + `</div>`;
 
     const psum = document.getElementById("mpPrivacySum");
     if (psum) psum.textContent = [d.community ? "みんなのティアに参加中" : "みんなのティアに不参加",
@@ -2092,6 +2097,25 @@
       `</div>` + histHtml(c.hist);
   }
 
+  function commentsHtml(movie, list) {
+    const mineText = (movie.comment || "").trim();
+    const mine = mineText
+      ? `<div class="cmt cmt-mine"><div class="cmt-head"><span class="cmt-av">私</span><b>あなたのコメント</b>${myRatings()[movieKey(movie)] != null ? tierChip(myRatings()[movieKey(movie)]) : ""}</div>` +
+        `<p class="cmt-text">${escapeHtml(mineText)}</p>` +
+        `<p class="cmt-foot">ほかの人に見せるかどうかは、マイページの「公開設定」で選べます。</p></div>`
+      : "";
+    const items = list.map((c) =>
+      `<div class="cmt"><div class="cmt-head"><span class="cmt-av">${escapeHtml((c.name || "?").slice(0, 1))}</span>` +
+      `<b>${escapeHtml(c.name || "名無しさん")}</b>${c.score != null ? tierChip(c.score) : ""}</div>` +
+      `<p class="cmt-text">${escapeHtml(c.text)}</p></div>`
+    ).join("");
+    if (!mine && !items) {
+      return `<section class="comm-sec"><h4 class="soc-h">💬 みんなのコメント</h4><p class="soc-note">まだコメントはありません。</p></section>`;
+    }
+    return `<section class="comm-sec"><h4 class="soc-h">💬 みんなのコメント${list.length ? `<small class="cmt-count">${list.length}件</small>` : ""}</h4>` +
+      `<div class="cmt-list">${mine}${items}</div></section>`;
+  }
+
   // 作品ごとの「みんなのティア」（作品メニューから開く専用画面）
   const HIST_LABELS = ["最上位", "上位", "まんなか", "下位", "最下位"];
   let commMovieId = null;
@@ -2118,7 +2142,6 @@
     }
     const a = d.agg;
     const mine = myRatings()[key];
-    const top = Math.max(1, Math.round((d.rank / d.total) * 100));
     let vs = "";
     if (mine != null) {
       const diff = mine - a.avg;
@@ -2152,11 +2175,14 @@
       `<div class="comm-score">` +
       `<div class="comm-score-main"><b>${score10(a.avg)}</b><small>/10</small></div>` +
       `<div class="comm-score-side"><p>あなたのティアでいうと ${tierChip(a.avg)}</p>` +
-      `<p class="comm-rank">みんなの評価で <b>${d.rank}位</b> / ${d.total}本中（上位${top}%）</p>` +
+      `<p class="comm-rank">みんなのティアの${d.total}本を平均点の高い順に並べると <b>${d.rank}番目</b></p>` +
+      `<div class="comm-pos" title="左ほど評価が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
+      `<div class="comm-pos-labels"><small>評価が高い</small><small>低い</small></div>` +
       (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}が評価</p>` : "") + `</div></div>` +
       `<section class="comm-sec"><h4 class="soc-h">🆚 あなたとみんな</h4>${vs}</section>` +
       `<section class="comm-sec"><h4 class="soc-h">📊 評価の分かれ方</h4><div class="comm-dist">${dist}</div>` +
       `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
+      commentsHtml(movie, d.comments || []) +
       (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品を高く評価した人は、こんな作品も高評価</h4><div class="comm-also">${also}</div></section>` : "") +
       (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際の評価が集まると入れ替わります。</p>` : "");
     box.querySelectorAll(".comm-also-add").forEach((b) => b.addEventListener("click", () => {
