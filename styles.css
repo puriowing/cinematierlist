@@ -7754,3 +7754,30 @@ body.compact .movie-fav-badge span {
 .pf-private-h { margin: 18px 0 4px; font-size: 13px; font-weight: 800; }
 .pf-name { margin-top: 0; }
 .mp-fold-body .backup-list { margin: 0; }
+
+/* 作品メニュー：作品情報を大きく目立たせる */
+.move-menu-actions .move-info-main {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #6d4aff, #b04dff);
+  color: #fff;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 4px 12px rgba(109, 74, 255, 0.3);
+}
+
+.move-menu-actions .move-info-main:hover { filter: brightness(1.06); }
+.move-info-ic { font-size: 22px; line-height: 1; }
+.move-info-ic svg { width: 22px; height: 22px; }
+.move-info-tx { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.move-info-tx b { font-size: 15px; font-weight: 800; }
+.move-info-tx small { font-size: 11px; opacity: 0.9; }
+.move-info-go { font-size: 22px; font-weight: 700; opacity: 0.9; }
+
+.move-menu-actions .move-del-btn { grid-column: 1 / -1; }

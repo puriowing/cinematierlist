@@ -1734,14 +1734,15 @@
     const menuActions = document.createElement("div");
     menuActions.className = "move-menu-actions";
     const infoBtn = document.createElement("button");
-    infoBtn.className = "btn btn-ghost btn-sm move-info-btn";
-    infoBtn.textContent = "🎬 作品情報";
+    infoBtn.className = "btn move-info-main";
+    infoBtn.innerHTML = `<span class="move-info-ic">🎬</span><span class="move-info-tx"><b>作品情報</b><small>監督・出演・配信・みんなの評価</small></span><span class="move-info-go">›</span>`;
     infoBtn.title = "公開年・ジャンル・種別・監督・出演者・ポスターを表示／修正します";
     infoBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       closeMoveMenu();
       openMovieInfo(movie);
     });
+    menuActions.appendChild(infoBtn);
     const favBtn = document.createElement("button");
     favBtn.className = "btn btn-ghost btn-sm move-fav-btn" + (movie.fav ? " is-on" : "");
     favBtn.textContent = movie.fav ? "❤ 偏愛中" : "❤ 偏愛";
@@ -1771,7 +1772,6 @@
       openTagModal(movie);
     });
     menuActions.appendChild(tagBtn);
-    menuActions.appendChild(infoBtn);
     if (movie.poster && anchorEl.querySelector(".movie-poster-fallback")) {
       const reloadBtn = document.createElement("button");
       reloadBtn.className = "btn btn-ghost btn-sm move-info-btn";
