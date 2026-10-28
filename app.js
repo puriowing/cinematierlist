@@ -5557,9 +5557,7 @@
 
   function notifyBulkAdded(btnId, gridId, c) {
     haptic(20);
-    labelYearOptions(document.getElementById("recallYear"), "movie");
-    const sv = document.getElementById("seriesValue");
-    if (sv && sv.dataset.mode === "year") labelYearOptions(sv, addMedia);
+    refreshAddCounts();
     const toWl = addTarget === "watchlist";
     const dest = toWl ? "観たい" : "未分類";
     const btn = document.getElementById(btnId);
@@ -5611,6 +5609,52 @@
   // =======================================================================
   // 「もっと見る」用のセッション状態。pool には取得済みの作品（公開日つき・登録済みも含む）が入る。
   let recallSession = { year: null, nextPage: 1, hasMore: false, skipped: 0, seen: new Set(), pool: [] };
+
+  // 「テーマで絞り込み」と同じ判定で、登録済み（観たいを含む）の本数を数える
+  function registeredCount(type, value, media) {
+    let n = 0;
+    [...allMovies(), ...(state.watchlist || [])].forEach((m) => {
+      if ((m.media || "movie") === media && matchesOne(m, { type, value })) n++;
+    });
+    return n;
+  }
+
+  // 作品追加のチップ（ジャンル・コレクション・映画賞）に登録本数を添える
+  function refreshChipCounts(wrapId, type, defs, media) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const byId = new Map(defs.map((d) => [d.id, d]));
+    wrap.querySelectorAll(".collection-chip").forEach((b) => {
+      const def = byId.get(b.dataset.col);
+      if (!def) return;
+      const n = registeredCount(type, def.label, media);
+      let badge = b.querySelector(".opt-count");
+      if (!n) { if (badge) badge.remove(); b.removeAttribute("title"); return; }
+      if (!badge) { badge = document.createElement("span"); badge.className = "opt-count"; b.appendChild(badge); }
+      badge.textContent = n;
+      b.title = `登録済み ${n}本`;
+    });
+  }
+
+  function refreshAddCounts() {
+    refreshChipCounts("genreList", "genre", GENRES, "movie");
+    refreshChipCounts("collectionList", "collection", COLLECTIONS, collectionMedia);
+    refreshChipCounts("awardList", "award", AWARDS, "movie");
+    labelYearOptions(document.getElementById("recallYear"), "movie");
+    const sv = document.getElementById("seriesValue");
+    if (sv && sv.dataset.mode === "year") labelYearOptions(sv, addMedia);
+    if (sv && sv.dataset.mode === "genre") labelSelectCounts(sv, "genre", addMedia);
+  }
+
+  // ドラマ・アニメのジャンル選択肢にも本数を添える（表示名で照合）
+  function labelSelectCounts(sel, type, media) {
+    [...sel.options].forEach((o) => {
+      if (!o.value) return;
+      const base = o.dataset.base || (o.dataset.base = o.textContent);
+      const n = registeredCount(type, base, media);
+      o.textContent = n ? `${base}（登録 ${n}本）` : base;
+    });
+  }
 
   // 年の選択肢に、その年の作品をすでに何本登録しているかを添える（映画／ドラマ／アニメ別）
   function registeredYearCounts(media) {
@@ -5867,6 +5911,7 @@
       sel.dataset.mode = mode;
     }
     if (mode === "year") labelYearOptions(sel, addMedia);
+    if (mode === "genre") labelSelectCounts(sel, "genre", addMedia);
     const key = addMedia + ":" + mode;
     const s = seriesSessions[key];
     if (s) {
@@ -7539,12 +7584,14 @@
       b.addEventListener("click", () => loadCollection(col, COLLECTION_CTX));
       wrap.appendChild(b);
     });
+    refreshChipCounts("collectionList", "collection", COLLECTIONS, collectionMedia);
   }
 
   // 映画賞・映画祭は独立タブ。シャッフルせず常に全件を並べる
   function renderAwardChips() {
     const wrap = document.getElementById("awardList");
-    if (!wrap || wrap.children.length) return;
+    if (wrap && wrap.children.length) { refreshChipCounts("awardList", "award", AWARDS, "movie"); return; }
+    if (!wrap) return;
     AWARDS.forEach((col) => {
       const b = document.createElement("button");
       b.className = "collection-chip";
@@ -7553,12 +7600,14 @@
       b.addEventListener("click", () => loadAward(col));
       wrap.appendChild(b);
     });
+    refreshChipCounts("awardList", "award", AWARDS, "movie");
   }
 
   // ジャンルは独立タブ。シャッフルせず常に全件のチップを並べる
   function renderGenreChips() {
     const wrap = document.getElementById("genreList");
-    if (!wrap || wrap.children.length) return;
+    if (wrap && wrap.children.length) { refreshChipCounts("genreList", "genre", GENRES, "movie"); return; }
+    if (!wrap) return;
     GENRES.forEach((col) => {
       const b = document.createElement("button");
       b.className = "collection-chip";
@@ -7567,6 +7616,7 @@
       b.addEventListener("click", () => fmLoad(genreCtrl, col));
       wrap.appendChild(b);
     });
+    refreshChipCounts("genreList", "genre", GENRES, "movie");
   }
 
   // ---- Filmarks 一覧（ジャンル・映画賞）を人気順・ページ送りで取得する汎用処理 ----

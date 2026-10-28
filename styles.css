@@ -8208,3 +8208,5 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .comm-verdict { margin: 4px 0 0 !important; font-size: 14px !important; }
 .comm-verdict b { font-size: 17px; }
 .comm-score-side .comm-rank { font-size: 11px !important; opacity: 0.9; }
+
+.collection-chip .opt-count { margin-left: 6px; font-weight: 700; }
