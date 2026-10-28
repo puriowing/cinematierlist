@@ -7529,33 +7529,42 @@ body.compact .movie-fav-badge span {
 
 .up-actions .up-added { cursor: pointer; }
 
-/* ---------- 引っぱって更新 ---------- */
+/* ---------- 引っぱって更新（画面全体が下がり、すき間に案内を出す） ---------- */
 .ptr {
   position: fixed;
-  left: 50%;
-  top: calc(env(safe-area-inset-top) - 44px);
-  z-index: 45;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0;
+  z-index: 15;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-dim);
-  transform: translate(-50%, 0);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s;
 }
 
-.ptr.show { opacity: 1; }
-.ptr-ic { display: inline-block; transition: transform 0.2s; }
+.ptr-ic {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  transform: rotate(calc(var(--p, 0) * 180deg));
+  transition: transform 0.1s linear, background-color 0.15s, color 0.15s;
+}
+
 .ptr.ready { color: var(--accent); }
-.ptr.ready .ptr-ic { transform: rotate(180deg); }
+.ptr.ready .ptr-ic { background: var(--accent); color: #fff; border-color: transparent; }
 .ptr.loading .ptr-ic { animation: list-spin 0.8s linear infinite; }
 
 /* ---------- ボトムシートのつまみ（下に引いて閉じられる目印） ---------- */

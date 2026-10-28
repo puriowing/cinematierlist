@@ -10931,40 +10931,63 @@
     window.addEventListener("online", retryFailedPosters);
     if (!("ontouchstart" in window)) return;
 
+    // 一番上で下へ引くと、ヘッダーより下の画面全体が下がり、すき間に「離すと更新」を出す
     const ptr = document.createElement("div");
     ptr.className = "ptr";
     ptr.innerHTML = `<span class="ptr-ic">↓</span><span class="ptr-tx">引っぱって更新</span>`;
     document.body.appendChild(ptr);
-    const PTR_GO = 90;
-    let ptrY = null, ptrDy = 0;
+    const PTR_GO = 72, PTR_MAX = 120;
+    let ptrY = null, ptrD = 0, ptrReady = false;
+    const pulled = () => document.querySelector("main.layout");
+    const setPull = (d, animate) => {
+      const main = pulled();
+      const head = document.querySelector(".app-header");
+      const top = head ? head.getBoundingClientRect().bottom : 0;
+      ptrD = d;
+      if (main) {
+        main.style.transition = animate ? "transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.1)" : "none";
+        main.style.transform = d ? `translateY(${d}px)` : "";
+      }
+      ptr.style.top = top + "px";
+      ptr.style.height = d + "px";
+      ptr.style.transition = animate ? "height 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.2s" : "none";
+      ptr.style.opacity = d ? Math.min(1, d / 40) : 0;
+      ptr.style.setProperty("--p", Math.min(1, d / PTR_GO));
+    };
     document.addEventListener("touchstart", (e) => {
       // ブラウザには標準の「引っぱって更新」があるので、ホーム画面から開いたアプリのときだけ使う
       const app = document.body.classList.contains("is-standalone");
-      ptrY = (app && window.scrollY <= 0 && !anyModalOpen() && e.touches.length === 1) ? e.touches[0].clientY : null;
-      ptrDy = 0;
+      ptrY = (app && window.scrollY <= 0 && !anyModalOpen() && !ptr.classList.contains("loading") && e.touches.length === 1)
+        ? e.touches[0].clientY : null;
+      ptrReady = false;
     }, { passive: true });
     document.addEventListener("touchmove", (e) => {
       if (ptrY == null) return;
-      ptrDy = e.touches[0].clientY - ptrY;
-      if (ptrDy <= 0 || window.scrollY > 0) { ptr.style.transform = ""; ptr.classList.remove("show", "ready"); return; }
-      const d = Math.min(PTR_GO * 1.4, ptrDy * 0.5);
-      ptr.classList.add("show");
-      ptr.classList.toggle("ready", d >= PTR_GO);
-      ptr.querySelector(".ptr-tx").textContent = d >= PTR_GO ? "離すと更新" : "引っぱって更新";
-      ptr.style.transform = `translate(-50%, ${d}px)`;
-    }, { passive: true });
+      const dy = e.touches[0].clientY - ptrY;
+      if (dy <= 0 || window.scrollY > 0) { if (ptrD) setPull(0, false); return; }
+      if (e.cancelable) e.preventDefault();
+      // 引くほど重くなる（ゴムのような手応え）
+      const d = PTR_MAX * (1 - Math.exp(-dy / (PTR_MAX * 1.6)));
+      const ready = d >= PTR_GO;
+      if (ready !== ptrReady) {
+        ptrReady = ready;
+        ptr.classList.toggle("ready", ready);
+        ptr.querySelector(".ptr-tx").textContent = ready ? "離すと更新" : "引っぱって更新";
+        if (ready) haptic(10);
+      }
+      setPull(d, false);
+    }, { passive: false });
     document.addEventListener("touchend", () => {
       if (ptrY == null) return;
-      const go = ptr.classList.contains("ready");
       ptrY = null;
-      if (go) {
+      if (ptrReady) {
         ptr.classList.add("loading");
         ptr.querySelector(".ptr-tx").textContent = "更新しています…";
-        setTimeout(() => location.reload(), 150);
+        setPull(56, true);
+        setTimeout(() => location.reload(), 380);
         return;
       }
-      ptr.style.transform = "";
-      ptr.classList.remove("show", "ready");
+      if (ptrD) setPull(0, true);
     });
 
     // ボトムシート（ポップアップ）：中身が一番上のときに下へ引くと閉じる
