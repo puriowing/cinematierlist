@@ -7997,3 +7997,28 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
 .pool-items > :not(.movie-card) {
   grid-column: 1 / -1;
 }
+
+/* スマホ：すき間を広げる代わりにカードを少し大きくして横幅を埋める */
+@media (max-width: 768px) {
+  .tier-dropzone:not(.collapsed-zone),
+  .pool-items {
+    grid-template-columns: repeat(auto-fill, minmax(var(--poster-w), 1fr));
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .tier-dropzone:not(.collapsed-zone) > .movie-card,
+  .pool-items > .movie-card {
+    width: auto;
+    min-width: 0;
+  }
+
+  .tier-dropzone:not(.collapsed-zone) > .movie-card .movie-poster,
+  .tier-dropzone:not(.collapsed-zone) > .movie-card .movie-poster-fallback,
+  .pool-items > .movie-card .movie-poster,
+  .pool-items > .movie-card .movie-poster-fallback {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+}
