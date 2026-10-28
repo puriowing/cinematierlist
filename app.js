@@ -572,6 +572,7 @@
     const isStudio = settings.theme !== "classic";
     document.body.classList.toggle("theme-studio", isStudio);
     document.body.classList.toggle("theme-pop", settings.theme === "pop");
+    document.documentElement.setAttribute("data-theme", settings.theme || "studio");
     const sel = document.getElementById("themeSelect");
     if (sel) sel.value = settings.theme === "pop" ? "pop" : isStudio ? "studio" : "classic";
   }
