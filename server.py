@@ -1897,7 +1897,7 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             users = _load_users()
         u = next((v for v in users.values() if v.get("id") == uid), None)
-        user = {"username": u["username"]} if u else None
+        user = {"username": u["username"], "display": (u.get("display") or "").strip()} if u else None
         if user and (u["username"] or "").lower() in ADMIN_USERS:
             user["admin"] = True
         self._send_private_json({"user": user})

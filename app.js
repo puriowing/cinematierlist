@@ -1357,6 +1357,7 @@
     document.getElementById("pvDisplaySave").addEventListener("click", async () => {
       const res = await apiJSON("/api/social", { method: "POST", body: JSON.stringify({ display: document.getElementById("pvDisplay").value }) });
       toast(res.ok ? "名前を変更しました" : "変更に失敗しました");
+      if (res.ok && currentUser) currentUser.display = document.getElementById("pvDisplay").value.trim();
     });
     box.querySelectorAll(".pv-switch").forEach((el) => el.addEventListener("change", async () => {
       const k = el.dataset.key;
@@ -2121,7 +2122,10 @@
       return res.ok;
     };
     document.getElementById("socDisplaySave").addEventListener("click", async () => {
-      if (await post({ display: document.getElementById("socDisplay").value })) { toast("名前を変更しました"); renderMyLink(); }
+      if (await post({ display: document.getElementById("socDisplay").value })) {
+        if (currentUser) currentUser.display = document.getElementById("socDisplay").value.trim();
+        toast("名前を変更しました"); renderMyLink();
+      }
     });
     const create = document.getElementById("socCreateBtn");
     if (create) create.addEventListener("click", async () => { if (await post({ share: "create" })) renderMyLink(); });
@@ -7548,8 +7552,18 @@
     } catch (_) {}
   }
 
+  // シェア画像の名前：表示名（マイページで設定）→ お題で使った名前 → ログインID（メール以外）
+  function shareOwnerName() {
+    const u = currentUser || {};
+    const id = (u.username || "").trim();
+    return (u.display || state.challengeName || (id && !id.includes("@") ? id : "") || "").trim();
+  }
+
   function shareThemeName() {
-    return themeFilterName() || currentName() || "わたしの映画";
+    const theme = themeFilterName();
+    if (theme) return theme;
+    const name = shareOwnerName();
+    return name ? `${name}の映画` : "わたしの映画";
   }
 
   // ベスト用の並び：保存済みランキング → ティア上位順（未分類は除く）
@@ -7650,6 +7664,7 @@
       `<div class="sc-body"></div>` +
       `<div class="sc-foot">` +
         `<span class="sc-brand"><img src="icon.svg" alt="" /><span>tiari</span></span>` +
+        (hasFilter() && shareOwnerName() ? `<span class="sc-owner">by ${escapeHtml(shareOwnerName())}</span>` : "") +
         `<span class="sc-date">${shareDateStr()}</span>` +
       `</div>`;
     return { card, ids: ids.slice(0, n), rows, total };
