@@ -7642,3 +7642,7 @@ body.compact .movie-fav-badge span {
   color: var(--sc-sub, inherit);
   opacity: 0.8;
 }
+
+.tag-movie-title { margin: 0 0 6px; font-size: 15px; font-weight: 800; }
+#tagModal .tag-chips { margin: 0 0 14px; }
+.tag-new { margin: 0; }

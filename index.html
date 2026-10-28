@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261028sh" />
+  <link rel="stylesheet" href="styles.css?v=20261028tg" />
 </head>
 <body>
   <header class="app-header">
@@ -571,6 +571,29 @@
     </div>
   </div>
 
+  <!-- タグ付け（作品ごと） -->
+  <div id="tagModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🏷️ タグ</h3>
+        <button class="modal-close" data-close="tagModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <p id="tagMovieTitle" class="tag-movie-title"></p>
+        <p class="hint" style="margin-top:0">押すとタグが付き、もう一度押すと外れます。付けたタグは「🎯 テーマで絞り込み」から選べます。</p>
+        <div id="tagChips" class="tag-chips"></div>
+        <form id="tagNewForm" class="soc-paste tag-new">
+          <input id="tagNewInput" type="text" maxlength="30" placeholder="新しいタグ（例: 泣ける、デート向け）" />
+          <button type="submit" class="btn btn-primary btn-sm">追加</button>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <span></span>
+        <button class="btn btn-ghost" data-close="tagModal">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Stats dashboard modal -->
   <div id="statsModal" class="modal-overlay hidden">
     <div class="modal modal-wide">
@@ -786,16 +809,11 @@
           <input id="infoCast" type="text" placeholder="例: レオナルド・ディカプリオ, 渡辺謙" />
         </label>
         <label class="field">
-          <span>タグ（下の候補から選ぶか、新しいタグをカンマ区切りで入力）</span>
-          <input id="infoUserThemes" type="text" placeholder="例: 泣ける, デート向け, 人生ベスト" />
-        </label>
-        <div id="infoTagChips" class="tag-chips"></div>
-        <label class="field">
           <span>コメント・感想</span>
           <textarea id="infoComment" rows="4" placeholder="この作品の感想やメモを自由に残せます"></textarea>
         </label>
         <p class="hint" style="margin-top:0">
-          保存するとこの内容が優先され、バックグラウンドの自動補完で上書きされなくなります。「タグ」は「🎯 テーマで絞り込み」に反映されます。
+          保存するとこの内容が優先され、バックグラウンドの自動補完で上書きされなくなります。タグは、作品をタップしたメニューの「🏷️ タグ」から付けられます。
         </p>
         <div class="settings-actions">
           <button id="infoSaveBtn" class="btn btn-primary">保存</button>
@@ -950,6 +968,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261028sh"></script>
+  <script src="app.js?v=20261028tg"></script>
 </body>
 </html>

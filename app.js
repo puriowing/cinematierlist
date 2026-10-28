@@ -1748,6 +1748,16 @@
       openMemory(movie);
     });
     menuActions.appendChild(memBtn);
+    const tagBtn = document.createElement("button");
+    tagBtn.className = "btn btn-ghost btn-sm move-info-btn";
+    const tagN = (movie.userThemes || []).length;
+    tagBtn.textContent = tagN ? `🏷️ タグ（${tagN}）` : "🏷️ タグ";
+    tagBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMoveMenu();
+      openTagModal(movie);
+    });
+    menuActions.appendChild(tagBtn);
     menuActions.appendChild(infoBtn);
     if (movie.poster && anchorEl.querySelector(".movie-poster-fallback")) {
       const reloadBtn = document.createElement("button");
@@ -2748,8 +2758,6 @@
     $("infoKind").value = movie.kind || "";
     $("infoDirectors").value = ((movie.meta && movie.meta.directors) || []).join(", ");
     $("infoCast").value = ((movie.meta && movie.meta.cast) || []).join(", ");
-    $("infoUserThemes").value = (movie.userThemes || []).join(", ");
-    renderInfoTagChips();
     $("infoComment").value = movie.comment || "";
     $("infoPosterUrl").value = "";
     const fileInput = $("infoPosterFile");
@@ -2886,8 +2894,6 @@
     m.genres = [...$("infoGenres").querySelectorAll("input:checked")].map((c) => c.value);
     m.genreCheckedV = GENRE_FIX_VERSION; // 手動指定を自動取得で上書きしない
 
-    const userThemes = splitList($("infoUserThemes").value);
-    if (userThemes.length) m.userThemes = userThemes; else delete m.userThemes;
 
     const comment = $("infoComment").value.trim();
     if (comment) m.comment = comment; else delete m.comment;
@@ -3918,27 +3924,52 @@
     };
   }
 
-  // 作品情報：登録済みのタグをチップで選べるようにする（入力欄のカンマ区切りと連動）
-  function infoTagValues() {
-    return document.getElementById("infoUserThemes").value.split(/[,、]/).map((x) => x.trim()).filter(Boolean);
+  // 作品ごとのタグ付け（作品メニューの「🏷️ タグ」から開く・押した時点で保存）
+  let tagTarget = null;
+
+  function openTagModal(movie) {
+    tagTarget = movie;
+    document.getElementById("tagMovieTitle").textContent = movie.title || "";
+    document.getElementById("tagNewInput").value = "";
+    renderTagChips();
+    openModal("tagModal");
   }
 
-  function renderInfoTagChips() {
-    const box = document.getElementById("infoTagChips");
-    if (!box) return;
-    const cur = new Set(infoTagValues());
+  function setMovieTags(movie, tags) {
+    if (tags.length) movie.userThemes = tags; else delete movie.userThemes;
+    render();
+  }
+
+  function renderTagChips() {
+    const box = document.getElementById("tagChips");
+    const m = tagTarget;
+    if (!box || !m) return;
+    const cur = new Set(m.userThemes || []);
     const names = [...new Set([...allUserThemeNames(), ...cur])].sort((a, b) => a.localeCompare(b, "ja"));
-    if (!names.length) { box.innerHTML = `<p class="tag-chips-empty">まだタグはありません。上の欄に入力すると作れます。</p>`; return; }
+    if (!names.length) { box.innerHTML = `<p class="tag-chips-empty">まだタグはありません。下の欄から作れます。</p>`; return; }
     box.innerHTML = names.map((t) =>
       `<button type="button" class="tag-chip${cur.has(t) ? " is-on" : ""}" data-tag="${escapeHtml(t)}">${cur.has(t) ? "✓ " : "＋ "}${escapeHtml(t)}</button>`
     ).join("");
     box.querySelectorAll(".tag-chip").forEach((b) => b.addEventListener("click", () => {
-      const vals = infoTagValues();
+      const tags = m.userThemes || [];
       const t = b.dataset.tag;
-      const next = vals.includes(t) ? vals.filter((v) => v !== t) : [...vals, t];
-      document.getElementById("infoUserThemes").value = next.join(", ");
-      renderInfoTagChips();
+      setMovieTags(m, tags.includes(t) ? tags.filter((v) => v !== t) : [...tags, t]);
+      renderTagChips();
     }));
+  }
+
+  function wireTagModal() {
+    document.getElementById("tagNewForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("tagNewInput");
+      const add = input.value.split(/[,、]/).map((x) => x.trim()).filter(Boolean);
+      if (!add.length || !tagTarget) return;
+      const tags = tagTarget.userThemes || [];
+      setMovieTags(tagTarget, [...tags, ...add.filter((t) => !tags.includes(t))]);
+      input.value = "";
+      renderTagChips();
+      toast(`🏷️ 「${add.join("」「")}」を付けました`);
+    });
   }
 
   // 登録済みの全タグ名（重複なし・五十音）
@@ -10187,7 +10218,7 @@
     wireNudge();
     wireMyPageFolds();
     wireTouchGestures();
-    document.getElementById("infoUserThemes").addEventListener("input", renderInfoTagChips);
+    wireTagModal();
     wireMovieInfo();
     wireMemory();
     wireTimeline();
