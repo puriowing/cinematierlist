@@ -1234,7 +1234,19 @@
         `<div class="settings-actions">` +
         `<button id="authSyncBtn" class="btn btn-ghost">↻ 今すぐ最新を取得</button>` +
         `<button id="authLogoutBtn" class="btn btn-danger">ログアウト</button>` +
-        `</div>`;
+        `</div>` +
+        `<div class="pv-group acc-sec">` +
+        `<p class="pv-title">復旧コード<small class="${currentUser.hasRecovery ? "acc-ok" : "acc-warn"}">${currentUser.hasRecovery
+          ? `発行済み${currentUser.recoveryAt ? `（${new Date(currentUser.recoveryAt * 1000).toLocaleDateString("ja-JP")}）` : ""}` : "⚠ 未発行"}</small></p>` +
+        `<p class="pv-note">パスワードを忘れたときに、このコードで新しいパスワードを設定できます。${currentUser.hasRecovery ? "なくした場合は作り直してください（前のコードは使えなくなります）。" : "いまのうちに発行して保存しておきましょう。"}</p>` +
+        `<button type="button" id="accRecoveryBtn" class="btn ${currentUser.hasRecovery ? "btn-ghost" : "btn-primary"} btn-sm">${currentUser.hasRecovery ? "復旧コードを作り直す" : "復旧コードを発行する"}</button>` +
+        `</div>` +
+        `<details class="pv-group acc-sec acc-pw"><summary class="pv-title">パスワードを変更</summary>` +
+        `<label class="field"><span>いまのパスワード</span><input id="accPwCur" type="password" autocomplete="current-password" /></label>` +
+        `<label class="field"><span>新しいパスワード（6文字以上）</span><input id="accPwNew" type="password" autocomplete="new-password" /></label>` +
+        `<p id="accPwErr" class="auth-error"></p>` +
+        `<button type="button" id="accPwBtn" class="btn btn-primary btn-sm">変更する</button>` +
+        `</details>`;
       document.getElementById("authSyncBtn").addEventListener("click", async () => {
         setAuthSyncStatus("saving");
         const ok = await pullFromServer();
@@ -1242,6 +1254,43 @@
         toast(ok ? "最新のTier Listを取得しました" : "この端末の内容を同期しました");
       });
       document.getElementById("authLogoutBtn").addEventListener("click", doLogout);
+      document.getElementById("accRecoveryBtn").addEventListener("click", async () => {
+        if (currentUser.hasRecovery && !confirm("復旧コードを作り直しますか？いま持っているコードは使えなくなります。")) return;
+        const r = await apiJSON("/api/auth/recovery", { method: "POST", body: "{}" });
+        if (!r.ok) { toast("発行に失敗しました"); return; }
+        currentUser.hasRecovery = true;
+        currentUser.recoveryAt = r.data.at;
+        renderAuth();
+        showRecoveryCode(r.data.recoveryCode);
+      });
+      document.getElementById("accPwBtn").addEventListener("click", async () => {
+        const err = document.getElementById("accPwErr");
+        const cur = document.getElementById("accPwCur").value;
+        const nw = document.getElementById("accPwNew").value;
+        err.textContent = "";
+        if (nw.length < 6) { err.textContent = "新しいパスワードは6文字以上にしてください"; return; }
+        const r = await apiJSON("/api/auth/password", { method: "POST", body: JSON.stringify({ current: cur, password: nw }) });
+        if (!r.ok) { err.textContent = r.data.error === "invalid_credentials" ? "いまのパスワードが違います" : "変更に失敗しました"; return; }
+        renderAuth();
+        toast("パスワードを変更しました（ほかの端末では、もう一度ログインが必要です）");
+      });
+    } else if (authMode === "reset") {
+      body.innerHTML =
+        `<p class="hint" style="margin-top:0">登録したときに表示された<b>復旧コード</b>で、新しいパスワードを設定します。</p>` +
+        `<label class="field"><span>ユーザー名 または メールアドレス</span>` +
+        `<input id="rsUser" type="text" autocomplete="username" maxlength="254" /></label>` +
+        `<label class="field"><span>復旧コード（例: ABCD-EFGH-JKLM-NPQR）</span>` +
+        `<input id="rsCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" /></label>` +
+        `<label class="field"><span>新しいパスワード（6文字以上）</span>` +
+        `<input id="rsPass" type="password" autocomplete="new-password" /></label>` +
+        `<p id="authError" class="auth-error"></p>` +
+        `<div class="settings-actions">` +
+        `<button id="rsBtn" class="btn btn-primary">パスワードを再設定</button>` +
+        `<button id="rsBack" class="btn btn-ghost">ログインに戻る</button>` +
+        `</div>` +
+        `<p class="hint">復旧コードをなくした場合は、運営にお問い合わせください。ログインしなくても、この端末のリストはそのまま使えます。</p>`;
+      document.getElementById("rsBack").addEventListener("click", () => { authMode = "login"; renderAuth(); });
+      document.getElementById("rsBtn").addEventListener("click", doReset);
     } else {
       body.innerHTML =
         `<p class="hint" style="margin-top:0">ログインすると、スマホなど別の端末でも同じリストを編集できます。ログインしなくても、この端末には自動で保存されます。</p>` +
@@ -1253,13 +1302,53 @@
         `<div class="settings-actions">` +
         `<button id="authLoginBtn" class="btn btn-primary">ログイン</button>` +
         `<button id="authRegisterBtn" class="btn btn-ghost">新規登録</button>` +
-        `</div>`;
+        `</div>` +
+        `<button type="button" id="authForgot" class="mp-link acc-forgot">パスワードを忘れた場合</button>`;
+      document.getElementById("authForgot").addEventListener("click", () => { authMode = "reset"; renderAuth(); });
       document.getElementById("authLoginBtn").addEventListener("click", () => doAuth("login"));
       document.getElementById("authRegisterBtn").addEventListener("click", () => doAuth("register"));
       const pass = document.getElementById("authPass");
       if (pass) pass.addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth("login"); });
     }
     renderMyStatus();
+  }
+
+  let authMode = "login";
+
+  function showRecoveryCode(code) {
+    document.getElementById("recoveryCodeText").textContent = code;
+    openModal("recoveryModal");
+  }
+
+  async function doReset() {
+    const username = (document.getElementById("rsUser").value || "").trim();
+    const code = document.getElementById("rsCode").value || "";
+    const password = document.getElementById("rsPass").value || "";
+    showAuthError("");
+    if (!username || !code || !password) { showAuthError("すべての欄を入力してください"); return; }
+    let r;
+    try {
+      r = await apiJSON("/api/auth/reset", { method: "POST", body: JSON.stringify({ username, code, password }) });
+    } catch (e) {
+      showAuthError("サーバーに接続できません。時間をおいてもう一度お試しください。");
+      return;
+    }
+    if (!r.ok) {
+      showAuthError({
+        bad_code: "ユーザー名または復旧コードが違います",
+        too_many: "試行回数が多すぎます。15分ほど待ってからお試しください",
+        weak_password: "パスワードは6文字以上にしてください",
+      }[r.data && r.data.error] || "再設定に失敗しました");
+      return;
+    }
+    currentUser = r.data.user;
+    authMode = "login";
+    updateAuthButton();
+    await pullFromServer();
+    renderAuth();
+    setAuthSyncStatus("synced");
+    toast("パスワードを再設定してログインしました");
+    showRecoveryCode(r.data.recoveryCode);
   }
 
   function showAuthError(msg) {
@@ -1297,6 +1386,7 @@
     renderAuth();
     setAuthSyncStatus("synced");
     toast(`${currentUser.username} でログインしました`);
+    if (resp.data.recoveryCode) showRecoveryCode(resp.data.recoveryCode);
   }
 
   async function doLogout() {
@@ -10247,6 +10337,10 @@
     wireMyPageFolds();
     wireTouchGestures();
     wireTagModal();
+    document.getElementById("recoveryCopyBtn").addEventListener("click", async () => {
+      const t = document.getElementById("recoveryCodeText").textContent;
+      try { await navigator.clipboard.writeText(t); toast("復旧コードをコピーしました"); } catch (e) { toast("コピーできませんでした。手で書き写してください"); }
+    });
     wireMovieInfo();
     wireMemory();
     wireTimeline();
@@ -10461,7 +10555,9 @@
       badge.classList.toggle("is-on", !!currentUser);
     }
     const sum = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-    sum("mpAccountSum", currentUser ? `${currentUser.username} でログイン中` : "ログインすると、ほかの端末でも同じリストを使えます");
+    sum("mpAccountSum", currentUser
+      ? (currentUser.hasRecovery ? `${currentUser.username} でログイン中` : "⚠ 復旧コードが未発行です（パスワードを忘れたときに必要）")
+      : "ログインすると、ほかの端末でも同じリストを使えます");
     sum("mpProfileSum", name ? `表示名：${name}` : "表示名・生まれた年など");
     const themeName = { studio: "スタジオ", pop: "ポップ", classic: "クラシック" }[settings.theme] || "ポップ";
     sum("mpDisplaySum", `デザイン：${themeName}${settings.compact ? "・コンパクト表示" : ""}`);

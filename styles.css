@@ -7831,3 +7831,31 @@ img.mp-avatar { object-fit: cover; padding: 0; }
 .pf-avatar-main { min-width: 0; }
 .pf-avatar-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-avatar + .pf-name { margin-top: 12px; }
+
+/* ---------- アカウント：復旧コード・パスワード ---------- */
+.acc-sec { margin-top: 14px; }
+.acc-ok { color: #3fb68b !important; }
+.acc-warn { color: #e0832b !important; }
+.acc-pw > summary { cursor: pointer; list-style: none; margin: 0; }
+.acc-pw > summary::-webkit-details-marker { display: none; }
+.acc-pw > summary::after { content: "›"; margin-left: auto; font-size: 18px; color: var(--text-dim); transition: transform 0.2s; }
+.acc-pw[open] > summary { margin-bottom: 10px; }
+.acc-pw[open] > summary::after { transform: rotate(90deg); }
+.acc-forgot { display: block; margin-top: 10px; }
+
+.rc-code {
+  margin: 12px 0;
+  padding: 18px 12px;
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elev));
+  font-family: "Montserrat", ui-monospace, monospace;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  user-select: all;
+  word-break: break-all;
+}
+
+.rc-actions { justify-content: center; }

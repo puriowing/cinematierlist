@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261028av" />
+  <link rel="stylesheet" href="styles.css?v=20261028pw" />
 </head>
 <body>
   <header class="app-header">
@@ -595,6 +595,25 @@
     </div>
   </div>
 
+  <!-- 復旧コードの表示 -->
+  <div id="recoveryModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🔐 復旧コード</h3>
+        <button class="modal-close" data-close="recoveryModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <p class="hint" style="margin-top:0">パスワードを忘れたときに、このコードで新しいパスワードを設定できます。<b>この画面を閉じると二度と表示されません。</b>スクリーンショットやメモ帳など、なくさない場所に保存してください。</p>
+        <div class="rc-code" id="recoveryCodeText"></div>
+        <div class="settings-actions rc-actions">
+          <button type="button" id="recoveryCopyBtn" class="btn btn-ghost">📋 コピー</button>
+          <button type="button" class="btn btn-primary" data-close="recoveryModal">保存しました</button>
+        </div>
+        <p class="hint">使えるのは1回だけです。使うと新しいコードが発行されます。作り直すと、前のコードは使えなくなります。</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Stats dashboard modal -->
   <div id="statsModal" class="modal-overlay hidden">
     <div class="modal modal-wide">
@@ -969,6 +988,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261028av"></script>
+  <script src="app.js?v=20261028pw"></script>
 </body>
 </html>

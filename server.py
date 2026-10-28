@@ -1311,6 +1311,34 @@ def _verify_pw(password, salt, expected):
     return hmac.compare_digest(h, expected)
 
 
+RC_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+_reset_tries = {}  # username -> [時刻...]（復旧コードの総当たり対策）
+
+
+def _new_recovery_code():
+    raw = "".join(secrets.choice(RC_ALPHABET) for _ in range(16))
+    return "-".join(raw[i:i + 4] for i in range(0, 16, 4))
+
+
+def _norm_recovery_code(code):
+    return re.sub(r"[^A-Z0-9]", "", str(code or "").upper())
+
+
+def _set_recovery(u):
+    """新しい復旧コードを発行して利用者に保存する（ハッシュのみ保存）。平文のコードを返す。"""
+    code = _new_recovery_code()
+    salt, h = _hash_pw(_norm_recovery_code(code))
+    u["rc_salt"], u["rc_hash"], u["rc_at"] = salt, h, int(time.time())
+    return code
+
+
+def _bump_password(u, password):
+    salt, h = _hash_pw(password)
+    u["salt"], u["hash"] = salt, h
+    u["pwv"] = int(u.get("pwv") or 0) + 1
+    _pwv_cache[u["id"]] = u["pwv"]
+
+
 def _b64(data):
     return base64.urlsafe_b64encode(data).decode().rstrip("=")
 
@@ -1319,8 +1347,19 @@ def _unb64(s):
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
 
+# パスワードを変えたら、それより前に発行したログインを無効にするための版数（uid -> 版）
+_pwv_cache = {}
+
+
+def _pw_version(uid):
+    if uid not in _pwv_cache:
+        for u in _load_users().values():
+            _pwv_cache[u.get("id")] = int(u.get("pwv") or 0)
+    return _pwv_cache.get(uid, 0)
+
+
 def _make_token(uid):
-    payload = {"uid": uid, "exp": int(time.time()) + SESSION_TTL}
+    payload = {"uid": uid, "exp": int(time.time()) + SESSION_TTL, "pv": _pw_version(uid)}
     body = _b64(json.dumps(payload).encode("utf-8"))
     sig = hmac.new(SECRET, body.encode(), hashlib.sha256).hexdigest()
     return body + "." + sig
@@ -1335,7 +1374,10 @@ def _verify_token(token):
         payload = json.loads(_unb64(body))
         if int(payload.get("exp", 0)) < time.time():
             return None
-        return payload.get("uid")
+        uid = payload.get("uid")
+        if int(payload.get("pv") or 0) != _pw_version(uid):
+            return None
+        return uid
     except Exception:  # noqa: BLE001
         return None
 
@@ -1872,9 +1914,80 @@ class Handler(SimpleHTTPRequestHandler):
             salt, h = _hash_pw(password)
             users[key] = {"id": uid, "username": username, "salt": salt,
                           "hash": h, "created": int(time.time())}
+            code = _set_recovery(users[key])
             _save_users(users)
-        self._send_private_json({"user": {"username": username}},
+            _pwv_cache[uid] = 0
+        self._send_private_json({"user": {"username": username, "hasRecovery": True}, "recoveryCode": code},
                                 cookies=[_set_cookie(_make_token(uid))])
+
+    def _user_by_uid(self, users, uid):
+        return next((v for v in users.values() if v.get("id") == uid), None)
+
+    def _h_recovery_new(self):
+        uid = self._current_uid()
+        if not uid:
+            self._send_private_json({"error": "unauthorized"}, 401)
+            return
+        with _data_lock:
+            users = _load_users()
+            u = self._user_by_uid(users, uid)
+            if not u:
+                self._send_private_json({"error": "unauthorized"}, 401)
+                return
+            code = _set_recovery(u)
+            _save_users(users)
+        self._send_private_json({"recoveryCode": code, "at": u["rc_at"]})
+
+    def _h_password_change(self):
+        uid = self._current_uid()
+        if not uid:
+            self._send_private_json({"error": "unauthorized"}, 401)
+            return
+        data = self._read_json_body() or {}
+        current = data.get("current") or ""
+        password = data.get("password") or ""
+        if len(password) < 6:
+            self._send_private_json({"error": "weak_password"}, 400)
+            return
+        with _data_lock:
+            users = _load_users()
+            u = self._user_by_uid(users, uid)
+            if not u or not _verify_pw(current, u.get("salt", ""), u.get("hash", "")):
+                self._send_private_json({"error": "invalid_credentials"}, 401)
+                return
+            _bump_password(u, password)
+            _save_users(users)
+        self._send_private_json({"ok": True}, cookies=[_set_cookie(_make_token(uid))])
+
+    def _h_password_reset(self):
+        data = self._read_json_body() or {}
+        key = (data.get("username") or "").strip().lower()
+        code = _norm_recovery_code(data.get("code"))
+        password = data.get("password") or ""
+        now = time.time()
+        tries = [t for t in _reset_tries.get(key, []) if now - t < 900]
+        if len(tries) >= 5:
+            self._send_private_json({"error": "too_many"}, 429)
+            return
+        if len(password) < 6:
+            self._send_private_json({"error": "weak_password"}, 400)
+            return
+        with _data_lock:
+            users = _load_users()
+            u = users.get(key)
+            ok = bool(u and u.get("rc_hash") and code and
+                      _verify_pw(code, u.get("rc_salt", ""), u.get("rc_hash", "")))
+            if not ok:
+                tries.append(now)
+                _reset_tries[key] = tries
+                self._send_private_json({"error": "bad_code"}, 401)
+                return
+            _reset_tries.pop(key, None)
+            _bump_password(u, password)
+            new_code = _set_recovery(u)
+            _save_users(users)
+        self._send_private_json({"user": {"username": u["username"], "hasRecovery": True}, "recoveryCode": new_code},
+                                cookies=[_set_cookie(_make_token(u["id"]))])
 
     def _h_login(self):
         data = self._read_json_body() or {}
@@ -1886,7 +1999,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not u or not _verify_pw(password, u.get("salt", ""), u.get("hash", "")):
             self._send_private_json({"error": "invalid_credentials"}, 401)
             return
-        self._send_private_json({"user": {"username": u["username"]}},
+        self._send_private_json({"user": {"username": u["username"], "hasRecovery": bool(u.get("rc_hash"))}},
                                 cookies=[_set_cookie(_make_token(u["id"]))])
 
     def _h_me(self):
@@ -1897,7 +2010,8 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             users = _load_users()
         u = next((v for v in users.values() if v.get("id") == uid), None)
-        user = {"username": u["username"], "display": (u.get("display") or "").strip()} if u else None
+        user = {"username": u["username"], "display": (u.get("display") or "").strip(),
+                "hasRecovery": bool(u.get("rc_hash")), "recoveryAt": u.get("rc_at") or 0} if u else None
         if user and (u["username"] or "").lower() in ADMIN_USERS:
             user["admin"] = True
         self._send_private_json({"user": user})
@@ -2113,6 +2227,15 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/auth/login":
             self._h_login()
+            return
+        if path == "/api/auth/recovery":
+            self._h_recovery_new()
+            return
+        if path == "/api/auth/password":
+            self._h_password_change()
+            return
+        if path == "/api/auth/reset":
+            self._h_password_reset()
             return
         if path == "/api/auth/logout":
             self._send_private_json({"ok": True}, cookies=[_clear_cookie()])
