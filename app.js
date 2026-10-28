@@ -2116,6 +2116,13 @@
       `<div class="cmt-list">${mine}${items}</div></section>`;
   }
 
+  // ランキングの位置を、ひとことの言葉にする（5段階）
+  function rankVerdict(rank, total) {
+    const p = total > 1 ? (rank - 1) / (total - 1) : 0;
+    return p < 0.2 ? "とても評価が高い作品" : p < 0.4 ? "評価が高めの作品" : p < 0.6 ? "評価はふつうの作品"
+      : p < 0.8 ? "評価が低めの作品" : "評価が低い作品";
+  }
+
   // 作品ごとの「みんなのティア」（作品メニューから開く専用画面）
   const HIST_LABELS = ["最上位", "上位", "まんなか", "下位", "最下位"];
   let commMovieId = null;
@@ -2175,7 +2182,8 @@
       `<div class="comm-score">` +
       `<div class="comm-score-main"><b>${score10(a.avg)}</b><small>/10</small></div>` +
       `<div class="comm-score-side"><p>あなたのティアでいうと ${tierChip(a.avg)}</p>` +
-      `<p class="comm-rank">みんなのティアの${d.total}本を平均点の高い順に並べると <b>${d.rank}番目</b></p>` +
+      `<p class="comm-verdict">みんなの中では <b>${rankVerdict(d.rank, d.total)}</b></p>` +
+      `<p class="comm-rank">みんなが評価した${d.total}作品のランキングで ${d.rank}位</p>` +
       `<div class="comm-pos" title="左ほど評価が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
       `<div class="comm-pos-labels"><small>評価が高い</small><small>低い</small></div>` +
       (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}が評価</p>` : "") + `</div></div>` +
