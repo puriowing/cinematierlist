@@ -61,6 +61,15 @@
   // filterMode が "and" なら全条件を満たす作品、"or" ならいずれかを満たす作品を表示。
   let activeFilters = [];
   let filterMode = "and"; // "and" | "or"
+  // 更新（再読み込み）しても、いま選んでいるテーマを保つ（タブを閉じるまで）
+  const VIEW_KEY = "tiari-view";
+  try {
+    const v = JSON.parse(sessionStorage.getItem(VIEW_KEY) || "null");
+    if (v && Array.isArray(v.filters)) { activeFilters = v.filters; filterMode = v.mode === "or" ? "or" : "and"; }
+  } catch (e) {}
+  function saveViewState() {
+    try { sessionStorage.setItem(VIEW_KEY, JSON.stringify({ filters: activeFilters, mode: filterMode })); } catch (e) {}
+  }
   // 複数テーマの区切り記号（AND=×／OR=／）。ラベル表示に使う。
   function filterJoiner() { return filterMode === "or" ? " / " : " × "; }
   // 「ドラマシリーズ × (2020年 / 恋愛)」のように、種類は常に掛け合わせとして表示する
@@ -530,6 +539,7 @@
   }
 
   function render() {
+    saveViewState();
     ensureAddedStamps();
     updateTitleDisplay();
     renderTiers();
