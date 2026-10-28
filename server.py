@@ -2119,6 +2119,56 @@ class Handler(SimpleHTTPRequestHandler):
             return
         self._send_private_json(_public_timeline(u, obj))
 
+    def _h_community_movie(self):
+        """1作品の「みんなのティア」詳細：平均・分布・みんなの中での順位・高く評価した人が好きな作品。"""
+        data = self._read_json_body() or {}
+        key = data.get("key") if isinstance(data.get("key"), str) else ""
+        if not key or len(key) > 300:
+            self._send_private_json({"error": "bad_request"}, 400)
+            return
+        uid = self._current_uid()
+        with _data_lock:
+            _ensure_ratings()
+            agg = _community_agg(exclude_uid=uid)
+            users = _load_users()
+            off = {u["id"] for u in users.values() if u.get("community") is False}
+            raters = [r for i, r in _ratings_cache.items() if i != uid and i not in off and r.get(key, -1) >= 0.75]
+        demo = False
+        a = agg.get(key)
+        if not a and DEMO_SOCIAL:
+            a, demo = _demo_agg(key), True
+        if not a:
+            self._send_private_json({"agg": None, "min": COMMUNITY_MIN})
+            return
+        avgs = sorted((v["avg"] for k, v in agg.items() if k != key), reverse=True)
+        rank = 1 + sum(1 for v in avgs if v > a["avg"])
+        # この作品を高く評価した人（3人以上）が、ほかに高く評価している作品
+        also = []
+        if len(raters) >= COMMUNITY_MIN:
+            sums = {}
+            for r in raters:
+                for k, sc in r.items():
+                    if k == key:
+                        continue
+                    t = sums.setdefault(k, [0.0, 0])
+                    t[0] += sc
+                    t[1] += 1
+            cand = [(k, t[0] / t[1], t[1]) for k, t in sums.items() if t[1] >= COMMUNITY_MIN and t[0] / t[1] >= 0.6]
+            cand.sort(key=lambda x: (-x[1], -x[2]))
+            also = [dict(_meta_cache.get(k) or {}, key=k, avg=round(v, 4)) for k, v, _ in cand[:12]]
+        elif DEMO_SOCIAL:
+            import random
+            pool = [k for k, v in agg.items() if k != key and v["avg"] >= 0.6]
+            rng = random.Random(hashlib.sha256(("demo-also:" + key).encode("utf-8")).hexdigest())
+            pick = rng.sample(pool, min(8, len(pool)))
+            also = [dict(_meta_cache.get(k) or {}, key=k, avg=agg[k]["avg"]) for k in sorted(pick, key=lambda k: -agg[k]["avg"])]
+            demo = demo or bool(also)
+        res = {"agg": a, "rank": rank, "total": len(avgs) + 1, "also": [x for x in also if x.get("title")],
+               "demo": demo, "min": COMMUNITY_MIN}
+        if not self._is_admin():
+            res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
+        self._send_private_json(res)
+
     def _h_community_lookup(self):
         data = self._read_json_body() or {}
         keys = [k for k in (data.get("keys") or []) if isinstance(k, str)][:20000]
@@ -2265,6 +2315,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/social":
             self._h_social_set()
+            return
+        if path == "/api/community/movie":
+            self._h_community_movie()
             return
         if path == "/api/community/lookup":
             self._h_community_lookup()

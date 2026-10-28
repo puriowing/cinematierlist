@@ -1904,7 +1904,7 @@
     menuActions.className = "move-menu-actions";
     const infoBtn = document.createElement("button");
     infoBtn.className = "btn move-info-main";
-    infoBtn.innerHTML = `<span class="move-info-ic">🎬</span><span class="move-info-tx"><b>作品情報</b><small>監督・出演・配信・みんなの評価</small></span><span class="move-info-go">›</span>`;
+    infoBtn.innerHTML = `<span class="move-info-ic">🎬</span><span class="move-info-tx"><b>作品情報</b><small>監督・出演・ジャンル・いま観られる方法</small></span><span class="move-info-go">›</span>`;
     infoBtn.title = "公開年・ジャンル・種別・監督・出演者・ポスターを表示／修正します";
     infoBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1912,6 +1912,15 @@
       openMovieInfo(movie);
     });
     menuActions.appendChild(infoBtn);
+    const commBtn = document.createElement("button");
+    commBtn.className = "btn btn-ghost btn-sm move-comm-btn";
+    commBtn.innerHTML = `🌐 みんなのティア`;
+    commBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMoveMenu();
+      openCommunityMovie(movie);
+    });
+    menuActions.appendChild(commBtn);
     const favBtn = document.createElement("button");
     favBtn.className = "btn btn-ghost btn-sm move-fav-btn" + (movie.fav ? " is-on" : "");
     favBtn.textContent = movie.fav ? "❤ 偏愛中" : "❤ 偏愛";
@@ -2056,25 +2065,79 @@
       `</div>` + histHtml(c.hist);
   }
 
-  async function loadCommunityInfo(movie) {
-    const box = document.getElementById("infoCommunity");
-    if (!box) return;
+  // 作品ごとの「みんなのティア」（作品メニューから開く専用画面）
+  const HIST_LABELS = ["最上位", "上位", "まんなか", "下位", "最下位"];
+  let commMovieId = null;
+
+  async function openCommunityMovie(movie) {
+    commMovieId = movie.id;
+    const body = document.getElementById("commBody");
+    const year = movie.year ? `<small>${escapeHtml(String(movie.year))}</small>` : "";
+    body.innerHTML =
+      `<div class="comm-head">${socPoster(movie)}<div class="comm-head-main"><p class="comm-title">${escapeHtml(movie.title || "")}</p>${year}</div></div>` +
+      `<div id="commContent"></div>`;
+    openModal("commModal");
+    const box = document.getElementById("commContent");
+    showLoading(box, "みんなの評価を集めています…");
     const key = movieKey(movie);
-    const reqId = movie.id;
-    box.innerHTML = `<span class="soc-note">読み込み中…</span>`;
-    let res = null;
-    try {
-      res = await apiJSON("/api/community/lookup", { method: "POST", body: JSON.stringify({ keys: key ? [key] : [], demo: true }) });
-    } catch (e) {}
-    if (infoMovieId !== reqId) return;
-    if (!res || !res.ok) {
-      box.innerHTML = `<span class="soc-note">サーバーに接続すると表示されます。</span>`;
+    let r = null;
+    try { r = await apiJSON("/api/community/movie", { method: "POST", body: JSON.stringify({ key, demo: true }) }); } catch (e) {}
+    if (commMovieId !== movie.id) return;
+    if (!r || !r.ok) { box.innerHTML = `<p class="soc-note">サーバーに接続すると表示されます。</p>`; return; }
+    const d = r.data;
+    if (!d.agg) {
+      box.innerHTML = `<p class="soc-note">まだ評価した人が少ないため表示できません（あなた以外に${d.min}人以上が評価すると表示されます）。</p>`;
       return;
     }
-    const c = res.data.map && res.data.map[key];
-    box.innerHTML = c
-      ? communitySummaryHtml(c, myRatings()[key]) + (c.demo ? `<span class="soc-demo-note">※ デモ表示（仮のデータ）です。実際の評価が集まると入れ替わります。</span>` : "")
-      : `<span class="soc-note">まだ評価した人が少ないため表示できません（あなた以外に${res.data.min}人以上が評価すると表示されます）。</span>`;
+    const a = d.agg;
+    const mine = myRatings()[key];
+    const top = Math.max(1, Math.round((d.rank / d.total) * 100));
+    let vs = "";
+    if (mine != null) {
+      const diff = mine - a.avg;
+      const msg = diff >= 0.25 ? "あなたは、みんなより高く評価しています" : diff <= -0.25 ? "あなたは、みんなより低めに評価しています" : "あなたの評価は、みんなとほぼ同じです";
+      vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierChip(mine)}<b>${score10(mine)}</b></div>` +
+        `<div class="comm-vs-mid">${diff >= 0.25 ? "▲" : diff <= -0.25 ? "▼" : "＝"}</div>` +
+        `<div class="comm-vs-col"><small>みんな</small>${tierChip(a.avg)}<b>${score10(a.avg)}</b></div></div>` +
+        `<p class="comm-vs-msg">${msg}</p>`;
+    } else {
+      vs = `<p class="comm-vs-msg">この作品をティアに振り分けると、あなたの評価と比べられます。</p>`;
+    }
+    const total = a.hist.reduce((x, y) => x + y, 0) || 1;
+    const myIdx = mine != null ? 4 - Math.round(mine * 4) : -1;
+    const maxH = Math.max(...a.hist, 1);
+    const dist = a.hist.map((c, i) => {
+      const t = scoreTier(1 - i / 4);
+      return `<div class="comm-dist-row${i === myIdx ? " is-mine" : ""}">` +
+        `<span class="comm-dist-label">${t ? tierChip(1 - i / 4) : ""}${HIST_LABELS[i]}</span>` +
+        `<span class="comm-dist-track"><span style="width:${((c / maxH) * 100).toFixed(1)}%;background:${HIST_COLORS[i]}"></span></span>` +
+        `<span class="comm-dist-pct">${Math.round((c / total) * 100)}%${i === myIdx ? "<em>あなた</em>" : ""}</span></div>`;
+    }).join("");
+    const also = (d.also || []).map((m, i) => {
+      const ref = { title: m.title, filmarksId: m.filmarksId || undefined };
+      const act = movieExists(ref) ? `<span class="comm-also-tag">登録済み</span>`
+        : watchlistExists(ref) ? `<span class="comm-also-tag">観たいに追加済み</span>`
+        : `<button type="button" class="btn btn-ghost btn-sm comm-also-add" data-i="${i}">🔖 観たい</button>`;
+      return `<div class="comm-also-item">${socPoster(m)}<p class="comm-also-title">${escapeHtml(m.title)}</p>` +
+        `<p class="comm-also-score">${score10(m.avg)}<small>/10</small></p>${act}</div>`;
+    }).join("");
+    box.innerHTML =
+      `<div class="comm-score">` +
+      `<div class="comm-score-main"><b>${score10(a.avg)}</b><small>/10</small></div>` +
+      `<div class="comm-score-side"><p>あなたのティアでいうと ${tierChip(a.avg)}</p>` +
+      `<p class="comm-rank">みんなの評価で <b>${d.rank}位</b> / ${d.total}本中（上位${top}%）</p>` +
+      (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}が評価</p>` : "") + `</div></div>` +
+      `<section class="comm-sec"><h4 class="soc-h">🆚 あなたとみんな</h4>${vs}</section>` +
+      `<section class="comm-sec"><h4 class="soc-h">📊 評価の分かれ方</h4><div class="comm-dist">${dist}</div>` +
+      `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
+      (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品を高く評価した人は、こんな作品も高評価</h4><div class="comm-also">${also}</div></section>` : "") +
+      (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際の評価が集まると入れ替わります。</p>` : "");
+    box.querySelectorAll(".comm-also-add").forEach((b) => b.addEventListener("click", () => {
+      const m = d.also[Number(b.dataset.i)];
+      const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };
+      if (m.filmarksId) mv.filmarksId = m.filmarksId;
+      if (addToWatchlist(mv)) b.outerHTML = `<span class="comm-also-tag">観たいに追加済み</span>`;
+    }));
   }
 
   function socPoster(m) {
@@ -2974,7 +3037,6 @@
     });
     openModal("movieInfoModal");
     loadWatchOptions(movie);
-    loadCommunityInfo(movie);
   }
 
   // 「いま観られる方法」（配信/レンタル/購入/劇場）を JustWatch(日本) から取得して表示

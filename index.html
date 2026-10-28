@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261028up2" />
+  <link rel="stylesheet" href="styles.css?v=20261028cm" />
 </head>
 <body>
   <header class="app-header">
@@ -614,6 +614,17 @@
     </div>
   </div>
 
+  <!-- 作品ごとの「みんなのティア」 -->
+  <div id="commModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🌐 みんなのティア</h3>
+        <button class="modal-close" data-close="commModal">✕</button>
+      </div>
+      <div id="commBody" class="settings-body comm-body"></div>
+    </div>
+  </div>
+
   <!-- Stats dashboard modal -->
   <div id="statsModal" class="modal-overlay hidden">
     <div class="modal modal-wide">
@@ -789,10 +800,6 @@
               <input id="infoPosterUrl" type="text" placeholder="https://..." />
             </label>
           </div>
-        </div>
-        <div class="field info-community-field">
-          <span>🌐 みんなのティア</span>
-          <div id="infoCommunity" class="info-community"></div>
         </div>
         <div class="field info-watch-field">
           <span>📺 いま観られる方法</span>
@@ -988,6 +995,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261028dm"></script>
+  <script src="app.js?v=20261028cm"></script>
 </body>
 </html>

@@ -8086,3 +8086,59 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
 }
 
 .soc-demo-note { display: block; margin-top: 6px; font-size: 11px; color: var(--text-dim); }
+
+/* ---------- 作品ごとの「みんなのティア」 ---------- */
+.comm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.comm-head .soc-poster { width: 56px; height: 84px; border-radius: 8px; object-fit: cover; flex: 0 0 auto; }
+.comm-head-main { min-width: 0; }
+.comm-title { margin: 0; font-size: 17px; font-weight: 900; line-height: 1.35; }
+.comm-head-main small { color: var(--text-dim); font-size: 12px; }
+
+.comm-score {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(125deg, #6d4aff 0%, #b04dff 55%, #ff5fa2 100%);
+  box-shadow: 0 8px 22px rgba(109, 74, 255, 0.25);
+}
+
+.comm-score-main b { font-family: "Montserrat", sans-serif; font-size: 46px; font-weight: 800; line-height: 1; }
+.comm-score-main small { font-size: 15px; opacity: 0.85; margin-left: 2px; }
+.comm-score-side p { margin: 2px 0; font-size: 13px; }
+.comm-score-side .soc-tier { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.comm-rank b { font-size: 16px; }
+
+.comm-sec { margin-top: 6px; }
+
+.comm-vs { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 10px 0 2px; }
+.comm-vs-col { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
+.comm-vs-col small { font-size: 11px; color: var(--text-dim); font-weight: 700; }
+.comm-vs-col b { font-family: "Montserrat", sans-serif; font-size: 22px; }
+.comm-vs-mid { font-size: 22px; color: var(--accent); font-weight: 900; }
+.comm-vs-msg { margin: 6px 0 0; text-align: center; font-size: 13px; font-weight: 700; }
+
+.comm-dist { display: flex; flex-direction: column; gap: 6px; }
+.comm-dist-row { display: grid; grid-template-columns: 96px 1fr 70px; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 8px; }
+.comm-dist-row.is-mine { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.comm-dist-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.comm-dist-track { height: 12px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; }
+.comm-dist-track span { display: block; height: 100%; border-radius: 999px; }
+.comm-dist-pct { font-size: 12px; font-weight: 800; text-align: right; }
+.comm-dist-pct em { margin-left: 4px; font-style: normal; font-size: 10px; color: var(--accent); }
+
+.comm-also { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.comm-also-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.comm-also-item .soc-poster { width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 8px; object-fit: cover; }
+.comm-also-title { margin: 0; font-size: 12px; font-weight: 700; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.comm-also-score { margin: 0; font-size: 13px; font-weight: 800; color: var(--accent); }
+.comm-also-score small { font-size: 10px; color: var(--text-dim); }
+.comm-also-tag { font-size: 11px; color: var(--text-dim); }
+.comm-also-add { padding: 4px 8px; font-size: 11px; }
+
+@media (max-width: 430px) {
+  .comm-dist-row { grid-template-columns: 84px 1fr 56px; }
+  .comm-score-main b { font-size: 38px; }
+}
