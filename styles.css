@@ -7871,3 +7871,104 @@ img.mp-avatar { object-fit: cover; padding: 0; }
   white-space: nowrap;
   border: 0;
 }
+
+/* =======================================================================
+   操作の手ざわり（押したときの反応・出入りのアニメーション）
+   ======================================================================= */
+button,
+a.btn,
+.movie-card,
+.pick-card,
+.tier-label,
+summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn,
+.chip-btn,
+.tbar-btn,
+.up-media-btn,
+.add-media-chip,
+.tag-chip,
+.mem-chip,
+.to-chip,
+.ta-tab,
+.collection-chip,
+.move-tier,
+.mp-fold > summary,
+.fab-add {
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.3, 1.3), filter 0.14s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:active:not(:disabled),
+.chip-btn:active,
+.up-media-btn:active,
+.add-media-chip:active,
+.tag-chip:active,
+.mem-chip:active,
+.to-chip:active,
+.ta-tab:active,
+.collection-chip:active {
+  transform: scale(0.95);
+}
+
+.tbar-btn:active .tab-ic { transform: scale(0.86); }
+.move-tier:active { transform: scale(0.97); filter: brightness(0.96); }
+.mp-fold > summary:active { transform: scale(0.99); }
+.fab-add:active { transform: scale(0.9) !important; }
+
+.movie-card,
+.pick-card { transition: transform 0.14s ease, box-shadow 0.15s ease; }
+.movie-card:active,
+.pick-card:active { transform: scale(0.96); }
+
+/* ティアの本数が変わったときに弾ませる */
+.tier-count.is-bump { animation: count-bump 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@keyframes count-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* 作品メニューは指元からふわっと出す */
+.move-menu { animation: menu-pop 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.15); transform-origin: top center; }
+@keyframes menu-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ポップアップ：背景はふわっと、本体は少し下から */
+.modal-overlay:not(.hidden) { animation: overlay-in 0.2s ease; }
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (min-width: 769px) {
+  .modal-overlay:not(.hidden) .modal { animation: modal-in 0.26s cubic-bezier(0.2, 0.9, 0.25, 1.05); }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ポップアップの中だけがスクロールし、裏の画面はつられて動かない */
+.modal { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+body:has(.modal-overlay:not(.hidden)) { overflow: hidden; }
+
+/* お知らせは弾むように出す */
+.toast { transition: opacity 0.22s ease, transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
+
+/* 折りたたみの中身はすっと現れる */
+.mp-fold[open] > .mp-fold-body,
+details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
+@keyframes fold-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

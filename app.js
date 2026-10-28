@@ -639,6 +639,7 @@
       el.tierRows.appendChild(row);
     });
 
+    requestAnimationFrame(bumpChangedCounts);
     // ティアの一番下に「観たい（ウォッチリスト）」ゾーンを表示する。
     // ティアへ振り分けるのと同じドラッグ／タップ操作で、ここへも振り分けられる。
     renderWatchlistRow();
@@ -1634,9 +1635,57 @@
     render();
   }
 
+  // =======================================================================
+  // 操作の手ざわり：振動・移動アニメーション・件数の弾み
+  // =======================================================================
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function haptic(ms = 12) {
+    if (!("ontouchstart" in window) || (navigator.userActivation && !navigator.userActivation.hasBeenActive)) return;
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+  }
+
+  function cardRect(id) {
+    const el = document.querySelector(`.movie-card[data-id="${CSS.escape(String(id))}"]`);
+    return el ? el.getBoundingClientRect() : null;
+  }
+
+  // 移動前の位置から新しい位置へ、カードがすっと移るように見せる（FLIP）
+  function animateCardFrom(id, from) {
+    if (reduceMotion || !from) return;
+    const el = document.querySelector(`.movie-card[data-id="${CSS.escape(String(id))}"]`);
+    if (!el || !el.animate) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left - to.left, dy = from.top - to.top;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    el.style.zIndex = "5";
+    const a = el.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(1.04)`, boxShadow: "0 14px 30px rgba(0,0,0,0.28)" },
+      { transform: "translate(0, 0) scale(1)", boxShadow: "0 0 0 rgba(0,0,0,0)" },
+    ], { duration: Math.min(520, 260 + Math.hypot(dx, dy) * 0.25), easing: "cubic-bezier(0.2, 0.9, 0.25, 1.08)" });
+    a.onfinish = a.oncancel = () => { el.style.zIndex = ""; };
+  }
+
+  const lastTierCounts = new Map();
+  function bumpChangedCounts() {
+    document.querySelectorAll(".tier-row").forEach((row) => {
+      const key = row.dataset.tierId || (row.classList.contains("tier-row-watchlist") ? "watchlist" : "");
+      const c = row.querySelector(".tier-count");
+      if (!key || !c) return;
+      const prev = lastTierCounts.get(key);
+      if (prev != null && prev !== c.textContent && !reduceMotion) {
+        c.classList.remove("is-bump");
+        void c.offsetWidth;
+        c.classList.add("is-bump");
+      }
+      lastTierCounts.set(key, c.textContent);
+    });
+  }
+
   function moveMovie(movieId, targetZoneId, beforeId) {
     const found = findMovie(movieId);
     if (!found) return;
+    const fromRect = cardRect(movieId);
     const target = getZoneArray(targetZoneId);
     if (!target) return;
 
@@ -1655,6 +1704,8 @@
       target.push(found.movie);
     }
     render();
+    animateCardFrom(movieId, fromRect);
+    haptic();
   }
 
   // =======================================================================
@@ -3100,6 +3151,7 @@
     const m = found.movie;
     if (m.fav) delete m.fav; else { m.fav = true; justFavId = m.id; }
     render();
+    haptic(m.fav ? 18 : 10);
     toast(m.fav ? `「${m.title}」を偏愛作品にしました` : `「${m.title}」の偏愛を外しました`);
   }
 
@@ -5357,6 +5409,7 @@
   let justAddedTimer = 0;
 
   function notifyBulkAdded(btnId, gridId, c) {
+    haptic(20);
     const toWl = addTarget === "watchlist";
     const dest = toWl ? "観たい" : "未分類";
     const btn = document.getElementById(btnId);
