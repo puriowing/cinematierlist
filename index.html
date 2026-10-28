@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261028pw" />
+  <link rel="stylesheet" href="styles.css?v=20261028af" />
 </head>
 <body>
   <header class="app-header">
@@ -98,7 +98,7 @@
       <button id="rankThemeBtn" class="btn btn-primary btn-sm hidden" title="絞り込んだ作品に順位をつけます">🏆 ランキングをつける</button>
       <button id="challengeCreateBtn" class="btn btn-ghost btn-sm challenge-btn hidden" title="このテーマで、みんなにティアリストを作ってもらうリンクを作ります">📣 お題にする</button>
       <button id="shareThemeBtn" class="btn btn-ghost btn-sm share-theme-btn" title="SNS向けの共有画像を作ります">📤 シェア</button>
-      <input id="listSearchInput" class="movie-search-input" type="search" placeholder="🔍 登録作品を検索" aria-label="登録作品をタイトルで検索" />
+      <input id="listSearchInput" class="movie-search-input" type="search" name="tiari-list-search" placeholder="🔍 登録作品を検索" aria-label="登録作品をタイトルで検索" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true" />
       <span id="filterInfo" class="filter-info"></span>
     </div>
 
@@ -859,7 +859,7 @@
         <p class="hint" style="margin-top:0">
           このタグを付ける作品にチェックを付けてください。既存のタグ名を入力すると、その内容を編集できます。付けたタグは「🎯 テーマで絞り込み」から選べます。
         </p>
-        <input id="themePickSearch" class="movie-search-input" type="search" placeholder="🔍 作品をタイトルで検索" />
+        <input id="themePickSearch" class="movie-search-input" type="search" placeholder="🔍 作品をタイトルで検索" autocomplete="off" data-1p-ignore data-lpignore="true" />
         <div class="theme-pick-toolbar">
           <p id="themePickCount" class="theme-pick-count"></p>
           <div class="theme-pick-sort">
@@ -988,6 +988,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261028pw"></script>
+  <script src="app.js?v=20261028af"></script>
 </body>
 </html>

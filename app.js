@@ -1242,11 +1242,13 @@
         `<button type="button" id="accRecoveryBtn" class="btn ${currentUser.hasRecovery ? "btn-ghost" : "btn-primary"} btn-sm">${currentUser.hasRecovery ? "復旧コードを作り直す" : "復旧コードを発行する"}</button>` +
         `</div>` +
         `<details class="pv-group acc-sec acc-pw"><summary class="pv-title">パスワードを変更</summary>` +
+        `<form class="auth-form" data-noautosubmit>` +
+        `<input type="text" class="sr-only" tabindex="-1" aria-hidden="true" autocomplete="username" value="${escapeHtml(currentUser.username)}" readonly />` +
         `<label class="field"><span>いまのパスワード</span><input id="accPwCur" type="password" autocomplete="current-password" /></label>` +
         `<label class="field"><span>新しいパスワード（6文字以上）</span><input id="accPwNew" type="password" autocomplete="new-password" /></label>` +
         `<p id="accPwErr" class="auth-error"></p>` +
         `<button type="button" id="accPwBtn" class="btn btn-primary btn-sm">変更する</button>` +
-        `</details>`;
+        `</form></details>`;
       document.getElementById("authSyncBtn").addEventListener("click", async () => {
         setAuthSyncStatus("saving");
         const ok = await pullFromServer();
@@ -1277,6 +1279,7 @@
     } else if (authMode === "reset") {
       body.innerHTML =
         `<p class="hint" style="margin-top:0">登録したときに表示された<b>復旧コード</b>で、新しいパスワードを設定します。</p>` +
+        `<form class="auth-form" data-noautosubmit>` +
         `<label class="field"><span>ユーザー名 または メールアドレス</span>` +
         `<input id="rsUser" type="text" autocomplete="username" maxlength="254" /></label>` +
         `<label class="field"><span>復旧コード（例: ABCD-EFGH-JKLM-NPQR）</span>` +
@@ -1285,24 +1288,25 @@
         `<input id="rsPass" type="password" autocomplete="new-password" /></label>` +
         `<p id="authError" class="auth-error"></p>` +
         `<div class="settings-actions">` +
-        `<button id="rsBtn" class="btn btn-primary">パスワードを再設定</button>` +
-        `<button id="rsBack" class="btn btn-ghost">ログインに戻る</button>` +
-        `</div>` +
+        `<button type="button" id="rsBtn" class="btn btn-primary">パスワードを再設定</button>` +
+        `<button type="button" id="rsBack" class="btn btn-ghost">ログインに戻る</button>` +
+        `</div></form>` +
         `<p class="hint">復旧コードをなくした場合は、運営にお問い合わせください。ログインしなくても、この端末のリストはそのまま使えます。</p>`;
       document.getElementById("rsBack").addEventListener("click", () => { authMode = "login"; renderAuth(); });
       document.getElementById("rsBtn").addEventListener("click", doReset);
     } else {
       body.innerHTML =
         `<p class="hint" style="margin-top:0">ログインすると、スマホなど別の端末でも同じリストを編集できます。ログインしなくても、この端末には自動で保存されます。</p>` +
+        `<form class="auth-form" data-noautosubmit>` +
         `<label class="field"><span>ユーザー名 または メールアドレス</span>` +
         `<input id="authUser" type="text" autocomplete="username" maxlength="254" /></label>` +
         `<label class="field"><span>パスワード（6文字以上）</span>` +
         `<input id="authPass" type="password" autocomplete="current-password" /></label>` +
         `<p id="authError" class="auth-error"></p>` +
         `<div class="settings-actions">` +
-        `<button id="authLoginBtn" class="btn btn-primary">ログイン</button>` +
-        `<button id="authRegisterBtn" class="btn btn-ghost">新規登録</button>` +
-        `</div>` +
+        `<button type="button" id="authLoginBtn" class="btn btn-primary">ログイン</button>` +
+        `<button type="button" id="authRegisterBtn" class="btn btn-ghost">新規登録</button>` +
+        `</div></form>` +
         `<button type="button" id="authForgot" class="mp-link acc-forgot">パスワードを忘れた場合</button>`;
       document.getElementById("authForgot").addEventListener("click", () => { authMode = "reset"; renderAuth(); });
       document.getElementById("authLoginBtn").addEventListener("click", () => doAuth("login"));
@@ -1310,6 +1314,7 @@
       const pass = document.getElementById("authPass");
       if (pass) pass.addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth("login"); });
     }
+    body.querySelectorAll("form[data-noautosubmit]").forEach((f) => f.addEventListener("submit", (e) => e.preventDefault()));
     renderMyStatus();
   }
 
@@ -10337,6 +10342,12 @@
     wireMyPageFolds();
     wireTouchGestures();
     wireTagModal();
+    // 検索欄にブラウザのログイン情報（メールアドレス）が自動入力されないようにする
+    document.querySelectorAll('input[type="search"]').forEach((i) => {
+      i.setAttribute("autocomplete", "off");
+      i.setAttribute("data-1p-ignore", "");
+      i.setAttribute("data-lpignore", "true");
+    });
     document.getElementById("recoveryCopyBtn").addEventListener("click", async () => {
       const t = document.getElementById("recoveryCodeText").textContent;
       try { await navigator.clipboard.writeText(t); toast("復旧コードをコピーしました"); } catch (e) { toast("コピーできませんでした。手で書き写してください"); }
