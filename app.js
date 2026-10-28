@@ -1339,10 +1339,7 @@
       `<label class="pv-row"><span class="pv-label">${escapeHtml(label)}</span>` +
       `<input type="checkbox" class="pv-switch" data-key="${id}" ${on ? "checked" : ""} /></label>`;
     box.innerHTML =
-      `<p class="hint">ほかの人に見せる内容をまとめて切り替えます。オフにした項目は、相手の画面に表示されません。</p>` +
-      `<label class="field"><span>ほかの人に表示される名前</span>` +
-      `<div class="soc-paste"><input id="pvDisplay" type="text" maxlength="24" value="${escapeHtml(d.display)}" />` +
-      `<button type="button" id="pvDisplaySave" class="btn btn-ghost btn-sm">変更</button></div></label>` +
+      `<p class="hint">ほかの人に見せる内容をまとめて切り替えます。オフにした項目は、相手の画面に表示されません。表示される名前は「プロフィール」で変えられます。</p>` +
       `<div class="pv-group"><p class="pv-title">みんなのティア</p>` +
       sw("community", d.community, "自分の評価をみんなのティアに含める（名前は出ません）") + `</div>` +
       `<div class="pv-group"><p class="pv-title">${PRIVACY_GROUPS[0].title}` +
@@ -1354,11 +1351,9 @@
       PRIVACY_GROUPS[1].items.map(([k, l]) => sw(k, pv[k] !== false, l)).join("") +
       sw("tlAge", !!tl.showAge, "年齢（生まれた年が分かります）") + `</div>`;
 
-    document.getElementById("pvDisplaySave").addEventListener("click", async () => {
-      const res = await apiJSON("/api/social", { method: "POST", body: JSON.stringify({ display: document.getElementById("pvDisplay").value }) });
-      toast(res.ok ? "名前を変更しました" : "変更に失敗しました");
-      if (res.ok && currentUser) currentUser.display = document.getElementById("pvDisplay").value.trim();
-    });
+    const psum = document.getElementById("mpPrivacySum");
+    if (psum) psum.textContent = [d.community ? "みんなのティアに参加中" : "みんなのティアに不参加",
+      d.share ? "比較リンク発行中" : "", tl.public ? "年表を公開中" : "年表は非公開"].filter(Boolean).join("・");
     box.querySelectorAll(".pv-switch").forEach((el) => el.addEventListener("change", async () => {
       const k = el.dataset.key;
       let body;
@@ -1425,8 +1420,17 @@
     const row = (label, ctl) => `<label class="pf-row"><span class="pf-label">${label}</span>${ctl}</label>`;
     const theaters = profileValue("theaters") || [];
     const services = profileValue("services") || [];
+    const nameGroup = currentUser
+      ? `<div class="pv-group pf-name"><p class="pv-title">表示名<small>ほかの人に表示されます</small></p>` +
+        `<p class="pv-note">みんなのティア・友だち比較・お題・公開した年表・シェア画像に出る名前です。</p>` +
+        `<div class="soc-paste"><input id="pfDisplay" type="text" maxlength="24" placeholder="例: えいがずき" value="${escapeHtml(currentUser.display || "")}" />` +
+        `<button type="button" id="pfDisplaySave" class="btn btn-primary btn-sm">保存</button></div></div>`
+      : `<div class="pv-group pf-name"><p class="pv-title">表示名<small>ほかの人に表示されます</small></p>` +
+        `<p class="pv-note">ログインすると、みんなのティアやシェア画像に出る名前を設定できます。</p></div>`;
     box.innerHTML =
-      `<p class="hint">ここに入力した内容は、ほかの人には一切表示されません。個人が分からない形の集計にだけ使います。どれも任意で、いつでも変更・削除できます。</p>` +
+      nameGroup +
+      `<p class="pf-private-h">🔒 ここから下は非公開</p>` +
+      `<p class="hint">ほかの人には一切表示されません。個人が分からない形の集計にだけ使います。どれも任意で、いつでも変更・削除できます。</p>` +
       `<div class="pv-group">` +
       row("生まれた年", `<input class="pf-input" data-key="birthYear" type="text" inputmode="numeric" maxlength="4" placeholder="例: 1990" value="${escapeHtml(String(profileValue("birthYear") || ""))}" />`) +
       row("性別", sel("gender", PROFILE_OPTIONS.gender, profileValue("gender") || "")) +
@@ -1444,6 +1448,15 @@
       `</div></div>` +
       `<div class="settings-actions"><button type="button" id="profileClear" class="btn btn-ghost btn-sm">プロフィールをすべて削除</button></div>`;
 
+    const nameSave = document.getElementById("pfDisplaySave");
+    if (nameSave) nameSave.addEventListener("click", async () => {
+      const v = document.getElementById("pfDisplay").value.trim();
+      const res = await apiJSON("/api/social", { method: "POST", body: JSON.stringify({ display: v }) });
+      if (!res.ok) { toast("変更に失敗しました"); return; }
+      currentUser.display = v;
+      renderMyStatus();
+      toast(v ? `表示名を「${v}」にしました` : "表示名を消しました");
+    });
     const saved = () => { saveState(); toast("プロフィールを保存しました"); };
     box.querySelectorAll(".pf-input[data-key]").forEach((el) => el.addEventListener("change", () => {
       const k = el.dataset.key;
@@ -10074,6 +10087,7 @@
       settings.compact = e.target.checked;
       saveSettings();
       applyCompact();
+      renderMyStatus();
     });
 
     // design / layout theme (設定に集約)
@@ -10082,6 +10096,7 @@
       settings.theme = e.target.value;
       saveSettings();
       applyTheme();
+      renderMyStatus();
     });
 
     // pool collapse
@@ -10338,25 +10353,62 @@
     return { kind, text: parts.join(" ／ ") };
   }
 
+  function myDisplayName() {
+    const u = currentUser;
+    if (!u) return "";
+    const id = (u.username || "").trim();
+    return (u.display || (id && !id.includes("@") ? id : "") || "").trim();
+  }
+
+  // マイページ上部：名前・保存先・数字をまとめたカード＋各項目の要約
   function renderMyStatus() {
     const box = document.getElementById("mpStatus");
     if (!box) return;
-    const where = currentUser ? `この端末＋アカウント ${escapeHtml(currentUser.username)}` : "この端末";
+    const name = myDisplayName();
+    const total = totalMovies(state);
+    const ranked = state.tiers.reduce((n, t) => n + t.items.length, 0);
+    const favs = allMovies().filter((m) => m.fav).length;
+    const wl = (state.watchlist || []).length;
+    const initial = (name || "ゲ").slice(0, 1);
     box.innerHTML =
-      `<span>✅ <b>自動で保存中</b><small>${where}・${totalMovies(state)} 本</small></span>` +
-      (currentUser ? "" : `<button type="button" id="mpLoginHint" class="mp-link">ほかの端末でも使う</button>`);
+      `<div class="mp-hero-top">` +
+      `<span class="mp-avatar" aria-hidden="true">${escapeHtml(initial)}</span>` +
+      `<div class="mp-hero-main">` +
+      `<p class="mp-hero-name">${escapeHtml(name || (currentUser ? "名前が未設定です" : "ゲスト"))}</p>` +
+      `<p class="mp-hero-sub">${currentUser
+        ? `✓ アカウントに自動保存中（${escapeHtml(currentUser.username)}）`
+        : "✓ この端末に自動保存中（ログインしていません）"}</p>` +
+      `</div></div>` +
+      `<div class="mp-stats">` +
+      [[total, "登録"], [ranked, "振り分け済み"], [favs, "偏愛"], [wl, "観たい"]].map(([v, l]) =>
+        `<div class="mp-stat"><b>${v.toLocaleString()}</b><small>${l}</small></div>`).join("") +
+      `</div>` +
+      (currentUser
+        ? (name ? "" : `<button type="button" id="mpNameHint" class="btn btn-ghost btn-sm mp-hero-cta">🪪 表示名を設定する</button>`)
+        : `<button type="button" id="mpLoginHint" class="btn btn-primary btn-sm mp-hero-cta">ログイン・新規登録（ほかの端末でも使う）</button>`);
+    const openFold = (id, focusId) => {
+      const d = document.getElementById(id);
+      if (!d) return;
+      d.open = true;
+      setTimeout(() => { const f = document.getElementById(focusId); if (f) f.focus(); }, 350);
+    };
     const hint = document.getElementById("mpLoginHint");
-    if (hint) hint.addEventListener("click", () => {
-      const acc = document.getElementById("mpAccount");
-      acc.open = true;
-      acc.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      setTimeout(() => { const u = document.getElementById("authUser"); if (u) u.focus(); }, 300);
-    });
+    if (hint) hint.addEventListener("click", () => openFold("mpAccount", "authUser"));
+    const nameHint = document.getElementById("mpNameHint");
+    if (nameHint) nameHint.addEventListener("click", () => openFold("mpProfile", "pfDisplay"));
+
     const badge = document.getElementById("mpAccountBadge");
     if (badge) {
       badge.textContent = currentUser ? "ログイン中" : "未ログイン";
       badge.classList.toggle("is-on", !!currentUser);
     }
+    const sum = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    sum("mpAccountSum", currentUser ? `${currentUser.username} でログイン中` : "ログインすると、ほかの端末でも同じリストを使えます");
+    sum("mpProfileSum", name ? `表示名：${name}` : "表示名・生まれた年など");
+    const themeName = { studio: "スタジオ", pop: "ポップ", classic: "クラシック" }[settings.theme] || "ポップ";
+    sum("mpDisplaySum", `デザイン：${themeName}${settings.compact ? "・コンパクト表示" : ""}`);
+    const backups = loadBackups();
+    sum("mpHistorySum", backups.length ? `最後の記録：${friendlyTime(backups[backups.length - 1].ts)}（${backups.length}件）` : "まだ記録はありません");
   }
 
   function renderBackupList() {

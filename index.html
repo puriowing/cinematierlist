@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20261028tg" />
+  <link rel="stylesheet" href="styles.css?v=20261028my" />
 </head>
 <body>
   <header class="app-header">
@@ -373,42 +373,27 @@
         <button class="modal-close" data-close="settingsModal">✕</button>
       </div>
       <div class="settings-body mypage-body">
-        <div id="mpStatus" class="mp-status"></div>
+        <div id="mpStatus" class="mp-hero"></div>
 
-        <section class="mp-block">
-          <h4 class="mp-h">前の状態に戻す</h4>
-          <div id="backupList" class="backup-list"></div>
-        </section>
-
+        <p class="mp-group">あなた</p>
+        <details id="mpProfile" class="mp-fold">
+          <summary><span class="mp-ic">🪪</span><span class="mp-sum"><b>プロフィール</b><small id="mpProfileSum">表示名・生まれた年など</small></span></summary>
+          <div class="mp-fold-body"><div id="profileBody"></div></div>
+        </details>
         <details id="mpAccount" class="mp-fold">
-          <summary>アカウント<span id="mpAccountBadge" class="mp-badge"></span></summary>
+          <summary><span class="mp-ic">🔑</span><span class="mp-sum"><b>アカウント</b><small id="mpAccountSum">ログイン・ほかの端末と同期</small></span><span id="mpAccountBadge" class="mp-badge"></span></summary>
           <div class="mp-fold-body"><div id="authBody"></div></div>
         </details>
 
+        <p class="mp-group">公開と共有</p>
         <details id="mpPrivacy" class="mp-fold">
-          <summary>公開設定（ほかの人に見せる内容）</summary>
+          <summary><span class="mp-ic">🌐</span><span class="mp-sum"><b>公開設定</b><small id="mpPrivacySum">ほかの人に見せる内容</small></span></summary>
           <div class="mp-fold-body"><div id="privacyBody"></div></div>
         </details>
 
-        <details id="mpProfile" class="mp-fold">
-          <summary>プロフィール（非公開）</summary>
-          <div class="mp-fold-body"><div id="profileBody"></div></div>
-        </details>
-
-        <details class="mp-fold">
-          <summary>ファイルで書き出す・読み込む</summary>
-          <div class="mp-fold-body">
-            <div class="settings-actions">
-              <button id="exportDataBtn" class="btn btn-ghost btn-sm">💾 書き出す</button>
-              <button id="importDataBtn" class="btn btn-ghost btn-sm">📂 読み込む</button>
-              <input id="importDataFile" type="file" accept="application/json,.json" class="hidden" />
-            </div>
-            <p class="hint">手元に控えを残したいとき用です（.json）。ファイル名：<span id="listFileName" class="list-title-text">まだ書き出していません</span></p>
-          </div>
-        </details>
-
-        <details class="mp-fold">
-          <summary>表示設定</summary>
+        <p class="mp-group">見た目</p>
+        <details id="mpDisplay" class="mp-fold">
+          <summary><span class="mp-ic">🎨</span><span class="mp-sum"><b>表示設定</b><small id="mpDisplaySum">デザイン・ポスターの大きさ</small></span></summary>
           <div class="mp-fold-body">
             <label class="field">
               <span>デザイン / レイアウト</span>
@@ -418,17 +403,33 @@
                 <option value="classic">クラシック（従来・行型）</option>
               </select>
             </label>
-            <label class="field field-check">
-              <input id="compactCheck" type="checkbox" />
-              <span>コンパクト表示（ポスターを小さくして一覧性を上げる）</span>
+            <label class="pv-row mp-switch-row">
+              <span class="pv-label">コンパクト表示<small>ポスターを小さくして一覧性を上げる</small></span>
+              <input id="compactCheck" type="checkbox" class="pv-switch" />
             </label>
           </div>
         </details>
 
+        <p class="mp-group">データ</p>
+        <details id="mpHistory" class="mp-fold">
+          <summary><span class="mp-ic">🕘</span><span class="mp-sum"><b>前の状態に戻す</b><small id="mpHistorySum">変更の履歴から元に戻せます</small></span></summary>
+          <div class="mp-fold-body"><div id="backupList" class="backup-list"></div></div>
+        </details>
         <details class="mp-fold">
-          <summary>ティアの構成</summary>
+          <summary><span class="mp-ic">💾</span><span class="mp-sum"><b>ファイルで書き出す・読み込む</b><small>手元に控えを残す（.json）</small></span></summary>
           <div class="mp-fold-body">
-            <p class="hint">ティアを S / A / B / C / D の5段に戻します。振り分けた作品はすべて「未分類」に戻ります（作品自体は消えません）。押した直後なら「元に戻す」で取り消せます。</p>
+            <div class="settings-actions">
+              <button id="exportDataBtn" class="btn btn-ghost btn-sm">💾 書き出す</button>
+              <button id="importDataBtn" class="btn btn-ghost btn-sm">📂 読み込む</button>
+              <input id="importDataFile" type="file" accept="application/json,.json" class="hidden" />
+            </div>
+            <p class="hint">ファイル名：<span id="listFileName" class="list-title-text">まだ書き出していません</span></p>
+          </div>
+        </details>
+        <details class="mp-fold mp-fold-danger">
+          <summary><span class="mp-ic">♻️</span><span class="mp-sum"><b>ティアを初期化</b><small>S / A / B / C / D の5段に戻す</small></span></summary>
+          <div class="mp-fold-body">
+            <p class="hint">振り分けた作品はすべて「未分類」に戻ります（作品自体は消えません）。押した直後なら「元に戻す」で取り消せます。</p>
             <div class="settings-actions">
               <button id="resetTiersBtn" class="btn btn-ghost btn-sm btn-danger-outline">ティアを初期化する…</button>
             </div>
@@ -968,6 +969,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261028tg"></script>
+  <script src="app.js?v=20261028my"></script>
 </body>
 </html>
