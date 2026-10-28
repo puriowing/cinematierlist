@@ -8210,3 +8210,10 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .comm-score-side .comm-rank { font-size: 11px !important; opacity: 0.9; }
 
 .collection-chip .opt-count { margin-left: 6px; font-weight: 700; }
+
+/* 作品メニュー：みんなのティアを一番目立つ入口に */
+.move-menu-actions .move-comm-btn { background: linear-gradient(120deg, #ff5fa2, #b04dff 55%, #6d4aff); }
+.move-comm-score { flex: 0 0 auto; text-align: right; line-height: 1; }
+.move-comm-score b { font-family: "Montserrat", sans-serif; font-size: 22px; font-weight: 800; }
+.move-comm-score small { font-size: 10px; opacity: 0.85; }
+.move-comm-score:empty { display: none; }
