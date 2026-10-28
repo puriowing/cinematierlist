@@ -8022,3 +8022,64 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
     aspect-ratio: 1;
   }
 }
+
+/* ---------- みんな：タブを行き来しても画面がガタつかないように ---------- */
+#socialModal .modal { height: min(86vh, 860px); }
+@media (max-width: 768px) {
+  #socialModal .modal { height: calc(var(--vv-h, 100dvh) - 24px); max-height: none; }
+}
+
+#socialModal .soc-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: -4px 0 14px;
+  padding: 4px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  isolation: isolate;
+}
+
+#socialModal .soc-tabs::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 999px;
+  background: var(--bg-elev);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  transform: translateX(calc(var(--soc-i, 0) * 100%));
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.05);
+}
+
+#socialModal .soc-tab {
+  padding: 8px 4px;
+  border-radius: 999px;
+  background: transparent !important;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s ease;
+}
+
+#socialModal .soc-tab.active { color: var(--accent); }
+
+#socialModal .soc-pane:not(.hidden) { animation: soc-in 0.22s ease; }
+@keyframes soc-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.soc-mylink { min-height: 64px; }
+
+@media (max-width: 430px) {
+  #socialModal .soc-tab { font-size: 12px; }
+}

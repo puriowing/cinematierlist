@@ -2118,17 +2118,31 @@
 
   let socTab = "community";
 
+  // 一度表示したタブは中身を残し、行き来しても作り直さない（1分たったら裏で更新）
+  const socLoadedAt = {};
+  const SOC_FRESH_MS = 60 * 1000;
+
   function openSocial(tab) {
+    Object.keys(socLoadedAt).forEach((k) => delete socLoadedAt[k]);
     switchSocTab(tab || socTab);
     openModal("socialModal");
   }
 
   function switchSocTab(name) {
+    const changed = socTab !== name;
     socTab = name;
     document.querySelectorAll(".soc-tab").forEach((b) => b.classList.toggle("active", b.dataset.socTab === name));
+    const tabs = document.querySelector("#socialModal .soc-tabs");
+    if (tabs) tabs.style.setProperty("--soc-i", ["community", "friends", "challenges"].indexOf(name));
     document.getElementById("socCommunity").classList.toggle("hidden", name !== "community");
     document.getElementById("socFriends").classList.toggle("hidden", name !== "friends");
     document.getElementById("socChallenges").classList.toggle("hidden", name !== "challenges");
+    if (changed) {
+      const m = document.querySelector("#socialModal .modal");
+      if (m) m.scrollTop = 0;
+    }
+    if (socLoadedAt[name] && Date.now() - socLoadedAt[name] < SOC_FRESH_MS) return;
+    socLoadedAt[name] = Date.now();
     if (name === "community") renderCommunity();
     else if (name === "challenges") renderChallengeList();
     else renderFriends();
@@ -2136,7 +2150,7 @@
 
   async function renderCommunity() {
     const box = document.getElementById("socCommunity");
-    box.innerHTML = `<p class="soc-note">読み込み中…</p>`;
+    if (!box.children.length) showLoading(box, "みんなのティアを集めています…");
     const mine = myRatings();
     let top, look, social = null;
     try {
@@ -2234,7 +2248,7 @@
     const box = document.getElementById("socFriends");
     box.innerHTML =
       `<p class="hint soc-lead">友だちの比較用リンクを開くと、好みの一致度・2人とも高評価の作品・評価が分かれた作品・友だちのおすすめが分かります。</p>` +
-      `<h4 class="soc-h">🔗 あなたの比較用リンク</h4><div id="socMyLink"><p class="soc-note">読み込み中…</p></div>` +
+      `<h4 class="soc-h">🔗 あなたの比較用リンク</h4><div id="socMyLink" class="soc-mylink"><p class="soc-note">読み込み中…</p></div>` +
       `<h4 class="soc-h">📩 友だちのリンクで比べる</h4>` +
       `<div class="soc-paste"><input id="socPasteInput" type="text" placeholder="友だちから届いたリンクを貼り付け" />` +
       `<button id="socPasteBtn" class="btn btn-primary btn-sm">比べる</button></div>` +
