@@ -5549,6 +5549,9 @@
 
   function notifyBulkAdded(btnId, gridId, c) {
     haptic(20);
+    labelYearOptions(document.getElementById("recallYear"), "movie");
+    const sv = document.getElementById("seriesValue");
+    if (sv && sv.dataset.mode === "year") labelYearOptions(sv, addMedia);
     const toWl = addTarget === "watchlist";
     const dest = toWl ? "観たい" : "未分類";
     const btn = document.getElementById(btnId);
@@ -5601,8 +5604,31 @@
   // 「もっと見る」用のセッション状態。pool には取得済みの作品（公開日つき・登録済みも含む）が入る。
   let recallSession = { year: null, nextPage: 1, hasMore: false, skipped: 0, seen: new Set(), pool: [] };
 
+  // 年の選択肢に、その年の作品をすでに何本登録しているかを添える（映画／ドラマ／アニメ別）
+  function registeredYearCounts(media) {
+    const c = new Map();
+    [...allMovies(), ...(state.watchlist || [])].forEach((m) => {
+      if ((m.media || "movie") !== media) return;
+      const y = parseInt(m.year, 10);
+      if (y) c.set(y, (c.get(y) || 0) + 1);
+    });
+    return c;
+  }
+
+  function labelYearOptions(sel, media) {
+    if (!sel) return;
+    const c = registeredYearCounts(media);
+    [...sel.options].forEach((o) => {
+      const y = parseInt(o.value, 10);
+      if (!y) return;
+      const n = c.get(y) || 0;
+      o.textContent = n ? `${y}年（登録 ${n}本）` : `${y}年`;
+    });
+  }
+
   function initRecallUI() {
     const sel = document.getElementById("recallYear");
+    labelYearOptions(sel, "movie");
     if (sel.options.length) return;
     const curY = new Date().getFullYear();
     for (let y = curY; y >= 1930; y--) {
@@ -5612,6 +5638,7 @@
       sel.appendChild(o);
     }
     sel.value = String(curY - 10);
+    labelYearOptions(sel, "movie");
   }
 
   // Filmarks から「公開年」ベースの作品リストを取得
@@ -5831,6 +5858,7 @@
         opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
       sel.dataset.mode = mode;
     }
+    if (mode === "year") labelYearOptions(sel, addMedia);
     const key = addMedia + ":" + mode;
     const s = seriesSessions[key];
     if (s) {
