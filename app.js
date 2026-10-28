@@ -798,6 +798,32 @@
     document.body.classList.toggle("is-empty", total === 0);
   }
 
+  // 画面を作り直さずに中身だけ新しくする（アプリ本体が新しくなっていたときだけ、ふわっと読み込み直す）
+  async function softRefresh() {
+    const started = Date.now();
+    try {
+      const cur = ([...document.scripts].map((x) => x.src).find((u) => /app\.js\?v=/.test(u)) || "").split("v=")[1];
+      const html = await (await fetch("./?check=" + Date.now(), { cache: "no-store" })).text();
+      const m = html.match(/app\.js\?v=([^"']+)/);
+      if (cur && m && m[1] !== cur) {
+        try { sessionStorage.setItem("tiari-fadein", "1"); } catch (e) {}
+        document.body.classList.add("page-leave");
+        setTimeout(() => location.reload(), 220);
+        return true;
+      }
+    } catch (e) {}
+    try { if (currentUser) await pullFromServer(); } catch (e) {}
+    posterFailCount = 0;
+    const main = document.querySelector("main.layout");
+    render();
+    if (main && main.animate && !reduceMotion) {
+      main.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
+    }
+    const wait = 500 - (Date.now() - started);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    return false;
+  }
+
   // ポスターが一時的に取れなかったときは、画面に戻ってきた・通信が戻ったタイミングで描き直す
   let posterFailCount = 0;
   function retryFailedPosters() {
@@ -11071,7 +11097,12 @@
         ptr.classList.add("loading");
         ptr.querySelector(".ptr-tx").textContent = "更新しています…";
         setPull(56, true);
-        setTimeout(() => location.reload(), 380);
+        softRefresh().then((reloading) => {
+          if (reloading) return;
+          ptr.querySelector(".ptr-tx").textContent = "最新の状態です";
+          ptr.classList.remove("loading", "ready");
+          setTimeout(() => setPull(0, true), 350);
+        });
         return;
       }
       if (ptrD) setPull(0, true);

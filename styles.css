@@ -8142,3 +8142,9 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
   .comm-dist-row { grid-template-columns: 84px 1fr 56px; }
   .comm-score-main b { font-size: 38px; }
 }
+
+/* アプリ本体が新しくなって読み込み直すときは、ふわっと切り替える */
+body { transition: opacity 0.2s ease; }
+body.page-leave { opacity: 0; }
+body.page-enter { animation: page-enter 0.35s ease; }
+@keyframes page-enter { from { opacity: 0; } to { opacity: 1; } }
