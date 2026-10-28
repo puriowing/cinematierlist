@@ -157,6 +157,7 @@
       (arr || []).forEach((m) => {
         if (typeof m.poster === "string" && m.poster.startsWith("data:")) m.poster = "";
       });
+    delete clone.avatar; // 復元ポイントには入れない（復元しても今の画像を残す）
     light(clone.pool);
     light(clone.watchlist);
     (clone.tiers || []).forEach((t) => light(t.items));
@@ -1427,7 +1428,16 @@
         `<button type="button" id="pfDisplaySave" class="btn btn-primary btn-sm">保存</button></div></div>`
       : `<div class="pv-group pf-name"><p class="pv-title">表示名<small>ほかの人に表示されます</small></p>` +
         `<p class="pv-note">ログインすると、みんなのティアやシェア画像に出る名前を設定できます。</p></div>`;
+    const avatarGroup =
+      `<div class="pv-group pf-avatar">` +
+      `${avatarHtml("pf-avatar-img")}` +
+      `<div class="pf-avatar-main"><p class="pv-title">プロフィール画像</p>` +
+      `<p class="pv-note">いまはマイページにだけ表示されます。</p>` +
+      `<div class="pf-avatar-btns"><button type="button" id="pfAvatarPick" class="btn btn-primary btn-sm">${state.avatar ? "変更する" : "画像を選ぶ"}</button>` +
+      (state.avatar ? `<button type="button" id="pfAvatarRemove" class="btn btn-ghost btn-sm">外す</button>` : "") +
+      `</div></div></div>`;
     box.innerHTML =
+      avatarGroup +
       nameGroup +
       `<p class="pf-private-h">🔒 ここから下は非公開</p>` +
       `<p class="hint">ほかの人には一切表示されません。個人が分からない形の集計にだけ使います。どれも任意で、いつでも変更・削除できます。</p>` +
@@ -1448,6 +1458,9 @@
       `</div></div>` +
       `<div class="settings-actions"><button type="button" id="profileClear" class="btn btn-ghost btn-sm">プロフィールをすべて削除</button></div>`;
 
+    document.getElementById("pfAvatarPick").addEventListener("click", pickAvatar);
+    const avRm = document.getElementById("pfAvatarRemove");
+    if (avRm) avRm.addEventListener("click", removeAvatar);
     const nameSave = document.getElementById("pfDisplaySave");
     if (nameSave) nameSave.addEventListener("click", async () => {
       const v = document.getElementById("pfDisplay").value.trim();
@@ -10278,6 +10291,7 @@
     try {
       const parsed = JSON.parse(entry.data);
       if (!parsed || !Array.isArray(parsed.tiers)) throw new Error("invalid");
+      if (state.avatar && !parsed.avatar) parsed.avatar = state.avatar;
       state = parsed;
       state.tiers.forEach((t) => {
         if (typeof t.collapsed !== "boolean") t.collapsed = false;
@@ -10353,6 +10367,50 @@
     return { kind, text: parts.join(" ／ ") };
   }
 
+  // プロフィール画像：正方形に切り抜いて小さくし、リストのデータと一緒に保存（端末間で同期）
+  function pickAvatar() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const size = 256;
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        c.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        state.avatar = c.toDataURL("image/jpeg", 0.85);
+        saveState();
+        renderMyStatus();
+        renderProfileSettings();
+        toast("プロフィール画像を設定しました");
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast("この画像は読み込めませんでした（JPEG・PNGをお試しください）"); };
+      img.src = url;
+    });
+    input.click();
+  }
+
+  function removeAvatar() {
+    delete state.avatar;
+    saveState();
+    renderMyStatus();
+    renderProfileSettings();
+    toast("プロフィール画像を外しました");
+  }
+
+  function avatarHtml(cls) {
+    const name = myDisplayName();
+    return state.avatar
+      ? `<img class="${cls}" src="${escapeHtml(state.avatar)}" alt="" />`
+      : `<span class="${cls}" aria-hidden="true">${escapeHtml((name || "ゲ").slice(0, 1))}</span>`;
+  }
+
   function myDisplayName() {
     const u = currentUser;
     if (!u) return "";
@@ -10369,10 +10427,9 @@
     const ranked = state.tiers.reduce((n, t) => n + t.items.length, 0);
     const favs = allMovies().filter((m) => m.fav).length;
     const wl = (state.watchlist || []).length;
-    const initial = (name || "ゲ").slice(0, 1);
     box.innerHTML =
       `<div class="mp-hero-top">` +
-      `<span class="mp-avatar" aria-hidden="true">${escapeHtml(initial)}</span>` +
+      `<button type="button" id="mpAvatarBtn" class="mp-avatar-btn" title="プロフィール画像を変更">${avatarHtml("mp-avatar")}<span class="mp-avatar-cam">📷</span></button>` +
       `<div class="mp-hero-main">` +
       `<p class="mp-hero-name">${escapeHtml(name || (currentUser ? "名前が未設定です" : "ゲスト"))}</p>` +
       `<p class="mp-hero-sub">${currentUser
@@ -10392,6 +10449,7 @@
       d.open = true;
       setTimeout(() => { const f = document.getElementById(focusId); if (f) f.focus(); }, 350);
     };
+    document.getElementById("mpAvatarBtn").addEventListener("click", pickAvatar);
     const hint = document.getElementById("mpLoginHint");
     if (hint) hint.addEventListener("click", () => openFold("mpAccount", "authUser"));
     const nameHint = document.getElementById("mpNameHint");

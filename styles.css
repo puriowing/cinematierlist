@@ -7781,3 +7781,53 @@ body.compact .movie-fav-badge span {
 .move-info-go { font-size: 22px; font-weight: 700; opacity: 0.9; }
 
 .move-menu-actions .move-del-btn { grid-column: 1 / -1; }
+
+/* ---------- プロフィール画像 ---------- */
+.mp-avatar-btn {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+img.mp-avatar { object-fit: cover; padding: 0; }
+
+.mp-avatar-cam {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: #6d4aff;
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.mp-avatar-cam svg { width: 13px; height: 13px; }
+
+.pf-avatar { display: flex; align-items: center; gap: 14px; margin-top: 0; }
+
+.pf-avatar-img {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(125deg, #6d4aff, #ff5fa2);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.pf-avatar-main { min-width: 0; }
+.pf-avatar-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.pf-avatar + .pf-name { margin-top: 12px; }
