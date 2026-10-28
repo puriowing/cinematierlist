@@ -8083,3 +8083,5 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
 @media (max-width: 430px) {
   #socialModal .soc-tab { font-size: 12px; }
 }
+
+.soc-demo-note { display: block; margin-top: 6px; font-size: 11px; color: var(--text-dim); }

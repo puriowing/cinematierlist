@@ -2064,7 +2064,7 @@
     box.innerHTML = `<span class="soc-note">読み込み中…</span>`;
     let res = null;
     try {
-      res = await apiJSON("/api/community/lookup", { method: "POST", body: JSON.stringify({ keys: key ? [key] : [] }) });
+      res = await apiJSON("/api/community/lookup", { method: "POST", body: JSON.stringify({ keys: key ? [key] : [], demo: true }) });
     } catch (e) {}
     if (infoMovieId !== reqId) return;
     if (!res || !res.ok) {
@@ -2073,7 +2073,7 @@
     }
     const c = res.data.map && res.data.map[key];
     box.innerHTML = c
-      ? communitySummaryHtml(c, myRatings()[key])
+      ? communitySummaryHtml(c, myRatings()[key]) + (c.demo ? `<span class="soc-demo-note">※ デモ表示（仮のデータ）です。実際の評価が集まると入れ替わります。</span>` : "")
       : `<span class="soc-note">まだ評価した人が少ないため表示できません（あなた以外に${res.data.min}人以上が評価すると表示されます）。</span>`;
   }
 

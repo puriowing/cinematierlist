@@ -1541,6 +1541,21 @@ def _community_agg(exclude_uid=None, keys=None):
     return out
 
 
+def _demo_agg(key):
+    """デモ表示用：まだ評価が集まっていない作品にも、作品ごとに決まった仮の「みんなのティア」を作る。"""
+    import random
+    rng = random.Random(hashlib.sha256(("demo-agg:" + key).encode("utf-8")).hexdigest())
+    base = min(0.9, max(0.25, rng.gauss(0.6, 0.15)))
+    n = rng.randint(6, 28)
+    hist = [0, 0, 0, 0, 0]
+    total = 0.0
+    for _ in range(n):
+        sc = min(4, max(0, round((base + rng.gauss(0, 0.2)) * 4))) / 4
+        hist[4 - int(round(sc * 4))] += 1
+        total += sc
+    return {"avg": round(total / n, 4), "count": n, "hist": hist, "demo": True}
+
+
 def _hide_counts(agg):
     return {k: {kk: vv for kk, vv in v.items() if kk != "count"} for k, v in agg.items()}
 
@@ -2111,6 +2126,11 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             _ensure_ratings()
             agg = _community_agg(exclude_uid=uid, keys=keys)
+        # 作品情報の画面（1作品だけの問い合わせ）では、評価が足りない作品もデモの仮データで見せる
+        if DEMO_SOCIAL and data.get("demo") and len(keys) <= 5:
+            for k in keys:
+                if k not in agg:
+                    agg[k] = _demo_agg(k)
         if not self._is_admin():
             agg = _hide_counts(agg)
         self._send_private_json({"map": agg, "min": COMMUNITY_MIN})
