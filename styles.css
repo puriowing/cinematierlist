@@ -7983,3 +7983,17 @@ details.acc-pw[open] > :not(summary) { animation: fold-in 0.22s ease; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ティア・未分類：右端の余りを列の間に均等に配り、左右いっぱいにそろえる */
+.tier-dropzone:not(.collapsed-zone),
+.pool-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--poster-w));
+  justify-content: space-between;
+  align-content: start;
+}
+
+.tier-dropzone:not(.collapsed-zone) > :not(.movie-card),
+.pool-items > :not(.movie-card) {
+  grid-column: 1 / -1;
+}
