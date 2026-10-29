@@ -9551,13 +9551,14 @@
     const kpis = [
       { value: s.total, cap: "総登録", unit: "本" },
       { value: `${rankPct}%`, cap: "振り分け率" },
-      { value: yearSpan, cap: "収録年代" },
+      { value: yearSpan, cap: "収録年代",
+        html: s.minYear ? `<span class="hero-num hero-range"><span>${s.minYear}</span><span class="hero-range-sep">–</span><span>${s.maxYear}</span></span>` : "" },
       { value: s.dirTotal, cap: "監督", unit: "人" },
       { value: s.actTotal, cap: "出演者", unit: "人" },
     ];
     const kpiHtml = kpis.map((k) =>
       `<div class="hero-kpi">` +
-      `<span class="hero-num">${escapeHtml(String(k.value))}${k.unit ? `<span class="hero-unit">${k.unit}</span>` : ""}</span>` +
+      (k.html || `<span class="hero-num">${escapeHtml(String(k.value))}${k.unit ? `<span class="hero-unit">${k.unit}</span>` : ""}</span>`) +
       `<span class="hero-cap">${escapeHtml(k.cap)}</span>` +
       `</div>`
     ).join('<span class="hero-div"></span>');

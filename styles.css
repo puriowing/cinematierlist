@@ -8364,3 +8364,29 @@ img.movie-poster.is-loaded { opacity: 1; filter: none; transform: none; }
 .tag-group-h { margin: 0 0 6px; font-size: 12px; font-weight: 800; color: var(--text-dim); }
 #tagModal .tag-group .tag-chips { margin: 0; }
 #tagChips { margin-bottom: 14px; }
+
+/* 統計：収録年代（例 1963–2024）を枠内に収める */
+.hero-num.hero-range {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 2px;
+  font-size: clamp(16px, 2.4vw, 24px);
+  white-space: normal;
+  max-width: 100%;
+}
+.hero-range-sep { opacity: 0.6; }
+.hero-kpi { min-width: 0; }
+
+.stats-hero .hero-num.hero-range {
+  font-size: clamp(16px, 2.4vw, 24px);
+  white-space: normal;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+@media (max-width: 768px) {
+  .stats-hero .hero-num.hero-range { font-size: clamp(15px, 4.6vw, 20px); line-height: 1.15; }
+}
+
+.ft-fact-sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
