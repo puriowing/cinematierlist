@@ -8217,3 +8217,8 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .move-comm-score b { font-family: "Montserrat", sans-serif; font-size: 22px; font-weight: 800; }
 .move-comm-score small { font-size: 10px; opacity: 0.85; }
 .move-comm-score:empty { display: none; }
+
+.move-menu-actions .move-full { grid-column: 1 / -1; }
+.move-menu-actions .move-comm-btn .move-info-tx b,
+.move-menu-actions .move-comm-btn .move-info-tx small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.move-menu-actions .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }

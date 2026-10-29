@@ -1935,7 +1935,7 @@
     const menuActions = document.createElement("div");
     menuActions.className = "move-menu-actions";
     const infoBtn = document.createElement("button");
-    infoBtn.className = "btn btn-ghost btn-sm move-info-btn";
+    infoBtn.className = "btn btn-ghost btn-sm move-info-btn move-full";
     infoBtn.textContent = "🎬 作品情報";
     infoBtn.title = "公開年・ジャンル・種別・監督・出演者・ポスターを表示／修正します";
     infoBtn.addEventListener("click", (e) => {
@@ -1946,25 +1946,13 @@
     const commBtn = document.createElement("button");
     commBtn.className = "btn move-info-main move-comm-btn";
     commBtn.innerHTML = `<span class="move-info-ic">🌐</span><span class="move-info-tx"><b>みんなのティア</b>` +
-      `<small class="move-comm-sub">みんなの評価・コメントを見る</small></span><span class="move-comm-score"></span><span class="move-info-go">›</span>`;
+      `<small>評価・コメントを見る</small></span><span class="move-info-go">›</span>`;
     commBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       closeMoveMenu();
       openCommunityMovie(movie);
     });
     menuActions.appendChild(commBtn);
-    menuActions.appendChild(infoBtn);
-    // みんなの平均点を先に見せて、開きたくなるようにする
-    const ckey = movieKey(movie);
-    if (ckey) {
-      apiJSON("/api/community/lookup", { method: "POST", body: JSON.stringify({ keys: [ckey], demo: true }) })
-        .then((r) => {
-          const c = r && r.ok && r.data.map && r.data.map[ckey];
-          if (!c || !commBtn.isConnected) return;
-          commBtn.querySelector(".move-comm-score").innerHTML = `<b>${score10(c.avg)}</b><small>/10</small>`;
-          commBtn.querySelector(".move-comm-sub").textContent = `評価・コメントを見る`;
-        }).catch(() => {});
-    }
     const favBtn = document.createElement("button");
     favBtn.className = "btn btn-ghost btn-sm move-fav-btn" + (movie.fav ? " is-on" : "");
     favBtn.textContent = movie.fav ? "❤ 偏愛中" : "❤ 偏愛";
@@ -2018,6 +2006,7 @@
       });
       menuActions.appendChild(poolBtn);
     }
+    menuActions.appendChild(infoBtn);
     const delBtn = document.createElement("button");
     delBtn.className = "btn btn-danger btn-sm move-del-btn";
     delBtn.textContent = "削除";
