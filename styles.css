@@ -8250,3 +8250,18 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 
 .comm-score-main { display: block; white-space: nowrap; flex: 0 0 auto; }
 .comm-score-main .comm-score-cap { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; opacity: 0.9; margin-bottom: 4px; }
+
+/* あなたとみんな：大なり小なりで一目でわかるように */
+.comm-vs-mid { background: none !important; padding: 0 6px; min-width: 72px; }
+.comm-vs-mid .comm-vs-sym {
+  font-family: "Montserrat", "Noto Sans JP", sans-serif;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-dim);
+}
+.comm-vs-mid.is-up .comm-vs-sym { color: #ff6b81; }
+.comm-vs-mid.is-down .comm-vs-sym { color: #4f9dff; }
+.comm-vs-mid small { margin-top: 2px; font-size: 11px; font-weight: 800; color: var(--text); white-space: nowrap; }
+.comm-vs-mid.is-up small { color: #e0536b; }
+.comm-vs-mid.is-down small { color: #3b82d6; }

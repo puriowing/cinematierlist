@@ -2153,11 +2153,14 @@
     let vs = "";
     if (mine != null) {
       const diff = mine - a.avg;
-      const msg = diff >= 0.25 ? "この作品、あなたはみんなより“甘口”です" : diff <= -0.25 ? "この作品、あなたはみんなより“辛口”です" : "この作品の好き度は、みんなとほぼ同じです";
+      const ad = Math.abs(diff);
+      const word = diff > 0 ? "甘口" : "辛口";
+      const msg = ad < 0.05 ? "この作品の好き度は、みんなと同じくらいです"
+        : ad < 0.25 ? `この作品、あなたはみんなより少しだけ“${word}”です` : `この作品、あなたはみんなより“${word}”です`;
       vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierChip(mine)}<b>${score10(mine)}</b></div>` +
-        `<div class="comm-vs-mid ${diff >= 0.25 ? "is-up" : diff <= -0.25 ? "is-down" : ""}">` +
-        (Math.abs(diff) < 0.05 ? `<span>同じ</span>`
-          : `<small>あなたの方が</small><span>${(Math.abs(diff) * 10).toFixed(1)}点</span><small>${diff > 0 ? "甘口" : "辛口"}</small>`) +
+        `<div class="comm-vs-mid ${diff >= 0.05 ? "is-up" : diff <= -0.05 ? "is-down" : ""}">` +
+        (Math.abs(diff) < 0.05 ? `<span class="comm-vs-sym">＝</span><small>同じくらい</small>`
+          : `<span class="comm-vs-sym">${diff > 0 ? "＞" : "＜"}</span><small>${(Math.abs(diff) * 10).toFixed(1)}点 ${diff > 0 ? "甘口" : "辛口"}</small>`) +
         `</div>` +
         `<div class="comm-vs-col"><small>みんな</small>${tierChip(a.avg)}<b>${score10(a.avg)}</b></div></div>` +
         `<p class="comm-vs-msg">${msg}</p>`;
