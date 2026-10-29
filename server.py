@@ -1581,6 +1581,33 @@ def _display_name(u):
     return u.get("username") or "名無しさん"
 
 
+def _similar_people(mine, uid, include_real, limit=12):
+    """好みが似ている人：共通の作品が5本以上ある相手との一致度を出し、高い順に並べる。"""
+    cands = []
+    if include_real:
+        for u in _load_users().values():
+            if u.get("id") == uid or u.get("community") is False or not _privacy(u)["simPublic"]:
+                continue
+            cands.append((_display_name(u), _ratings_cache.get(u["id"]) or {}, u.get("share") or "", False))
+    if DEMO_SOCIAL and len(cands) < 3:
+        for d in _demo_users():
+            cands.append((d["display"], d["ratings"], d["share"] or "", True))
+    out = []
+    for name, r, share, demo in cands:
+        common = [k for k in mine if k in r]
+        if len(common) < 5:
+            continue
+        agreement = 1 - sum(abs(mine[k] - r[k]) for k in common) / len(common)
+        match = max(0, min(100, round((agreement - 0.5) / 0.5 * 100)))
+        both = sorted((k for k in common if mine[k] >= 0.75 and r[k] >= 0.75), key=lambda k: -(mine[k] + r[k]))
+        recs = sorted((k for k in r if k not in mine and r[k] >= 0.75), key=lambda k: -r[k])
+        meta = lambda k: dict(_meta_cache.get(k) or {}, key=k)
+        out.append({"name": name, "match": match, "common": len(common), "share": share, "demo": demo,
+                     "both": [meta(k) for k in both[:4]], "recs": [meta(k) for k in recs[:4]]})
+    out.sort(key=lambda x: (-x["match"], -x["common"]))
+    return out[:limit]
+
+
 def _compare(friend_ratings, mine):
     common = [k for k in mine if k in friend_ratings]
     diffs = [abs(mine[k] - friend_ratings[k]) for k in common]
@@ -1605,9 +1632,9 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
-PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic", "kinPublic")
-# これまで本人だけのメモ・印として付けてきたため、コメントの公開と「同じ偏愛・思い出の人」への表示は本人が選ぶまでオフ
-PRIVACY_OFF_BY_DEFAULT = {"cmtPublic", "kinPublic"}
+PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic", "kinPublic", "simPublic")
+# これまで本人だけのメモ・印として付けてきたため、コメントの公開と「同じ偏愛・思い出の人」「似ている人」への表示は本人が選ぶまでオフ
+PRIVACY_OFF_BY_DEFAULT = {"cmtPublic", "kinPublic", "simPublic"}
 
 
 def _privacy(u):
@@ -2344,6 +2371,19 @@ class Handler(SimpleHTTPRequestHandler):
             res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
         self._send_private_json(res)
 
+    def _h_similar(self):
+        data = self._read_json_body() or {}
+        mine = _clean_ratings(data.get("ratings"))
+        uid = self._current_uid()
+        status = "need_login"
+        with _data_lock:
+            _ensure_ratings()
+            if uid:
+                u = next((v for v in _load_users().values() if v.get("id") == uid), None)
+                status = "ok" if u and _privacy(u)["simPublic"] else "need_optin"
+            people = _similar_people(mine, uid, status == "ok")
+        self._send_private_json({"status": status, "people": people, "mine": len(mine)})
+
     def _h_community_lookup(self):
         data = self._read_json_body() or {}
         keys = [k for k in (data.get("keys") or []) if isinstance(k, str)][:20000]
@@ -2490,6 +2530,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/social":
             self._h_social_set()
+            return
+        if path == "/api/community/similar":
+            self._h_similar()
             return
         if path == "/api/community/movie":
             self._h_community_movie()

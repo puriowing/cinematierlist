@@ -8309,3 +8309,27 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .kin-fav { background: color-mix(in srgb, #ff5fa2 15%, transparent); color: #d63d84; }
 .kin-mem { background: color-mix(in srgb, #6d4aff 13%, transparent); color: #5a3be0; }
 .kin-cmp { flex: 0 0 auto; }
+
+/* みんな：タブを4つに */
+#socialModal .soc-tabs { grid-template-columns: repeat(4, 1fr); }
+#socialModal .soc-tabs::before { width: calc((100% - 8px) / 4); }
+#socialModal .soc-tab { font-size: 12px; padding: 8px 2px; }
+@media (max-width: 430px) { #socialModal .soc-tab { font-size: 11px; } }
+
+/* 似ている人 */
+.sim-list { display: flex; flex-direction: column; gap: 10px; }
+.sim-card { padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-elev); }
+.sim-head { display: flex; align-items: center; gap: 10px; }
+.sim-rank { font-family: "Montserrat", sans-serif; font-size: 13px; font-weight: 800; color: var(--text-dim); width: 16px; text-align: center; }
+.sim-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.sim-name b { font-size: 14px; font-weight: 800; }
+.sim-name small { font-size: 11px; color: var(--text-dim); }
+.sim-match { display: flex; flex-direction: column; align-items: flex-end; }
+.sim-match b { font-family: "Montserrat", sans-serif; font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1; }
+.sim-match small { font-size: 10px; font-weight: 800; color: var(--text-dim); }
+.sim-bar { height: 6px; margin: 8px 0 4px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; }
+.sim-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6d4aff, #ff5fa2); }
+.sim-sub { margin: 8px 0 4px; font-size: 11px; font-weight: 800; color: var(--text-dim); }
+.sim-posters { display: flex; gap: 6px; }
+.sim-poster { width: 44px; height: 66px; border-radius: 6px; object-fit: cover; background: var(--bg-elev-2); }
+.sim-cmp { margin-top: 10px; }

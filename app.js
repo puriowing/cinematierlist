@@ -1491,7 +1491,10 @@
       sw("cmtPublic", pv.cmtPublic === true, "作品へのコメントを公開する") + `</div>` +
       `<div class="pv-group"><p class="pv-title">同じ偏愛・思い出の人<small>${pv.kinPublic ? "表示中" : "非表示"}</small></p>` +
       `<p class="pv-note">同じ作品を偏愛している人・思い出を書いている人どうしで、お互いの表示名が見えるようになります。オンにした人どうしだけが見られます。</p>` +
-      sw("kinPublic", pv.kinPublic === true, "同じ作品を偏愛・思い出登録している人に、名前を表示する") + `</div>`;
+      sw("kinPublic", pv.kinPublic === true, "同じ作品を偏愛・思い出登録している人に、名前を表示する") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">似ている人<small>${pv.simPublic ? "表示中" : "非表示"}</small></p>` +
+      `<p class="pv-note">「みんな」の「似ている人」で、好みが似ている人に表示名と一致度が表示されます。オンにした人どうしだけが見られます。</p>` +
+      sw("simPublic", pv.simPublic === true, "好みが似ている人に、名前を表示する") + `</div>`;
 
     const psum = document.getElementById("mpPrivacySum");
     if (psum) psum.textContent = [d.community ? "みんなのティアに参加中" : "みんなのティアに不参加",
@@ -2335,8 +2338,9 @@
     socTab = name;
     document.querySelectorAll(".soc-tab").forEach((b) => b.classList.toggle("active", b.dataset.socTab === name));
     const tabs = document.querySelector("#socialModal .soc-tabs");
-    if (tabs) tabs.style.setProperty("--soc-i", ["community", "friends", "challenges"].indexOf(name));
+    if (tabs) tabs.style.setProperty("--soc-i", ["community", "similar", "friends", "challenges"].indexOf(name));
     document.getElementById("socCommunity").classList.toggle("hidden", name !== "community");
+    document.getElementById("socSimilar").classList.toggle("hidden", name !== "similar");
     document.getElementById("socFriends").classList.toggle("hidden", name !== "friends");
     document.getElementById("socChallenges").classList.toggle("hidden", name !== "challenges");
     if (changed) {
@@ -2346,8 +2350,59 @@
     if (socLoadedAt[name] && Date.now() - socLoadedAt[name] < SOC_FRESH_MS) return;
     socLoadedAt[name] = Date.now();
     if (name === "community") renderCommunity();
+    else if (name === "similar") renderSimilar();
     else if (name === "challenges") renderChallengeList();
     else renderFriends();
+  }
+
+  // 似ている人：ティアの付け方が近い人を、一致度の高い順に
+  async function renderSimilar() {
+    const box = document.getElementById("socSimilar");
+    if (!box.children.length) showLoading(box, "好みが似ている人を探しています…");
+    const mine = myRatings();
+    let r = null;
+    try { r = await apiJSON("/api/community/similar", { method: "POST", body: JSON.stringify({ ratings: mine }) }); } catch (e) {}
+    if (!r || !r.ok) { box.innerHTML = `<p class="soc-note">サーバーに接続すると表示されます。</p>`; return; }
+    const d = r.data;
+    let html = `<p class="hint soc-lead">あなたと同じ作品を観ていて、ティアの付け方が近い人を、一致度の高い順に並べます（共通の作品が5本以上ある人が対象です）。</p>`;
+    if (d.status === "need_login") {
+      html += `<div class="kin-empty"><p>ログインして、マイページの公開設定で「似ている人」をオンにすると、同じくオンにしている人どうしで見つけ合えます。</p></div>`;
+    } else if (d.status === "need_optin") {
+      html += `<div class="kin-empty"><p>マイページの公開設定で「似ている人」をオンにすると、同じくオンにしている人どうしで見つけ合えます。</p>` +
+        `<button type="button" class="btn btn-primary btn-sm" id="simOptin">公開設定を開く</button></div>`;
+    }
+    if (Object.keys(mine).length < 5) {
+      html += `<p class="soc-note">ティアに振り分けた作品が5本以上になると探せます。</p>`;
+    } else if (!d.people.length) {
+      html += `<p class="soc-note">まだ見つかりません。共通の作品が増えると見つかりやすくなります。</p>`;
+    } else {
+      const poster = (m) => m.poster ? `<img class="sim-poster" src="${escapeHtml(m.poster)}" alt="" title="${escapeHtml(m.title || "")}" loading="lazy" />` : "";
+      html += `<div class="sim-list">` + d.people.map((p, i) => {
+        const t = matchLabel(p.match);
+        return `<div class="sim-card">` +
+          `<div class="sim-head"><span class="sim-rank">${i + 1}</span><span class="cmt-av">${escapeHtml((p.name || "?").slice(0, 1))}</span>` +
+          `<div class="sim-name"><b>${escapeHtml(p.name)}</b><small>共通の作品 ${p.common}本</small></div>` +
+          `<div class="sim-match ${t.cls}"><b>${p.match}%</b><small>${t.label}</small></div></div>` +
+          `<div class="up-match-bar sim-bar"><span style="width:${p.match}%"></span></div>` +
+          (p.both.length ? `<p class="sim-sub">💞 2人とも大好き</p><div class="sim-posters">${p.both.map(poster).join("")}</div>` : "") +
+          (p.recs.length ? `<p class="sim-sub">🎁 この人が大好きで、あなたが未登録</p><div class="sim-posters">${p.recs.map(poster).join("")}</div>` : "") +
+          (p.share ? `<button type="button" class="btn btn-ghost btn-sm sim-cmp" data-i="${i}">好みをくわしく比べる</button>` : "") +
+          `</div>`;
+      }).join("") + `</div>`;
+      if (d.people.some((p) => p.demo)) html += `<p class="soc-demo-note">※ デモ表示（仮のユーザー）を含みます。</p>`;
+    }
+    box.innerHTML = html;
+    const opt = document.getElementById("simOptin");
+    if (opt) opt.addEventListener("click", () => {
+      closeModal("socialModal");
+      openMyPage();
+      const f = document.getElementById("mpPrivacy");
+      if (f) f.open = true;
+    });
+    box.querySelectorAll(".sim-cmp").forEach((b) => b.addEventListener("click", () => {
+      const p = d.people[Number(b.dataset.i)];
+      if (p && p.share) { switchSocTab("friends"); runCompare(p.share); }
+    }));
   }
 
   async function renderCommunity() {
