@@ -1946,7 +1946,7 @@
     const commBtn = document.createElement("button");
     commBtn.className = "btn move-info-main move-comm-btn";
     commBtn.innerHTML = `<span class="move-info-ic">🌐</span><span class="move-info-tx"><b>みんなのティア</b>` +
-      `<small>評価・コメントを見る</small></span><span class="move-info-go">›</span>`;
+      `<small>好き度・感想を見る</small></span><span class="move-info-go">›</span>`;
     commBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       closeMoveMenu();
@@ -2120,8 +2120,8 @@
   // ランキングの位置を、ひとことの言葉にする（5段階）
   function rankVerdict(rank, total) {
     const p = total > 1 ? (rank - 1) / (total - 1) : 0;
-    return p < 0.2 ? "特に愛されている作品" : p < 0.4 ? "評価が高めの作品" : p < 0.6 ? "評価はまんなかあたりの作品"
-      : p < 0.8 ? "評価はややひかえめな作品" : "評価はひかえめな作品";
+    return p < 0.2 ? "“大好き”が集まる作品" : p < 0.4 ? "多くの人に好かれている作品" : p < 0.6 ? "好き度はまんなかあたりの作品"
+      : p < 0.8 ? "好みが分かれる作品" : "観る人を選ぶ作品";
   }
 
   // 作品ごとの「みんなのティア」（作品メニューから開く専用画面）
@@ -2137,7 +2137,7 @@
       `<div id="commContent"></div>`;
     openModal("commModal");
     const box = document.getElementById("commContent");
-    showLoading(box, "みんなの評価を集めています…");
+    showLoading(box, "みんなのティアを集めています…");
     const key = movieKey(movie);
     let r = null;
     try { r = await apiJSON("/api/community/movie", { method: "POST", body: JSON.stringify({ key, demo: true }) }); } catch (e) {}
@@ -2153,16 +2153,16 @@
     let vs = "";
     if (mine != null) {
       const diff = mine - a.avg;
-      const msg = diff >= 0.25 ? "あなたは、みんなより高く評価しています" : diff <= -0.25 ? "あなたは、みんなより低めに評価しています" : "あなたの評価は、みんなとほぼ同じです";
+      const msg = diff >= 0.25 ? "この作品、あなたはみんなより“甘口”です" : diff <= -0.25 ? "この作品、あなたはみんなより“辛口”です" : "この作品の好き度は、みんなとほぼ同じです";
       vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierChip(mine)}<b>${score10(mine)}</b></div>` +
         `<div class="comm-vs-mid ${diff >= 0.25 ? "is-up" : diff <= -0.25 ? "is-down" : ""}">` +
         (Math.abs(diff) < 0.05 ? `<span>同じ</span>`
-          : `<small>あなたの方が</small><span>${(Math.abs(diff) * 10).toFixed(1)}点</span><small>${diff > 0 ? "高い" : "低い"}</small>`) +
+          : `<small>あなたの方が</small><span>${(Math.abs(diff) * 10).toFixed(1)}点</span><small>${diff > 0 ? "甘口" : "辛口"}</small>`) +
         `</div>` +
         `<div class="comm-vs-col"><small>みんな</small>${tierChip(a.avg)}<b>${score10(a.avg)}</b></div></div>` +
         `<p class="comm-vs-msg">${msg}</p>`;
     } else {
-      vs = `<p class="comm-vs-msg">この作品をティアに振り分けると、あなたの評価と比べられます。</p>`;
+      vs = `<p class="comm-vs-msg">この作品をティアに振り分けると、みんなと好き度を比べられます。</p>`;
     }
     const total = a.hist.reduce((x, y) => x + y, 0) || 1;
     const myIdx = mine != null ? 4 - Math.round(mine * 4) : -1;
@@ -2184,19 +2184,19 @@
     }).join("");
     box.innerHTML =
       `<div class="comm-score">` +
-      `<div class="comm-score-main"><b>${score10(a.avg)}</b><small>/10</small></div>` +
+      `<div class="comm-score-main"><span class="comm-score-cap">みんなの好き度</span><b>${score10(a.avg)}</b><small>/10</small></div>` +
       `<div class="comm-score-side"><p>あなたのティアでいうと ${tierChip(a.avg)}</p>` +
       `<p class="comm-verdict">みんなの中では <b>${rankVerdict(d.rank, d.total)}</b></p>` +
-      `<p class="comm-rank">みんなが評価した${d.total}作品のランキングで ${d.rank}位</p>` +
-      `<div class="comm-pos" title="左ほど評価が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
-      `<div class="comm-pos-labels"><small>評価が高い</small><small>ひかえめ</small></div>` +
-      (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}が評価</p>` : "") + `</div></div>` +
+      `<p class="comm-rank">みんなのティアに並ぶ${d.total}作品のうち ${d.rank}位</p>` +
+      `<div class="comm-pos" title="左ほど好き度が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
+      `<div class="comm-pos-labels"><small>大好きが集まる</small><small>観る人を選ぶ</small></div>` +
+      (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}がティアに入れています</p>` : "") + `</div></div>` +
       `<section class="comm-sec"><h4 class="soc-h">🆚 あなたとみんな</h4>${vs}</section>` +
-      `<section class="comm-sec"><h4 class="soc-h">📊 評価の分かれ方</h4><div class="comm-dist">${dist}</div>` +
+      `<section class="comm-sec"><h4 class="soc-h">📊 みんながどのティアに入れたか</h4><div class="comm-dist">${dist}</div>` +
       `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
       commentsHtml(movie, d.comments || []) +
-      (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品を高く評価した人は、こんな作品も高評価</h4><div class="comm-also">${also}</div></section>` : "") +
-      (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際の評価が集まると入れ替わります。</p>` : "");
+      (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品が好きな人は、こんな作品も好き</h4><div class="comm-also">${also}</div></section>` : "") +
+      (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際のティアが集まると入れ替わります。</p>` : "");
     box.querySelectorAll(".comm-also-add").forEach((b) => b.addEventListener("click", () => {
       const m = d.also[Number(b.dataset.i)];
       const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };

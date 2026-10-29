@@ -8247,3 +8247,6 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .comm-dist-row { grid-template-columns: 104px 1fr 64px !important; }
 .comm-dist-label { min-width: 0; white-space: nowrap; }
 @media (max-width: 430px) { .comm-dist-row { grid-template-columns: 96px 1fr 56px !important; } }
+
+.comm-score-main { display: block; white-space: nowrap; flex: 0 0 auto; }
+.comm-score-main .comm-score-cap { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; opacity: 0.9; margin-bottom: 4px; }
