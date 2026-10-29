@@ -2120,8 +2120,8 @@
   // ランキングの位置を、ひとことの言葉にする（5段階）
   function rankVerdict(rank, total) {
     const p = total > 1 ? (rank - 1) / (total - 1) : 0;
-    return p < 0.2 ? "とても評価が高い作品" : p < 0.4 ? "評価が高めの作品" : p < 0.6 ? "評価はふつうの作品"
-      : p < 0.8 ? "評価が低めの作品" : "評価が低い作品";
+    return p < 0.2 ? "特に愛されている作品" : p < 0.4 ? "評価が高めの作品" : p < 0.6 ? "評価はまんなかあたりの作品"
+      : p < 0.8 ? "評価はややひかえめな作品" : "評価はひかえめな作品";
   }
 
   // 作品ごとの「みんなのティア」（作品メニューから開く専用画面）
@@ -2155,7 +2155,10 @@
       const diff = mine - a.avg;
       const msg = diff >= 0.25 ? "あなたは、みんなより高く評価しています" : diff <= -0.25 ? "あなたは、みんなより低めに評価しています" : "あなたの評価は、みんなとほぼ同じです";
       vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierChip(mine)}<b>${score10(mine)}</b></div>` +
-        `<div class="comm-vs-mid">${diff >= 0.25 ? "▲" : diff <= -0.25 ? "▼" : "＝"}</div>` +
+        `<div class="comm-vs-mid ${diff >= 0.25 ? "is-up" : diff <= -0.25 ? "is-down" : ""}">` +
+        (Math.abs(diff) < 0.05 ? `<span>同じ</span>`
+          : `<small>あなたの方が</small><span>${(Math.abs(diff) * 10).toFixed(1)}点</span><small>${diff > 0 ? "高い" : "低い"}</small>`) +
+        `</div>` +
         `<div class="comm-vs-col"><small>みんな</small>${tierChip(a.avg)}<b>${score10(a.avg)}</b></div></div>` +
         `<p class="comm-vs-msg">${msg}</p>`;
     } else {
@@ -2186,7 +2189,7 @@
       `<p class="comm-verdict">みんなの中では <b>${rankVerdict(d.rank, d.total)}</b></p>` +
       `<p class="comm-rank">みんなが評価した${d.total}作品のランキングで ${d.rank}位</p>` +
       `<div class="comm-pos" title="左ほど評価が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
-      `<div class="comm-pos-labels"><small>評価が高い</small><small>低い</small></div>` +
+      `<div class="comm-pos-labels"><small>評価が高い</small><small>ひかえめ</small></div>` +
       (adminCount(a.count) ? `<p class="comm-rank">${adminCount(a.count)}が評価</p>` : "") + `</div></div>` +
       `<section class="comm-sec"><h4 class="soc-h">🆚 あなたとみんな</h4>${vs}</section>` +
       `<section class="comm-sec"><h4 class="soc-h">📊 評価の分かれ方</h4><div class="comm-dist">${dist}</div>` +
