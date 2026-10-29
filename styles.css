@@ -8396,3 +8396,57 @@ img.movie-poster.is-loaded { opacity: 1; filter: none; transform: none; }
 body:not(.theme-studio) .tier-label .tier-sort { top: 26px; }
 .collapsed-zone { cursor: pointer; }
 .collapsed-zone:hover { color: var(--text); }
+
+/* クラシックでも、ティアの見出しを上に横長の帯で表示する */
+body:not(.theme-studio) .tier-rows { display: flex; flex-direction: column; gap: 12px; }
+body:not(.theme-studio) .tier-row {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elev);
+}
+body:not(.theme-studio) .tier-row:last-child { border-bottom: 1px solid var(--border); }
+body:not(.theme-studio) .tier-label,
+body:not(.theme-studio).compact .tier-label {
+  width: 100%;
+  min-width: 0;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: left;
+  letter-spacing: 0.04em;
+}
+body:not(.theme-studio) .tier-label-text { width: auto; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body:not(.theme-studio) .tier-label .collapse-toggle,
+body:not(.theme-studio) .tier-label .tier-count,
+body:not(.theme-studio) .tier-label .tier-gear,
+body:not(.theme-studio) .tier-label .tier-sort,
+body:not(.theme-studio) .tier-label .tier-analyze {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+body:not(.theme-studio) .tier-label .collapse-toggle { background: rgba(0, 0, 0, 0.25); }
+body:not(.theme-studio) .tier-label .tier-count {
+  width: auto;
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 1px 10px;
+}
+body:not(.theme-studio) .tier-label .tier-gear,
+body:not(.theme-studio) .tier-label .tier-sort,
+body:not(.theme-studio) .tier-label .tier-analyze { opacity: 0.75; background: rgba(0, 0, 0, 0.25); color: #fff; }
+body:not(.theme-studio) .tier-label:hover .tier-gear,
+body:not(.theme-studio) .tier-label:hover .tier-sort,
+body:not(.theme-studio) .tier-label:hover .tier-analyze { opacity: 1; }
+body:not(.theme-studio) .tier-dropzone { padding: 12px 14px 14px; }
+body:not(.theme-studio) .collapsed-zone { padding: 10px 14px; }
