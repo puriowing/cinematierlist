@@ -814,20 +814,22 @@
         return true;
       }
     } catch (e) {}
-    try { if (currentUser) await pullFromServer(); } catch (e) {}
-    posterFailCount = 0;
-    const main = document.querySelector("main.layout");
-    render();
-    if (main && main.animate && !reduceMotion) {
-      main.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
+    // 中身が変わったとき（別の端末での変更・出ていなかったポスター）だけ描き直す。
+    // 表示済みのポスターはそのまま残るので、画面はちらつかない
+    let changed = false;
+    try { if (currentUser) changed = await pullFromServer(); } catch (e) {}
+    if (changed || posterFailCount) {
+      posterFailCount = 0;
+      render();
     }
-    const wait = 500 - (Date.now() - started);
+    const wait = 700 - (Date.now() - started);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     return false;
   }
 
   // ポスターが一時的に取れなかったときは、画面に戻ってきた・通信が戻ったタイミングで描き直す
   let posterFailCount = 0;
+  const shownPosters = new Set();
   function retryFailedPosters() {
     if (!posterFailCount || document.visibilityState !== "visible") return;
     posterFailCount = 0;
@@ -852,8 +854,12 @@
       // タイトルのフォールバックにする。
       img.crossOrigin = "anonymous";
       img.decoding = "async";
-      // 一斉に出ず、少しずつずれてふわっと浮かび上がるようにする
+      // 一度表示したポスターは、描き直しでもふわっと演出をやり直さずにそのまま出す
+      if (shownPosters.has(movie.poster)) img.classList.add("is-loaded", "no-fade");
+      // 初めて出すポスターは、少しずつずれてふわっと浮かび上がるようにする
       img.addEventListener("load", () => {
+        shownPosters.add(movie.poster);
+        if (img.classList.contains("is-loaded")) return;
         img.style.setProperty("--pd", Math.round(Math.random() * 180) + "ms");
         requestAnimationFrame(() => img.classList.add("is-loaded"));
       });
@@ -11420,8 +11426,13 @@
         softRefresh().then((reloading) => {
           if (reloading) return;
           ptr.querySelector(".ptr-tx").textContent = "最新の状態です";
-          ptr.classList.remove("loading", "ready");
-          setTimeout(() => setPull(0, true), 350);
+          ptr.querySelector(".ptr-ic").textContent = "✓";
+          ptr.classList.remove("loading");
+          ptr.classList.add("done");
+          setTimeout(() => {
+            setPull(0, true);
+            setTimeout(() => { ptr.classList.remove("ready", "done"); ptr.querySelector(".ptr-ic").textContent = "↓"; }, 350);
+          }, 450);
         });
         return;
       }

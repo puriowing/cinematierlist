@@ -8450,3 +8450,8 @@ body:not(.theme-studio) .tier-label:hover .tier-sort,
 body:not(.theme-studio) .tier-label:hover .tier-analyze { opacity: 1; }
 body:not(.theme-studio) .tier-dropzone { padding: 12px 14px 14px; }
 body:not(.theme-studio) .collapsed-zone { padding: 10px 14px; }
+
+img.movie-poster.no-fade { transition: none !important; }
+
+.ptr.done .ptr-ic { transform: none; background: #2fa36b; color: #fff; border-color: transparent; }
+.ptr.done { color: #2fa36b; }
