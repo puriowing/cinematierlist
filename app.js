@@ -2098,6 +2098,34 @@
       `</div>` + histHtml(c.hist);
   }
 
+  // 偏愛・思い出の匿名の集計（割合のみ）
+  function extrasHtml(movie, x) {
+    if (!x) return "";
+    const pct = (v) => Math.round((v || 0) * 100) + "%";
+    const cnt = (n) => (n != null ? `<small class="ex-n">${n}人</small>` : "");
+    const mineFav = !!movie.fav, mineMem = hasMemory(movie);
+    const bars = (defs, data) => {
+      const rows = defs.map(([k, label]) => [label, data[k] || 0]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+      if (!rows.length) return `<p class="soc-note">まだ集まっていません。</p>`;
+      const max = Math.max(...rows.map((r) => r[1]));
+      return rows.map(([label, v]) =>
+        `<div class="ex-row"><span class="ex-label">${escapeHtml(label)}</span>` +
+        `<span class="ex-track"><span style="width:${((v / max) * 100).toFixed(1)}%"></span></span>` +
+        `<span class="ex-pct">${pct(v)}</span></div>`).join("");
+    };
+    return `<section class="comm-sec"><h4 class="soc-h">❤️ 偏愛と思い出</h4>` +
+      `<div class="ex-tiles">` +
+      `<div class="ex-tile ex-fav"><span class="ex-ic">❤</span><b>${pct(x.favRate)}</b>${cnt(x.fav)}<small>が偏愛している</small>` +
+      (mineFav ? `<em>あなたも偏愛中</em>` : "") + `</div>` +
+      `<div class="ex-tile ex-mem"><span class="ex-ic">📖</span><b>${pct(x.memRate)}</b>${cnt(x.mem)}<small>が思い出を書いている</small>` +
+      (mineMem ? `<em>あなたも書いています</em>` : "") + `</div>` +
+      `</div>` +
+      `<p class="pv-note">この作品をティアに入れた人${x.n != null ? `（${x.n}人）` : ""}の中での割合です。</p>` +
+      `<div class="ex-cols"><div><p class="ex-h">どこで観た？</p>${bars(WHERE_TYPES.map((w) => [w[0], w[1]]), x.where || {})}</div>` +
+      `<div><p class="ex-h">誰と観た？</p>${bars(WITH_TYPES, x.with || {})}</div></div>` +
+      `<p class="pv-note">思い出を書いた人の中での割合です（「誰と」は複数選べるため、合計が100%を超えることがあります）。</p></section>`;
+  }
+
   function commentsHtml(movie, list) {
     const mineText = (movie.comment || "").trim();
     const mine = mineText
@@ -2197,6 +2225,7 @@
       `<section class="comm-sec"><h4 class="soc-h">🆚 あなたとみんな</h4>${vs}</section>` +
       `<section class="comm-sec"><h4 class="soc-h">📊 みんながどのティアに入れたか</h4><div class="comm-dist">${dist}</div>` +
       `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
+      extrasHtml(movie, d.extras) +
       commentsHtml(movie, d.comments || []) +
       (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品が好きな人は、こんな作品も好き</h4><div class="comm-also">${also}</div></section>` : "") +
       (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際のティアが集まると入れ替わります。</p>` : "");

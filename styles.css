@@ -8265,3 +8265,33 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .comm-vs-mid small { margin-top: 2px; font-size: 11px; font-weight: 800; color: var(--text); white-space: nowrap; }
 .comm-vs-mid.is-up small { color: #e0536b; }
 .comm-vs-mid.is-down small { color: #3b82d6; }
+
+/* 偏愛と思い出 */
+.ex-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ex-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.ex-fav { background: color-mix(in srgb, #ff5fa2 9%, var(--bg-elev)); }
+.ex-mem { background: color-mix(in srgb, #6d4aff 8%, var(--bg-elev)); }
+.ex-ic { font-size: 16px; line-height: 1; color: #ff5fa2; }
+.ex-mem .ex-ic { color: #6d4aff; }
+.ex-ic svg { width: 18px; height: 18px; }
+.ex-tile b { font-family: "Montserrat", sans-serif; font-size: 26px; font-weight: 800; line-height: 1.1; }
+.ex-tile small { font-size: 11px; color: var(--text-dim); font-weight: 700; }
+.ex-tile .ex-n { color: var(--accent); }
+.ex-tile em { margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; font-style: normal; font-size: 10px; font-weight: 800; }
+.ex-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.ex-h { margin: 0 0 6px; font-size: 12px; font-weight: 800; }
+.ex-row { display: grid; grid-template-columns: 8.5em 1fr 3em; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 11px; }
+.ex-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.ex-track { height: 8px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; }
+.ex-track span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6d4aff, #ff5fa2); }
+.ex-pct { text-align: right; font-weight: 800; }
+@media (max-width: 520px) { .ex-cols { grid-template-columns: 1fr; } }

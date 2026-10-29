@@ -1638,6 +1638,70 @@ def _demo_comments(key, n_max=5):
     return out
 
 
+WHERE_KEYS = ("theater", "stream", "tv", "disc", "other")
+WITH_KEYS = ("alone", "friend", "partner", "family", "kids", "other")
+
+
+def _movie_extras(key, exclude_uid=None):
+    """この作品を登録した人のうち、偏愛・思い出を書いた人の割合と、観た場所・一緒に観た人の内訳（匿名の集計）。"""
+    n = fav = mem = 0
+    where, with_ = {}, {}
+    for u in _load_users().values():
+        if u.get("id") == exclude_uid or u.get("community") is False:
+            continue
+        obj = _load_list(u["id"]) or {}
+        items = [m for t in (obj.get("tiers") or []) for m in (t.get("items") or [])] + list(obj.get("pool") or [])
+        m = next((x for x in items if isinstance(x, dict) and _movie_key(x) == key), None)
+        if not m:
+            continue
+        n += 1
+        if m.get("fav"):
+            fav += 1
+        me = m.get("memory") if isinstance(m.get("memory"), dict) else {}
+        if any(me.get(k) for k in ("when", "where", "with", "note", "whereType", "withType")):
+            mem += 1
+        wt = me.get("whereType")
+        if wt in WHERE_KEYS:
+            where[wt] = where.get(wt, 0) + 1
+        for w in (me.get("withType") or []) if isinstance(me.get("withType"), list) else []:
+            if w in WITH_KEYS:
+                with_[w] = with_.get(w, 0) + 1
+    if n < COMMUNITY_MIN:
+        return None
+    return {"n": n, "fav": fav, "mem": mem, "where": where, "with": with_}
+
+
+def _demo_extras(key):
+    import random
+    rng = random.Random(hashlib.sha256(("demo-extra:" + key).encode("utf-8")).hexdigest())
+    n = rng.randint(12, 40)
+    fav = round(n * rng.uniform(0.05, 0.3))
+    mem = round(n * rng.uniform(0.15, 0.45))
+    weights_w = [rng.uniform(1, 6), rng.uniform(1, 4), rng.uniform(0.3, 2), rng.uniform(0.2, 1.5), rng.uniform(0, 0.5)]
+    weights_c = [rng.uniform(1, 4), rng.uniform(0.5, 3), rng.uniform(0.3, 2), rng.uniform(0.5, 3), rng.uniform(0, 1), rng.uniform(0, 0.4)]
+    mem = max(mem, 4)
+    where, with_ = {}, {}
+    for _ in range(mem):
+        w = rng.choices(WHERE_KEYS, weights=weights_w)[0]
+        where[w] = where.get(w, 0) + 1
+        for c in set(rng.choices(WITH_KEYS, weights=weights_c, k=rng.choice([1, 1, 1, 2]))):
+            with_[c] = with_.get(c, 0) + 1
+    return {"n": n, "fav": fav, "mem": mem, "where": where, "with": with_, "demo": True}
+
+
+def _extras_public(x, admin):
+    """管理者以外には人数を返さず、割合だけにする。"""
+    n = x["n"] or 1
+    mem = x["mem"] or 1
+    out = {"favRate": round(x["fav"] / n, 3), "memRate": round(x["mem"] / n, 3),
+           "where": {k: round(v / mem, 3) for k, v in x["where"].items()},
+           "with": {k: round(v / mem, 3) for k, v in x["with"].items()},
+           "demo": bool(x.get("demo"))}
+    if admin:
+        out.update({"n": x["n"], "fav": x["fav"], "mem": x["mem"]})
+    return out
+
+
 def _movie_comments(key, exclude_uid=None, limit=30):
     """コメントの公開を選んだ利用者の、この作品へのコメント（評価つき）。"""
     out = []
@@ -2216,11 +2280,15 @@ class Handler(SimpleHTTPRequestHandler):
             demo = demo or bool(also)
         with _data_lock:
             comments = _movie_comments(key, exclude_uid=uid)
+            extras = _movie_extras(key, exclude_uid=uid)
+        if not extras and DEMO_SOCIAL:
+            extras = _demo_extras(key)
         if not comments and DEMO_SOCIAL:
             comments = _demo_comments(key)
             demo = True
         res = {"agg": a, "rank": rank, "total": len(avgs) + 1, "also": [x for x in also if x.get("title")],
-               "comments": comments, "demo": demo, "min": COMMUNITY_MIN}
+               "comments": comments, "demo": demo or bool(extras and extras.get("demo")), "min": COMMUNITY_MIN,
+               "extras": _extras_public(extras, self._is_admin()) if extras else None}
         if not self._is_admin():
             res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
         self._send_private_json(res)
