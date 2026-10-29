@@ -1488,7 +1488,10 @@
       sw("tlAge", !!tl.showAge, "年齢（生まれた年が分かります）") + `</div>` +
       `<div class="pv-group"><p class="pv-title">作品へのコメント<small>${pv.cmtPublic ? "公開中" : "非公開"}</small></p>` +
       `<p class="pv-note">作品情報に書いたコメント（感想）を、その作品の「みんなのティア」に表示名つきで載せます。これまで自分用のメモとして書いてきた人もいるため、この項目だけは最初はオフです。</p>` +
-      sw("cmtPublic", pv.cmtPublic === true, "作品へのコメントを公開する") + `</div>`;
+      sw("cmtPublic", pv.cmtPublic === true, "作品へのコメントを公開する") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">同じ偏愛・思い出の人<small>${pv.kinPublic ? "表示中" : "非表示"}</small></p>` +
+      `<p class="pv-note">同じ作品を偏愛している人・思い出を書いている人どうしで、お互いの表示名が見えるようになります。オンにした人どうしだけが見られます。</p>` +
+      sw("kinPublic", pv.kinPublic === true, "同じ作品を偏愛・思い出登録している人に、名前を表示する") + `</div>`;
 
     const psum = document.getElementById("mpPrivacySum");
     if (psum) psum.textContent = [d.community ? "みんなのティアに参加中" : "みんなのティアに不参加",
@@ -2126,6 +2129,43 @@
       `<p class="pv-note">思い出を書いた人の中での割合です（「誰と」は複数選べるため、合計が100%を超えることがあります）。</p></section>`;
   }
 
+  // 同じ作品を偏愛・思い出登録している人（お互いに表示を選んだ人どうし）
+  function kinHtml(movie, kin) {
+    if (!kin) return "";
+    const head = `<section class="comm-sec"><h4 class="soc-h">🤝 同じ作品を偏愛・思い出登録している人</h4>`;
+    const note = (t, btn) => head + `<div class="kin-empty"><p>${t}</p>${btn || ""}</div></section>`;
+    if (kin.status === "need_login") return note("ログインすると、この作品を同じように偏愛・思い出登録している人がわかります。");
+    if (kin.status === "need_optin") return note("マイページの公開設定で「同じ偏愛・思い出の人」をオンにすると、同じくオンにしている人どうしで名前が見えるようになります。",
+      `<button type="button" class="btn btn-primary btn-sm" id="kinOptin">公開設定を開く</button>`);
+    if (kin.status === "need_mine") return note("この作品を「偏愛」するか「思い出」を書くと、同じことをしている人が見られます。");
+    if (!kin.people.length) return note("まだ見つかりません。同じ作品を偏愛・思い出登録した人が現れると、ここに表示されます。");
+    return head + `<div class="kin-list">` + kin.people.map((p, i) =>
+      `<div class="kin-item"><span class="cmt-av">${escapeHtml((p.name || "?").slice(0, 1))}</span>` +
+      `<div class="kin-main"><b>${escapeHtml(p.name || "名無しさん")}</b><span class="kin-tags">` +
+      (p.fav ? `<span class="kin-tag kin-fav">❤ 偏愛</span>` : "") + (p.mem ? `<span class="kin-tag kin-mem">📖 思い出</span>` : "") +
+      `</span></div>` +
+      (p.share ? `<button type="button" class="btn btn-ghost btn-sm kin-cmp" data-i="${i}">好みを比べる</button>` : "") +
+      `</div>`).join("") + `</div>` +
+      (kin.people.some((p) => p.demo) ? `<p class="soc-demo-note">※ デモ表示（仮のユーザー）です。</p>` : "") + `</section>`;
+  }
+
+  function wireKin(kin) {
+    const opt = document.getElementById("kinOptin");
+    if (opt) opt.addEventListener("click", () => {
+      closeModal("commModal");
+      openMyPage();
+      const d = document.getElementById("mpPrivacy");
+      if (d) d.open = true;
+    });
+    document.querySelectorAll("#commContent .kin-cmp").forEach((b) => b.addEventListener("click", () => {
+      const p = kin.people[Number(b.dataset.i)];
+      if (!p || !p.share) return;
+      closeModal("commModal");
+      openSocial("friends");
+      runCompare(p.share);
+    }));
+  }
+
   function commentsHtml(movie, list) {
     const mineText = (movie.comment || "").trim();
     const mine = mineText
@@ -2226,9 +2266,11 @@
       `<section class="comm-sec"><h4 class="soc-h">📊 みんながどのティアに入れたか</h4><div class="comm-dist">${dist}</div>` +
       `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
       extrasHtml(movie, d.extras) +
+      kinHtml(movie, d.kin) +
       commentsHtml(movie, d.comments || []) +
       (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品が好きな人は、こんな作品も好き</h4><div class="comm-also">${also}</div></section>` : "") +
       (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際のティアが集まると入れ替わります。</p>` : "");
+    wireKin(d.kin);
     box.querySelectorAll(".comm-also-add").forEach((b) => b.addEventListener("click", () => {
       const m = d.also[Number(b.dataset.i)];
       const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };

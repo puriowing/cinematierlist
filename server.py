@@ -1605,9 +1605,9 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
-PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic")
-# これまで本人だけのメモとして書かれてきたため、コメントの公開だけは本人が選ぶまでオフ
-PRIVACY_OFF_BY_DEFAULT = {"cmtPublic"}
+PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic", "kinPublic")
+# これまで本人だけのメモ・印として付けてきたため、コメントの公開と「同じ偏愛・思い出の人」への表示は本人が選ぶまでオフ
+PRIVACY_OFF_BY_DEFAULT = {"cmtPublic", "kinPublic"}
 
 
 def _privacy(u):
@@ -1669,6 +1669,54 @@ def _movie_extras(key, exclude_uid=None):
     if n < COMMUNITY_MIN:
         return None
     return {"n": n, "fav": fav, "mem": mem, "where": where, "with": with_}
+
+
+def _find_in_list(obj, key):
+    obj = obj or {}
+    items = [m for t in (obj.get("tiers") or []) for m in (t.get("items") or [])] + list(obj.get("pool") or [])
+    return next((x for x in items if isinstance(x, dict) and _movie_key(x) == key), None)
+
+
+def _has_mem(m):
+    me = m.get("memory") if isinstance(m.get("memory"), dict) else {}
+    return any(me.get(k) for k in ("when", "where", "with", "note", "whereType", "withType"))
+
+
+def _movie_kin(key, uid):
+    """同じ作品を偏愛・思い出登録している人（お互いに「表示する」を選んだ人どうしだけ）。"""
+    users = _load_users()
+    me_u = next((u for u in users.values() if u.get("id") == uid), None) if uid else None
+    if not me_u:
+        return {"status": "need_login", "people": []}
+    if not _privacy(me_u)["kinPublic"]:
+        return {"status": "need_optin", "people": []}
+    mine = _find_in_list(_load_list(uid), key)
+    if not mine or not (mine.get("fav") or _has_mem(mine)):
+        return {"status": "need_mine", "people": []}
+    people = []
+    for u in users.values():
+        if u.get("id") == uid or u.get("community") is False or not _privacy(u)["kinPublic"]:
+            continue
+        m = _find_in_list(_load_list(u["id"]), key)
+        if not m or not (m.get("fav") or _has_mem(m)):
+            continue
+        people.append({"name": _display_name(u), "fav": bool(m.get("fav")), "mem": _has_mem(m),
+                       "share": u.get("share") or ""})
+        if len(people) >= 50:
+            break
+    return {"status": "ok", "people": people}
+
+
+def _demo_kin(key):
+    import random
+    rng = random.Random(hashlib.sha256(("demo-kin:" + key).encode("utf-8")).hexdigest())
+    idx = rng.sample(range(len(DEMO_NAMES)), rng.randint(3, 6))
+    out = []
+    for i in idx:
+        fav = rng.random() < 0.6
+        out.append({"name": DEMO_NAMES[i], "fav": fav, "mem": (not fav) or rng.random() < 0.5,
+                    "share": "demo-%02d" % i if i < DEMO_FRIENDS else "", "demo": True})
+    return out
 
 
 def _demo_extras(key):
@@ -2281,6 +2329,9 @@ class Handler(SimpleHTTPRequestHandler):
         with _data_lock:
             comments = _movie_comments(key, exclude_uid=uid)
             extras = _movie_extras(key, exclude_uid=uid)
+            kin = _movie_kin(key, uid)
+        if kin["status"] == "ok" and not kin["people"] and DEMO_SOCIAL:
+            kin["people"] = _demo_kin(key)
         if not extras and DEMO_SOCIAL:
             extras = _demo_extras(key)
         if not comments and DEMO_SOCIAL:
@@ -2288,7 +2339,7 @@ class Handler(SimpleHTTPRequestHandler):
             demo = True
         res = {"agg": a, "rank": rank, "total": len(avgs) + 1, "also": [x for x in also if x.get("title")],
                "comments": comments, "demo": demo or bool(extras and extras.get("demo")), "min": COMMUNITY_MIN,
-               "extras": _extras_public(extras, self._is_admin()) if extras else None}
+               "extras": _extras_public(extras, self._is_admin()) if extras else None, "kin": kin}
         if not self._is_admin():
             res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
         self._send_private_json(res)

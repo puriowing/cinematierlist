@@ -8295,3 +8295,17 @@ img.movie-poster.is-loaded { opacity: 1; transform: none; }
 .ex-track span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6d4aff, #ff5fa2); }
 .ex-pct { text-align: right; font-weight: 800; }
 @media (max-width: 520px) { .ex-cols { grid-template-columns: 1fr; } }
+
+/* 同じ偏愛・思い出の人 */
+.kin-empty { padding: 12px 14px; border: 1px dashed var(--border); border-radius: 14px; background: var(--bg-elev); }
+.kin-empty p { margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--text-dim); }
+.kin-empty p:last-child { margin-bottom: 0; }
+.kin-list { display: flex; flex-direction: column; gap: 6px; }
+.kin-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elev); }
+.kin-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kin-main b { font-size: 13px; font-weight: 800; }
+.kin-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.kin-tag { padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.kin-fav { background: color-mix(in srgb, #ff5fa2 15%, transparent); color: #d63d84; }
+.kin-mem { background: color-mix(in srgb, #6d4aff 13%, transparent); color: #5a3be0; }
+.kin-cmp { flex: 0 0 auto; }
