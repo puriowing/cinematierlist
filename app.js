@@ -850,7 +850,11 @@
       // タイトルのフォールバックにする。
       img.crossOrigin = "anonymous";
       img.decoding = "async";
-      img.addEventListener("load", () => img.classList.add("is-loaded"));
+      // 一斉に出ず、少しずつずれてふわっと浮かび上がるようにする
+      img.addEventListener("load", () => {
+        img.style.setProperty("--pd", Math.round(Math.random() * 180) + "ms");
+        requestAnimationFrame(() => img.classList.add("is-loaded"));
+      });
       let retries = 0;
       img.addEventListener("error", () => {
         const src = img.getAttribute("src") || "";
