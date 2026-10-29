@@ -573,11 +573,6 @@
     document.body.classList.toggle("theme-studio", isStudio);
     document.body.classList.toggle("theme-pop", settings.theme === "pop");
     document.documentElement.setAttribute("data-theme", settings.theme || "studio");
-    const quiet = settings.quiet !== false;
-    document.body.classList.toggle("design-quiet", quiet);
-    document.documentElement.toggleAttribute("data-quiet", quiet);
-    const qc = document.getElementById("quietCheck");
-    if (qc) qc.checked = quiet;
     const sel = document.getElementById("themeSelect");
     if (sel) sel.value = settings.theme === "pop" ? "pop" : isStudio ? "studio" : "classic";
   }
@@ -645,7 +640,8 @@
       zone.dataset.zone = tier.id;
       if (tier.collapsed) {
         zone.className = "tier-dropzone collapsed-zone";
-        zone.textContent = `${tier.items.length} 本（折りたたみ中）`;
+        zone.textContent = `${tier.items.length} 本（折りたたみ中・タップで開く）`;
+        zone.addEventListener("click", () => { tier.collapsed = false; render(); });
       } else {
         zone.className = "tier-dropzone";
         renderZoneInto(zone, tier.items, tier.id);
@@ -761,7 +757,8 @@
     zone.dataset.zone = "watchlist";
     if (collapsed) {
       zone.className = "tier-dropzone collapsed-zone";
-      zone.textContent = `${wl.length} 本（折りたたみ中）`;
+      zone.textContent = `${wl.length} 本（折りたたみ中・タップで開く）`;
+      zone.addEventListener("click", () => { state.watchlistCollapsed = false; render(); });
     } else {
       zone.className = "tier-dropzone";
       if (!wl.length) {
@@ -10680,13 +10677,6 @@
 
     // compact display toggle (設定に集約)
     applyCompact();
-    document.getElementById("quietCheck").addEventListener("change", (e) => {
-      settings.quiet = e.target.checked;
-      saveSettings();
-      applyTheme();
-      renderMyStatus();
-      toast(e.target.checked ? "落ち着いたデザインにしました" : "以前のデザインに戻しました");
-    });
     document.getElementById("compactCheck").addEventListener("change", (e) => {
       settings.compact = e.target.checked;
       saveSettings();
@@ -11067,7 +11057,7 @@
       : "ログインすると、ほかの端末でも同じリストを使えます");
     sum("mpProfileSum", name ? `表示名：${name}` : "表示名・生まれた年など");
     const themeName = { studio: "スタジオ", pop: "ポップ", classic: "クラシック" }[settings.theme] || "ポップ";
-    sum("mpDisplaySum", `デザイン：${settings.quiet !== false ? "落ち着いた配色" : themeName}${settings.compact ? "・コンパクト表示" : ""}`);
+    sum("mpDisplaySum", `デザイン：${themeName}${settings.compact ? "・コンパクト表示" : ""}`);
     const backups = loadBackups();
     sum("mpHistorySum", backups.length ? `最後の記録：${friendlyTime(backups[backups.length - 1].ts)}（${backups.length}件）` : "まだ記録はありません");
   }

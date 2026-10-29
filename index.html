@@ -19,21 +19,19 @@
   <!-- 更新時に一瞬黒くならないよう、テーマの背景色を最初に決めておく -->
   <script>
     (function () {
-      var t = "studio", q = true;
-      try { var s = JSON.parse(localStorage.getItem("movieTierList.settings.v1") || "null"); if (s && s.theme) t = s.theme; if (s && s.quiet === false) q = false; } catch (e) {}
+      var t = "studio";
+      try { var s = JSON.parse(localStorage.getItem("movieTierList.settings.v1") || "null"); if (s && s.theme) t = s.theme; } catch (e) {}
       document.documentElement.setAttribute("data-theme", t);
-      if (q) document.documentElement.setAttribute("data-quiet", "1");
     })();
   </script>
   <style>
     html { background: #ece6da; }
     html[data-theme="pop"] { background: #f6f5fb; }
     html[data-theme="classic"] { background: #0f1115; }
-    html[data-quiet] { background: #f3f0e9; }
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261029qt3" />
+  <link rel="stylesheet" href="styles.css?v=20261030rv" />
 </head>
 <body>
   <script>
@@ -41,7 +39,6 @@
       var t = document.documentElement.getAttribute("data-theme");
       if (t !== "classic") document.body.classList.add("theme-studio");
       if (t === "pop") document.body.classList.add("theme-pop");
-      if (document.documentElement.hasAttribute("data-quiet")) document.body.classList.add("design-quiet");
       try { if (sessionStorage.getItem("tiari-fadein")) { sessionStorage.removeItem("tiari-fadein"); document.body.classList.add("page-enter"); } } catch (e) {}
     })();
   </script>
@@ -427,10 +424,6 @@
                 <option value="pop">ポップ（明るく丸いデザイン）</option>
                 <option value="classic">クラシック（従来・行型）</option>
               </select>
-            </label>
-            <label class="pv-row mp-switch-row">
-              <span class="pv-label">落ち着いたデザイン<small>オフにすると、以前の色あざやかなデザインに戻ります</small></span>
-              <input id="quietCheck" type="checkbox" class="pv-switch" />
             </label>
             <label class="pv-row mp-switch-row">
               <span class="pv-label">コンパクト表示<small>ポスターを小さくして一覧性を上げる</small></span>
@@ -1028,6 +1021,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261029qt"></script>
+  <script src="app.js?v=20261030rv"></script>
 </body>
 </html>
