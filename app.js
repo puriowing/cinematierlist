@@ -2821,7 +2821,7 @@
           const t = titles[i];
           let results = [];
           try { results = await searchFilmarks(t.title, (col && col.media) || "", true); } catch (e) {}
-          const m = pickPosterMatch(results, t.title, t.year) || results[0];
+          const m = pickPosterMatch(results, t.title, t.year);
           out[i] = m
             ? { title: m.title || t.title, year: t.year || m.year || "", poster: m.poster || "", filmarksId: m.filmarksId, media: m.media || "" }
             : { title: t.title, year: t.year || "", poster: "", media: (col && col.media) || "" };
@@ -3204,6 +3204,9 @@
 
   function openMovieInfo(movie) {
     infoMovieId = movie.id;
+    infoPicked = null;
+    const cands = document.getElementById("infoPosterCands");
+    if (cands) { cands.classList.add("hidden"); cands.innerHTML = ""; }
     infoPosterData = null;
     const $ = (id) => document.getElementById(id);
     $("infoTitle").value = movie.title || "";
@@ -3354,6 +3357,11 @@
     const url = $("infoPosterUrl").value.trim();
     if (infoPosterData) m.poster = infoPosterData;
     else if (url) m.poster = url;
+    if (infoPicked && url === infoPicked.poster && infoPicked.filmarksId) {
+      m.filmarksId = infoPicked.filmarksId; // 選んだ作品に紐付け直す（以後の作品情報もこちらで取得）
+      if (!m.year && infoPicked.year) m.year = infoPicked.year;
+    }
+    infoPicked = null;
 
     closeModal("movieInfoModal");
     infoMovieId = null;
@@ -5309,23 +5317,31 @@
   }
 
   // 検索結果から、そのタイトルに最も合うポスター候補を選ぶ（誤補完を避けるため一定以上一致が必要）
+  // タイトル・年の照合。別作品のポスターを付けないよう、迷うときは「見つからない」とする
   function pickPosterMatch(candidates, title, year) {
     const nt = normTitle(title);
+    const y = parseInt(year, 10) || 0;
     let best = null;
     let bestScore = 0;
     for (const c of candidates) {
       if (!c.poster) continue;
       const nc = normTitle(c.title);
+      if (!nc || !nt) continue;
       let score = 0;
       if (nc === nt) score = 100;
-      else if (nc && (nc.includes(nt) || nt.includes(nc))) score = 60;
-      if (year && c.year && String(c.year) === String(year)) score += 20;
+      else if (nc.includes(nt) || nt.includes(nc)) {
+        // 「セブン」と「セブン・イヤーズ・イン・チベット」のような短い一致は採らない
+        const ratio = Math.min(nc.length, nt.length) / Math.max(nc.length, nt.length);
+        score = ratio >= 0.7 ? 80 : 50;
+      }
+      const cy = parseInt(c.year, 10) || 0;
+      if (y && cy) score += Math.abs(cy - y) <= 1 ? 20 : -40; // 同名のリメイク・別作品を避ける
       if (score > bestScore) {
         bestScore = score;
         best = c;
       }
     }
-    return bestScore >= 60 ? best : null;
+    return bestScore >= 80 ? best : null;
   }
 
   // 旧ソース（映画.com / TMDB）のポスターは Filmarks のものへ差し替える。
@@ -7995,8 +8011,7 @@
           if (e.message === "NO_SERVER") { serverDown = true; return; }
         }
         if (ctx.col !== col) return;
-        let m = pickPosterMatch(results, title, year);
-        if (!m && results[0]) m = results[0];
+        const m = pickPosterMatch(results, title, year);
         // 年が指定されている作品（受賞作リストなど）は、日本公開年やリメイク版に
         // 引きずられないよう、指定された製作年を優先して表示する
         found[i] = m
@@ -10522,8 +10537,36 @@
     });
   }
 
+  // 作品情報：タイトルで検索して、正しいポスターを選び直す
+  let infoPicked = null;
+  async function openPosterPicker() {
+    const m = (findMovie(infoMovieId) || {}).movie;
+    const box = document.getElementById("infoPosterCands");
+    if (!m || !box) return;
+    box.classList.remove("hidden");
+    box.innerHTML = "";
+    showLoading(box, `「${m.title}」のポスターを探しています…`);
+    let results = [];
+    try { results = await searchFilmarks(m.title, m.media || ""); } catch (e) {}
+    clearLoading(box);
+    results = results.filter((r) => r.poster).slice(0, 18);
+    if (!results.length) { box.innerHTML = `<p class="soc-note">候補が見つかりませんでした。画像のアップロードかURLで設定できます。</p>`; return; }
+    box.innerHTML = `<p class="pv-note">正しいポスターを押して選び、「保存」で確定します。</p><div class="pp-grid">` +
+      results.map((r, i) => `<button type="button" class="pp-item" data-i="${i}"><img src="${escapeHtml(r.poster)}" alt="" loading="lazy" />` +
+        `<span>${escapeHtml(r.title)}</span><small>${escapeHtml(String(r.year || ""))}</small></button>`).join("") + `</div>`;
+    box.querySelectorAll(".pp-item").forEach((b) => b.addEventListener("click", () => {
+      const r = results[Number(b.dataset.i)];
+      infoPicked = r;
+      infoPosterData = null;
+      document.getElementById("infoPosterUrl").value = r.poster;
+      setInfoPreview(r.poster);
+      box.querySelectorAll(".pp-item").forEach((x) => x.classList.toggle("is-on", x === b));
+    }));
+  }
+
   // 作品情報エディタのポスターアップロード・保存を配線
   function wireMovieInfo() {
+    document.getElementById("infoPosterPickBtn").addEventListener("click", openPosterPicker);
     const urlInput = document.getElementById("infoPosterUrl");
     const fileInput = document.getElementById("infoPosterFile");
     urlInput.addEventListener("input", () => {
@@ -11132,7 +11175,7 @@
     const found = await Promise.all(batch.map(async ([title, year]) => {
       try {
         const results = await searchFilmarks(title);
-        const m = pickPosterMatch(results, title, String(year)) || results[0];
+        const m = pickPosterMatch(results, title, String(year));
         return m ? { title: m.title || title, year: String(year), poster: m.poster || "", filmarksId: m.filmarksId } : null;
       } catch (e) { return null; }
     }));
