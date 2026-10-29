@@ -4392,8 +4392,8 @@
     tagTarget = movie;
     document.getElementById("tagMovieTitle").textContent = movie.title || "";
     document.getElementById("tagNewInput").value = "";
-    renderTagChips();
     openModal("tagModal");
+    loadCommunityTags(movie);
   }
 
   function setMovieTags(movie, tags) {
@@ -4401,22 +4401,47 @@
     render();
   }
 
+  let communityTags = null; // { popular, forMovie, demo }（タグ画面を開くたびに取り直す）
+
   function renderTagChips() {
     const box = document.getElementById("tagChips");
     const m = tagTarget;
     if (!box || !m) return;
     const cur = new Set(m.userThemes || []);
-    const names = [...new Set([...allUserThemeNames(), ...cur])].sort((a, b) => a.localeCompare(b, "ja"));
-    if (!names.length) { box.innerHTML = `<p class="tag-chips-empty">まだタグはありません。下の欄から作れます。</p>`; return; }
-    box.innerHTML = names.map((t) =>
-      `<button type="button" class="tag-chip${cur.has(t) ? " is-on" : ""}" data-tag="${escapeHtml(t)}">${cur.has(t) ? "✓ " : "＋ "}${escapeHtml(t)}</button>`
-    ).join("");
+    const chip = (t) =>
+      `<button type="button" class="tag-chip${cur.has(t) ? " is-on" : ""}" data-tag="${escapeHtml(t)}">${cur.has(t) ? "✓ " : "＋ "}${escapeHtml(t)}</button>`;
+    const mineNames = [...new Set([...allUserThemeNames(), ...cur])].filter((t) => !t.startsWith("📣")).sort((a, b) => a.localeCompare(b, "ja"));
+    const used = new Set(mineNames);
+    const ct = communityTags || { popular: [], forMovie: [] };
+    const forMovie = ct.forMovie.filter((t) => !used.has(t));
+    forMovie.forEach((t) => used.add(t));
+    const popular = ct.popular.filter((t) => !used.has(t));
+    const group = (title, list, empty) =>
+      `<div class="tag-group"><p class="tag-group-h">${title}</p>` +
+      (list.length ? `<div class="tag-chips">${list.map(chip).join("")}</div>` : `<p class="tag-chips-empty">${empty}</p>`) + `</div>`;
+    box.innerHTML =
+      group("あなたのタグ", mineNames, "まだありません。下の欄や、みんなのタグから作れます。") +
+      (communityTags === null
+        ? `<p class="tag-chips-empty">みんなのタグを読み込み中…</p>`
+        : (forMovie.length ? group("🎬 この作品によく付けられているタグ", forMovie, "") : "") +
+          (popular.length ? group("🌐 みんながよく使うタグ", popular, "") : "") +
+          (ct.demo ? `<p class="soc-demo-note">※ デモ表示（仮のタグ）を含みます。</p>` : ""));
     box.querySelectorAll(".tag-chip").forEach((b) => b.addEventListener("click", () => {
       const tags = m.userThemes || [];
       const t = b.dataset.tag;
       setMovieTags(m, tags.includes(t) ? tags.filter((v) => v !== t) : [...tags, t]);
       renderTagChips();
     }));
+  }
+
+  async function loadCommunityTags(movie) {
+    communityTags = null;
+    renderTagChips();
+    let r = null;
+    try { r = await apiJSON("/api/community/tags?key=" + encodeURIComponent(movieKey(movie) || "")); } catch (e) {}
+    if (tagTarget !== movie) return;
+    communityTags = r && r.ok ? r.data : { popular: [], forMovie: [] };
+    renderTagChips();
   }
 
   function wireTagModal() {

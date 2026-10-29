@@ -1777,6 +1777,44 @@ def _extras_public(x, admin):
     return out
 
 
+DEMO_TAGS = ["泣ける", "人生ベスト", "何度も観たい", "映像美", "音楽が最高", "伏線回収", "元気が出る",
+             "考察したくなる", "デート向け", "家族で観たい", "雨の日に観たい", "劇場で観たい", "心に残るセリフ", "ラストが衝撃"]
+
+
+def _community_tags(key, exclude_uid=None):
+    """みんながよく使うタグと、この作品によく付けられているタグ（3人以上が使っているものだけ・匿名）。"""
+    users_by_tag, movie_tag = {}, {}
+    for u in _load_users().values():
+        if u.get("id") == exclude_uid or u.get("community") is False:
+            continue
+        obj = _load_list(u["id"]) or {}
+        items = [m for t in (obj.get("tiers") or []) for m in (t.get("items") or [])] + list(obj.get("pool") or [])
+        seen = set()
+        for m in items:
+            if not isinstance(m, dict):
+                continue
+            for t in (m.get("userThemes") or []):
+                t = _s(t, 30).strip()
+                if not t or t.startswith("📣"):
+                    continue
+                if t not in seen:
+                    seen.add(t)
+                    users_by_tag[t] = users_by_tag.get(t, 0) + 1
+                if key and _movie_key(m) == key:
+                    movie_tag[t] = movie_tag.get(t, 0) + 1
+    popular = sorted((t for t, n in users_by_tag.items() if n >= COMMUNITY_MIN), key=lambda t: -users_by_tag[t])[:30]
+    for_movie = sorted((t for t, n in movie_tag.items() if n >= COMMUNITY_MIN), key=lambda t: -movie_tag[t])[:12]
+    demo = False
+    if DEMO_SOCIAL and len(popular) < 8:
+        import random
+        rng = random.Random(hashlib.sha256(("demo-tags:" + (key or "")).encode("utf-8")).hexdigest())
+        popular += [t for t in DEMO_TAGS if t not in popular]
+        if not for_movie:
+            for_movie = rng.sample(DEMO_TAGS, 4)
+        demo = True
+    return {"popular": popular[:30], "forMovie": for_movie, "demo": demo}
+
+
 def _movie_comments(key, exclude_uid=None, limit=30):
     """コメントの公開を選んだ利用者の、この作品へのコメント（評価つき）。"""
     out = []
@@ -2616,6 +2654,14 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/demo":
             self._h_demo()
+            return
+        if parsed.path == "/api/community/tags":
+            params = urllib.parse.parse_qs(parsed.query)
+            key = (params.get("key") or [""])[0][:300]
+            uid = self._current_uid()
+            with _data_lock:
+                res = _community_tags(key, exclude_uid=uid)
+            self._send_private_json(res)
             return
         if parsed.path == "/api/community/top":
             params = urllib.parse.parse_qs(parsed.query)
