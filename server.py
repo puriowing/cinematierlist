@@ -2820,6 +2820,19 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
             return
+        if parsed.path == "/api/filmarks/award_members":
+            # 受賞作の一覧（登録本数の集計用）。各賞の全ページをまとめて返す（ページは1日キャッシュ）
+            params = urllib.parse.parse_qs(parsed.query)
+            paths = [p for p in (params.get("paths") or [""])[0].split(",") if re.fullmatch(r"\d+(/\d+)?", p)][:30]
+            members = {}
+            for p in paths:
+                try:
+                    res, _ = filmarks_award(p, 1, 8)
+                    members[p] = [{"id": r["id"], "title": r["title"]} for r in res]
+                except Exception:  # noqa: BLE001
+                    members[p] = []
+            self._send_json({"members": members})
+            return
         if parsed.path == "/api/filmarks/award":
             params = urllib.parse.parse_qs(parsed.query)
             path = (params.get("path") or [""])[0].strip()

@@ -7813,10 +7813,45 @@
     return _collMap;
   }
 
-  // その作品が属するコレクション名の一覧（タイトル一致＋コレクション追加時のタグ）
+  // Filmarks から取る映画賞（受賞作の一覧をアプリ内に持たないもの）の受賞作。端末に7日間保存する
+  const AWARD_MEMBERS_KEY = "tiari-award-members-v1";
+  let awardById = new Map(), awardByTitle = new Map();
+  function buildAwardMaps(members) {
+    awardById = new Map();
+    awardByTitle = new Map();
+    AWARDS.filter((a) => a.fmAward).forEach((a) => {
+      (members[a.fmAward] || []).forEach((m) => {
+        const add = (map, k) => { if (!k) return; if (!map.has(k)) map.set(k, []); if (!map.get(k).includes(a.label)) map.get(k).push(a.label); };
+        add(awardById, String(m.id));
+        add(awardByTitle, normTitle(m.title));
+      });
+    });
+  }
+  async function loadAwardMembers() {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(AWARD_MEMBERS_KEY) || "null"); } catch (e) {}
+    if (cached && cached.members) buildAwardMaps(cached.members);
+    if (cached && Date.now() - cached.t < 7 * 86400000) return;
+    const paths = AWARDS.filter((a) => a.fmAward).map((a) => a.fmAward).join(",");
+    try {
+      const res = await fetch("/api/filmarks/award_members?paths=" + encodeURIComponent(paths));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.members) return;
+      try { localStorage.setItem(AWARD_MEMBERS_KEY, JSON.stringify({ t: Date.now(), members: data.members })); } catch (e) {}
+      buildAwardMaps(data.members);
+      render();
+      refreshPickers();
+    } catch (e) {}
+  }
+
+  // その作品が属するコレクション名の一覧（タイトル一致＋コレクション追加時のタグ＋映画賞の受賞作）
   function movieCollections(movie) {
     const set = new Set(collMap().get((movie.media || "movie") + "|" + normTitle(movie.title)) || []);
     if (movie.collection) set.add(movie.collection);
+    if ((movie.media || "movie") === "movie") {
+      (awardById.get(String(movie.filmarksId || "")) || awardByTitle.get(normTitle(movie.title)) || []).forEach((l) => set.add(l));
+    }
     return [...set];
   }
 
@@ -11618,7 +11653,8 @@
     .then(() => { try { handleChallengeLink(); } catch (e) {} })
     .then(() => { try { handleTimelineLink(); } catch (e) {} })
     .catch(() => {})
-    .then(() => setTimeout(() => { try { maybeShowNudge(); } catch (e) {} }, 1200));
+    .then(() => setTimeout(() => { try { maybeShowNudge(); } catch (e) {} }, 1200))
+    .then(() => setTimeout(() => { try { loadAwardMembers(); } catch (e) {} }, 2500));
 
   // PWA: Service Worker を登録（HTTPS または localhost のみ有効）。
   // オフラインでも直近の画面を開けるようにし、ホーム画面追加でアプリ化できる。
