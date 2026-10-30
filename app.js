@@ -5226,17 +5226,30 @@
     const modal = wrap.closest(".modal");
     let drag = null;
 
+    // 持ち上げた行の「写し」を指に追従させ、元の行は空き枠として並びの中を移動させる。
+    // ほかの行は動かさない（作品数が多いiPhoneでも重くならないように）
     const begin = (row, y) => {
       const rows = [...wrap.querySelectorAll(".rank-row")];
       const index = rows.indexOf(row);
       if (index < 0) return;
-      const tops = rows.map((r) => r.offsetTop);
-      const heights = rows.map((r) => r.offsetHeight);
-      const step = rows.length > 1 ? tops[1] - tops[0] : heights[index] + 8;
-      drag = { row, rows, index, to: index, tops, heights, step, startY: y, y, startScroll: modal ? modal.scrollTop : 0, raf: 0 };
-      drag.scroll = drag.startScroll;
-      row.classList.add("rank-lifting");
+      const wrapTop = wrap.getBoundingClientRect().top;
+      const rects = rows.map((r) => r.getBoundingClientRect());
+      const rect = rects[index];
+      const step = rows.length > 1 ? (index + 1 < rows.length ? rects[index + 1].top - rect.top : rect.top - rects[index - 1].top) : rect.height + 8;
+      const others = rows.filter((r) => r !== row);
+      // 持ち上げた行が抜けたときの、ほかの行の上端（一覧の中での位置）
+      const slots = rects.filter((_, i) => i !== index).map((r, j) => r.top - wrapTop - (j >= index ? step : 0));
+      const ghost = row.cloneNode(true);
+      ghost.classList.add("rank-ghost");
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;margin:0;z-index:2147483000;pointer-events:none;`;
+      wrap.appendChild(ghost);
+      const gr = ghost.getBoundingClientRect();
+      const fix = { x: rect.left - gr.left, y: rect.top - gr.top };
+      if (fix.x || fix.y) { ghost.style.left = rect.left + fix.x + "px"; ghost.style.top = rect.top + fix.y + "px"; }
+      row.classList.add("rank-placeholder");
       wrap.classList.add("rank-dragging");
+      drag = { row, ghost, others, slots, index, to: index, rowTop: rect.top - wrapTop, step, startY: y, y, startScroll: modal ? modal.scrollTop : 0, raf: 0 };
+      drag.scroll = drag.startScroll;
       haptic(12);
       drag.raf = requestAnimationFrame(frame);
     };
@@ -5255,27 +5268,19 @@
       drag.raf = requestAnimationFrame(frame);
     };
 
-    // 指・マウスの位置に合わせて、持ち上げた行とほかの行の位置を決める（動くたびにすぐ反映）
     const apply = () => {
       if (!drag) return;
-      const { row, rows, index, tops, heights, step } = drag;
-      const dy = drag.y - drag.startY + (drag.scroll - drag.startScroll);
-      row.style.transform = `translate3d(0, ${dy}px, 0)`;
-      // 持ち上げた行の中心が、どの行の位置に来たかで行き先を決める
-      const center = tops[index] + heights[index] / 2 + dy;
+      const { ghost, others, slots, step } = drag;
+      ghost.style.transform = `translate3d(0, ${drag.y - drag.startY}px, 0)`;
+      // 写しの上端が、一覧のどの位置に来たかで行き先を決める
+      const top = drag.rowTop + (drag.y - drag.startY) + (drag.scroll - drag.startScroll);
       let to = 0;
-      for (let i = 0; i < rows.length; i++) {
-        if (i === index) continue;
-        if (center > tops[i] + heights[i] / 2) to++;
-      }
+      while (to < slots.length && slots[to] + step / 2 < top) to++;
       if (to !== drag.to) {
         drag.to = to;
-        rows.forEach((r, i) => {
-          if (i === index) return;
-          const shift = index < to && i > index && i <= to ? -step : to < index && i >= to && i < index ? step : 0;
-          r.style.transform = shift ? `translate3d(0, ${shift}px, 0)` : "";
-        });
-        const badge = row.querySelector(".rank-badge");
+        if (to >= others.length) others[others.length - 1].after(drag.row);
+        else others[to].before(drag.row);
+        const badge = ghost.querySelector(".rank-badge");
         if (badge) badge.textContent = String(to + 1);
       }
     };
@@ -5283,17 +5288,14 @@
     const finish = () => {
       if (!drag) return;
       cancelAnimationFrame(drag.raf);
-      const { row, rows, index, to } = drag;
+      const { row, ghost, index, to } = drag;
       drag = null;
-      rows.forEach((r) => { r.style.transform = ""; });
-      row.classList.remove("rank-lifting");
+      ghost.remove();
+      row.classList.remove("rank-placeholder");
       wrap.classList.remove("rank-dragging");
       if (to !== index) {
         const id = rankOrder.splice(index, 1)[0];
         rankOrder.splice(to, 0, id);
-        const others = rows.filter((r) => r !== row);
-        if (to >= others.length) others[others.length - 1].after(row);
-        else others[to].before(row);
         refreshRankBadges(wrap);
         row.classList.remove("just-moved");
         void row.offsetWidth;

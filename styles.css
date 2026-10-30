@@ -8622,3 +8622,9 @@ img.movie-poster.no-fade { transition: none !important; }
 
 /* ランキングの一覧は小さな枠の中でスクロールさせず、ポップアップ全体でスクロール（ドラッグで端まで運べるように） */
 #rankingList.ranking-list { max-height: none; overflow: visible; }
+
+/* ドラッグ中：元の行は空き枠、指についてくるのは写し */
+#rankingList .rank-row.rank-placeholder { opacity: 0.35; border-style: dashed; border-color: var(--accent); }
+#rankingList .rank-row.rank-ghost { border-color: var(--accent); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22); will-change: transform; transition: none !important; animation: none !important; }
+/* 作品数が多くても開くのが速いように、画面の外の行は描かない */
+#rankingList .rank-row:not(.rank-ghost) { content-visibility: auto; contain-intrinsic-size: auto 66px; }
