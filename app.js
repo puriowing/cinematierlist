@@ -5823,6 +5823,7 @@
   }
 
   function refreshAddCounts() {
+    refreshPickers();
     refreshChipCounts("genreList", "genre", GENRES, "movie");
     refreshChipCounts("collectionList", "collection", COLLECTIONS, collectionMedia);
     refreshChipCounts("awardList", "award", AWARDS, "movie");
@@ -5840,6 +5841,108 @@
       const n = registeredCount(type, base, media);
       o.textContent = n ? `${base}（登録 ${n}本）` : base;
     });
+  }
+
+  // =======================================================================
+  // 作品追加の選び方を「テーマで絞り込み」と同じ一覧形式に（検索欄＋名前＋登録本数）
+  //   選ぶと一覧を1行にたたみ、すぐ下に作品が出る。「変更」で一覧に戻る。
+  // =======================================================================
+  const pickers = {};
+  function mountPicker(id, opts) {
+    const box = document.getElementById(id);
+    if (!box) return null;
+    const p = { box, opts, chosen: null, q: "" };
+    p.render = () => {
+      const items = opts.items();
+      const chosenItem = items.find((it) => it.value === p.chosen);
+      if (chosenItem) {
+        box.innerHTML = `<div class="ap-chosen"><span class="ap-chosen-label">${escapeHtml(opts.title)}：<b>${escapeHtml(chosenItem.label)}</b>` +
+          (chosenItem.count ? `<span class="opt-count">${chosenItem.count}</span>` : "") + `</span>` +
+          `<button type="button" class="btn btn-ghost btn-sm ap-change">変更</button></div>`;
+        box.querySelector(".ap-change").addEventListener("click", () => { p.chosen = null; p.render(); });
+        return;
+      }
+      const q = p.q.trim();
+      const list = items.filter((it) => !q || it.label.includes(q));
+      box.innerHTML =
+        `<input class="theme-search ap-search" type="text" placeholder="${escapeHtml(opts.placeholder)}" value="${escapeHtml(p.q)}" />` +
+        `<div class="ap-list">` +
+        (list.length ? list.map((it) =>
+          `<button type="button" class="theme-option" data-value="${escapeHtml(it.value)}">` +
+          `<span class="opt-label">${escapeHtml(it.label)}</span>` +
+          (it.count ? `<span class="opt-count">${it.count}</span>` : "") + `</button>`).join("")
+          : `<div class="theme-empty">該当なし</div>`) +
+        `</div>`;
+      const input = box.querySelector(".ap-search");
+      input.addEventListener("input", () => {
+        p.q = input.value;
+        const pos = input.selectionStart;
+        p.render();
+        const again = box.querySelector(".ap-search");
+        if (again) { again.focus(); again.setSelectionRange(pos, pos); }
+      });
+      box.querySelectorAll(".theme-option").forEach((b) => b.addEventListener("click", () => {
+        p.chosen = b.dataset.value;
+        p.render();
+        opts.onPick(b.dataset.value);
+      }));
+    };
+    p.reset = () => { p.chosen = null; p.q = ""; p.render(); };
+    pickers[id] = p;
+    p.render();
+    return p;
+  }
+
+  function initAddPickers() {
+    mountPicker("recallPicker", {
+      title: "公開年", placeholder: "年で絞り込み（例: 2019）",
+      items: () => {
+        const c = registeredYearCounts("movie");
+        const curY = new Date().getFullYear();
+        return Array.from({ length: curY - 1929 }, (_, i) => curY - i).map((y) => ({ value: String(y), label: `${y}年`, count: c.get(y) || 0 }));
+      },
+      onPick: (v) => {
+        initRecallUI();
+        document.getElementById("recallYear").value = v;
+        loadRecall();
+      },
+    });
+    mountPicker("genrePicker", {
+      title: "ジャンル", placeholder: "ジャンル名で絞り込み",
+      items: () => GENRES.map((g) => ({ value: g.id, label: g.label, count: registeredCount("genre", g.label, "movie") })),
+      onPick: (v) => fmLoad(genreCtrl, GENRES.find((g) => g.id === v)),
+    });
+    mountPicker("awardPicker", {
+      title: "映画賞・映画祭", placeholder: "賞の名前で絞り込み",
+      items: () => AWARDS.map((a) => ({ value: a.id, label: a.label, count: registeredCount("award", a.label, "movie") })),
+      onPick: (v) => loadAward(AWARDS.find((a) => a.id === v)),
+    });
+    mountPicker("collectionPicker", {
+      title: "コレクション", placeholder: "コレクション名で絞り込み（例: ジブリ, マーベル, 007）",
+      items: () => COLLECTIONS.filter((c) => (c.media || "movie") === collectionMedia)
+        .map((c) => ({ value: c.id, label: c.label, count: registeredCount("collection", c.label, collectionMedia) })),
+      onPick: (v) => loadCollection(COLLECTIONS.find((c) => c.id === v), COLLECTION_CTX),
+    });
+    mountPicker("seriesPicker", {
+      title: "", placeholder: "絞り込み",
+      items: () => {
+        const mode = SERIES_TAB_MODE[currentAddTab];
+        const opts = seriesValueOptions(mode);
+        const yc = mode === "year" ? registeredYearCounts(addMedia) : null;
+        return opts.map(([v, l]) => ({ value: v, label: l,
+          count: yc ? (yc.get(parseInt(v, 10)) || 0) : mode === "genre" ? registeredCount("genre", l, addMedia) : 0 }));
+      },
+      onPick: (v) => {
+        const mode = SERIES_TAB_MODE[currentAddTab];
+        const sel = document.getElementById("seriesValue");
+        sel.value = v;
+        loadSeries(mode, v);
+      },
+    });
+  }
+
+  function refreshPickers() {
+    Object.values(pickers).forEach((p) => p.render());
   }
 
   // 年の選択肢に、その年の作品をすでに何本登録しているかを添える（映画／ドラマ／アニメ別）
@@ -6098,6 +6201,16 @@
     }
     if (mode === "year") labelYearOptions(sel, addMedia);
     if (mode === "genre") labelSelectCounts(sel, "genre", addMedia);
+    const sp = pickers.seriesPicker;
+    if (sp) {
+      sp.box.classList.toggle("hidden", !opts.length);
+      sp.opts.title = pickWord;
+      sp.opts.placeholder = `${pickWord}で絞り込み`;
+      const prev = seriesSessions[addMedia + ":" + mode];
+      sp.chosen = prev ? prev.value : null;
+      sp.q = "";
+      sp.render();
+    }
     const key = addMedia + ":" + mode;
     const s = seriesSessions[key];
     if (s) {
@@ -6115,7 +6228,7 @@
       // 年・ジャンル・国は、選ばれるまで取得を始めない
       sel.value = "";
       renderSeriesGrid(null);
-      document.getElementById("seriesStatus").textContent = `上の欄で${pickWord}を選ぶと、${label}を表示します。`;
+      document.getElementById("seriesStatus").textContent = "";
       return;
     }
     loadSeries(mode, sel.value);
@@ -6252,6 +6365,7 @@
     document.getElementById("filmGrid").innerHTML = "";
     personPicked.clear();
     collectionMedia = media;
+    if (pickers.collectionPicker) pickers.collectionPicker.reset();
     const cur = document.querySelector(`#addMovieModal .tab[data-tab="${currentAddTab}"]`);
     switchTab(cur && cur.style.display !== "none" ? currentAddTab : "search");
   }
@@ -10455,6 +10569,7 @@
       actions.style.display = panel === t && hasCards ? "flex" : "none";
     });
     if (series) { openSeriesPanel(name); return; }
+    refreshPickers();
     if (name === "recall") initRecallUI();
     else if (name === "collection") initCollectionUI();
     else if (name === "genre") initGenreUI();
@@ -10834,6 +10949,7 @@
     wireMyPageFolds();
     wireTouchGestures();
     wireTagModal();
+    initAddPickers();
     // 検索欄にブラウザのログイン情報（メールアドレス）が自動入力されないようにする
     document.querySelectorAll('input[type="search"]').forEach((i) => {
       i.setAttribute("autocomplete", "off");

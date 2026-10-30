@@ -31,7 +31,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030sr2" />
+  <link rel="stylesheet" href="styles.css?v=20261030pk3" />
 </head>
 <body>
   <script>
@@ -206,9 +206,10 @@
           <input id="seriesSearchInput" type="text" />
           <button id="seriesSearchBtn" class="btn btn-primary">検索</button>
         </div>
-        <div class="cal-controls" id="seriesPickRow" style="display:none">
+        <div class="cal-controls hidden" id="seriesPickRow" style="display:none">
           <select id="seriesValue" aria-label="絞り込み"></select>
         </div>
+        <div id="seriesPicker" class="add-picker hidden"></div>
         <p id="seriesStatus" class="search-status"></p>
         <div id="seriesGrid" class="search-results"></div>
         <div id="seriesMoreWrap" class="recall-more" style="display:none">
@@ -221,10 +222,11 @@
         <p class="hint" style="margin-top:0">
           公開年を選ぶと、その年に日本で公開された作品を話題作から順に一覧表示します。観た作品をタップして選び、まとめて追加できます。リバイバル上映はオリジナルの公開年で扱います。「もっと見る」でさらに続きを読み込めます。
         </p>
-        <div class="cal-controls">
+        <div class="cal-controls hidden">
           <select id="recallYear" aria-label="公開年"></select>
           <button id="recallShowBtn" class="btn btn-primary">この年の作品を見る</button>
         </div>
+        <div id="recallPicker" class="add-picker"></div>
         <p id="recallStatus" class="search-status"></p>
         <div id="recallGrid" class="search-results"></div>
         <div id="recallMoreWrap" class="recall-more" style="display:none">
@@ -250,14 +252,15 @@
           人気シリーズや名作スタジオの作品を、観たものだけチェックしてまとめて追加できます。
         </p>
 
-        <div class="suggest-head">
+        <div class="suggest-head hidden">
           <span class="suggest-label">おすすめのコレクション</span>
           <button id="collectionShuffleBtn" class="btn btn-ghost btn-sm">🔀 ほかの候補</button>
         </div>
-        <div class="search-row">
+        <div class="search-row hidden">
           <input id="collectionSearchInput" type="text" placeholder="コレクション名で検索（例: ジブリ, マーベル, 007）" />
         </div>
-        <div id="collectionList" class="collection-list"></div>
+        <div id="collectionList" class="collection-list hidden"></div>
+        <div id="collectionPicker" class="add-picker"></div>
         <p id="collectionStatus" class="search-status"></p>
         <div id="collectionGrid" class="search-results"></div>
         <div id="collectionMoreWrap" class="recall-more" style="display:none">
@@ -270,10 +273,8 @@
         <p class="hint" style="margin-top:0">
           ジャンルを選ぶと、その人気作を数百件以上から表示します。観たものだけタップしてまとめて追加できます。
         </p>
-        <div class="suggest-head">
-          <span class="suggest-label">🎬 ジャンルを選ぶ</span>
-        </div>
-        <div id="genreList" class="collection-list"></div>
+        <div id="genreList" class="collection-list hidden"></div>
+        <div id="genrePicker" class="add-picker"></div>
         <p id="genreStatus" class="search-status"></p>
         <div id="genreGrid" class="search-results"></div>
         <div id="genreMoreWrap" class="recall-more" style="display:none">
@@ -286,10 +287,8 @@
         <p class="hint" style="margin-top:0">
           各映画賞・映画祭の受賞作から、観たものだけチェックしてまとめて追加できます。
         </p>
-        <div class="suggest-head">
-          <span class="suggest-label">🏆 映画賞・映画祭を選ぶ</span>
-        </div>
-        <div id="awardList" class="collection-list"></div>
+        <div id="awardList" class="collection-list hidden"></div>
+        <div id="awardPicker" class="add-picker"></div>
         <p id="awardStatus" class="search-status"></p>
         <div id="awardGrid" class="search-results"></div>
         <div id="awardMoreWrap" class="recall-more" style="display:none">
@@ -1021,6 +1020,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261030sr2"></script>
+  <script src="app.js?v=20261030pk2"></script>
 </body>
 </html>
