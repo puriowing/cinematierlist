@@ -11707,7 +11707,8 @@
     document.addEventListener("touchstart", (e) => {
       const m = e.target.closest(".modal-overlay:not(.hidden) .modal");
       if (!m || e.touches.length !== 1 || window.innerWidth > 768) { sheet = null; return; }
-      if (e.target.closest("input, textarea, select, .tl-switch, [data-no-swipe]")) { sheet = null; return; }
+      // 入力欄や、中で並べ替えをする一覧（ランキングなど）では、シートを引いて閉じる動きをしない
+      if (e.target.closest("input, textarea, select, .tl-switch, [data-no-swipe], .rank-row, #rankingList")) { sheet = null; return; }
       const inHeader = !!e.target.closest(".modal-header");
       if (!inHeader && m.scrollTop > 0) { sheet = null; return; }
       // 横スクロール中の領域や、内側でスクロールしている領域では反応しない
