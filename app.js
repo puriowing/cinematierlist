@@ -4493,6 +4493,8 @@
       btn.classList.toggle("active", hasFilter());
     }
     if (clear) clear.classList.toggle("hidden", !hasFilter());
+    const rank = document.getElementById("rankThemeBtn");
+    if (rank) rank.classList.toggle("hidden", !hasFilter());
 
     const ch = document.getElementById("challengeCreateBtn");
     if (ch) ch.classList.toggle("hidden", !hasFilter() || !!activeChallenge());
@@ -11301,7 +11303,9 @@
     const themeDel = document.getElementById("themeDeleteBtn");
     if (themeDel) themeDel.addEventListener("click", deleteThemeEdit);
     const rankBtn = document.getElementById("rankThemeBtn");
-    if (rankBtn) rankBtn.addEventListener("click", openRankHub);
+    if (rankBtn) rankBtn.addEventListener("click", openRankingModal);
+    const rankingBtn = document.getElementById("rankingBtn");
+    if (rankingBtn) rankingBtn.addEventListener("click", openRankHub);
     const rankBack = document.getElementById("rankBackBtn");
     if (rankBack) rankBack.addEventListener("click", () => { closeModal("rankingModal"); openRankHub(); });
     const mpRank = document.getElementById("mpRankHubBtn");

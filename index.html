@@ -31,7 +31,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030ho" />
+  <link rel="stylesheet" href="styles.css?v=20261030hq" />
 </head>
 <body>
   <script>
@@ -54,6 +54,7 @@
       <button id="helpBtn" class="btn btn-ghost" title="使い方・ティアリストの作り方">❓<span class="btn-label"> 使い方</span></button>
       <button id="battleBtn" class="btn btn-ghost" style="display:none" title="二択で自動ティア分け">⚖️<span class="btn-label"> 二択</span></button>
       <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
+      <button id="rankingBtn" class="btn btn-ghost" title="テーマごとにつくったランキング">🏆<span class="btn-label"> ランキング</span></button>
       <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
       <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
       <button id="timelineBtn" class="btn btn-ghost" title="思い出を人生の年表で見る">📖<span class="btn-label"> 年表</span></button>
@@ -117,7 +118,7 @@
       <span class="filter-label">🎯 テーマで絞り込み</span>
       <button id="themeFilterBtn" class="btn btn-ghost btn-sm theme-filter-btn" title="テーマを選んで絞り込みます">すべて表示 ▾</button>
       <button id="clearThemeBtn" class="btn btn-ghost btn-sm hidden" title="絞り込みを解除">✕ 解除</button>
-      <button id="rankThemeBtn" class="btn btn-primary btn-sm" title="テーマごとに順位をつけたランキングをつくる・見る">🏆 ランキング</button>
+      <button id="rankThemeBtn" class="btn btn-primary btn-sm hidden" title="絞り込んだ作品で順位をつけます">🏆 順位をつける</button>
       <button id="challengeCreateBtn" class="btn btn-ghost btn-sm challenge-btn hidden" title="このテーマで、みんなにティアリストを作ってもらうリンクを作ります">📣 お題にする</button>
       <button id="shareThemeBtn" class="btn btn-ghost btn-sm share-theme-btn" title="SNS向けの共有画像を作ります">📤 シェア</button>
       <input id="listSearchInput" class="movie-search-input" type="search" name="tiari-list-search" placeholder="🔍 登録作品を検索" aria-label="登録作品をタイトルで検索" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true" />
@@ -151,11 +152,11 @@
   </main>
 
   <nav id="tabbar" class="tabbar" aria-label="メインメニュー">
-    <button type="button" class="tbar-btn is-active" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">ランク</span></button>
+    <button type="button" class="tbar-btn is-active" data-tab="home"><span class="tab-ic">🏠</span><span class="tab-tx">ティア</span></button>
+    <button type="button" class="tbar-btn" data-proxy="rankingBtn"><span class="tab-ic">🏆</span><span class="tab-tx">ランキング</span></button>
     <button type="button" class="tbar-btn" data-proxy="battleBtn" style="display:none"><span class="tab-ic">⚖️</span><span class="tab-tx">二択</span></button>
     <button type="button" class="tbar-btn" data-proxy="socialBtn"><span class="tab-ic">🌐</span><span class="tab-tx">みんな</span></button>
     <button type="button" class="tbar-btn" data-proxy="statsBtn"><span class="tab-ic">📊</span><span class="tab-tx">統計</span></button>
-    <button type="button" class="tbar-btn" data-proxy="timelineBtn"><span class="tab-ic">📖</span><span class="tab-tx">年表</span></button>
     <button type="button" class="tbar-btn" data-proxy="authBtn"><span class="tab-ic">👤</span><span class="tab-tx">マイページ</span></button>
   </nav>
 
@@ -1042,6 +1043,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261030ho"></script>
+  <script src="app.js?v=20261030hq"></script>
 </body>
 </html>
