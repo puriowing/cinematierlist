@@ -5123,7 +5123,7 @@
       thumb.className = "rank-thumb";
       if (m.poster) {
         const img = document.createElement("img");
-        img.src = m.poster; img.alt = ""; img.loading = "lazy";
+        img.decoding = "async"; img.src = m.poster; img.alt = ""; img.loading = "lazy";
         thumb.appendChild(img);
       } else { thumb.textContent = "🎬"; }
 

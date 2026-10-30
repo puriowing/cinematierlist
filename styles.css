@@ -8619,3 +8619,6 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingList .rank-row.rank-lifting { will-change: transform; }
 #rankingList.rank-dragging .rank-row:not(.rank-lifting) { transition: transform 0.1s linear !important; }
 #rankingList .rank-row.rank-lifting { transition: none !important; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2); }
+
+/* ランキングの一覧は小さな枠の中でスクロールさせず、ポップアップ全体でスクロール（ドラッグで端まで運べるように） */
+#rankingList.ranking-list { max-height: none; overflow: visible; }
