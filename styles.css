@@ -8614,7 +8614,8 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingList .rank-handle { width: 44px; height: 44px; font-size: 24px; color: var(--text-dim); touch-action: none; }
 #rankingList .rank-row.rank-lifting { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22); border-color: var(--accent); z-index: 5; }
 
-/* ランキングのドラッグを軽く：行は最初から別の層にしておき、動かすときに描き直さない */
-#rankingList .rank-row { will-change: transform; transition: none; }
+/* ランキングのドラッグを軽く */
+#rankingList .rank-row { transition: none; }
+#rankingList .rank-row.rank-lifting { will-change: transform; }
 #rankingList.rank-dragging .rank-row:not(.rank-lifting) { transition: transform 0.1s linear !important; }
 #rankingList .rank-row.rank-lifting { transition: none !important; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2); }
