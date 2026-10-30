@@ -240,6 +240,8 @@
     }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-  else start();
+  // 本文の最後で読み込むので、その場ですぐ置き換えてから画面を出す
+  if (document.body) start();
+  else document.addEventListener("DOMContentLoaded", start);
+  document.documentElement.classList.remove("icons-pending");
 })();

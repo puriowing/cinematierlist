@@ -22,12 +22,17 @@
       var t = "studio";
       try { var s = JSON.parse(localStorage.getItem("movieTierList.settings.v1") || "null"); if (s && s.theme) t = s.theme; } catch (e) {}
       document.documentElement.setAttribute("data-theme", t);
+      // 絵文字が線画アイコンに置き換わるまで中身を出さない（万一のときは少しで表示）
+      var d = document.documentElement;
+      d.classList.add("icons-pending");
+      setTimeout(function () { d.classList.remove("icons-pending"); }, 2500);
     })();
   </script>
   <style>
     html { background: #ece6da; }
     html[data-theme="pop"] { background: #f6f5fb; }
     html[data-theme="classic"] { background: #0f1115; }
+    html.icons-pending body { visibility: hidden; }
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -1041,8 +1046,8 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
-  <script src="icons.js?v=20261025b"></script>
+  <script src="icons.js?v=20261030a"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
   <script src="app.js?v=20261030hq"></script>
 </body>
 </html>
