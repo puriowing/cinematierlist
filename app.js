@@ -5872,11 +5872,15 @@
     }
     return lines;
   }
-  async function drawRankingImage() {
-    const ids = rankOrder.slice(0, hasRankCut() ? rankCut : undefined);
+  async function drawRankingImage(opts = {}) {
+    const ids = opts.ids || rankOrder.slice(0, hasRankCut() ? rankCut : undefined);
     const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
-    const title = `${themeFilterName()} ランキング`;
-    const note = ((document.getElementById("rankNote") || {}).value || "").trim();
+    const title = opts.title || `${themeFilterName()} ランキング`;
+    const note = opts.note != null ? opts.note : ((document.getElementById("rankNote") || {}).value || "").trim();
+    const dark = opts.style === "dark";
+    const C = dark
+      ? { bg: "#141210", card: "#221f1b", text: "#f4eee2", sub: "#a59d90", noteText: "#e8e1d4", badge: "#33302a", badgeText: "#f4eee2", poster: "#2c2925" }
+      : { bg: "#f6f3ee", card: "#ffffff", text: "#1f1d2e", sub: "#8a8597", noteText: "#3a3748", badge: "#efebe4", badgeText: "#3a3748", poster: "#e4dfd6" };
     const W = 1080, PAD = 56, ROW = movies.length > 30 ? 128 : 156, GAP = 14;
     const FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif';
     const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#6d4aff";
@@ -5892,7 +5896,7 @@
     const cv = document.createElement("canvas");
     cv.width = W; cv.height = H;
     const ctx = cv.getContext("2d");
-    ctx.fillStyle = "#f6f3ee";
+    ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = accent;
     ctx.fillRect(0, 0, W, 14);
@@ -5900,15 +5904,15 @@
     let y = 70;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillStyle = "#1f1d2e";
+    ctx.fillStyle = C.text;
     ctx.font = `800 58px ${FONT}`;
     titleLines.forEach((l) => { ctx.fillText(l, W / 2, y); y += 72; });
     if (noteLines.length) {
       y += 22;
       const boxH = noteLines.length * 48 + 30;
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = C.card;
       roundRect(ctx, PAD, y, W - PAD * 2, boxH, 20); ctx.fill();
-      ctx.fillStyle = "#3a3748";
+      ctx.fillStyle = C.noteText;
       ctx.font = `500 32px ${FONT}`;
       noteLines.forEach((l, i) => ctx.fillText(l, W / 2, y + 16 + i * 48));
       y += boxH;
@@ -5919,13 +5923,13 @@
     ctx.textAlign = "left";
     movies.forEach((m, i) => {
       const x = PAD, w = W - PAD * 2;
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = C.card;
       roundRect(ctx, x, y, w, ROW, 22); ctx.fill();
       // 順位
       const cx = x + 58, cy = y + ROW / 2;
       ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2);
-      ctx.fillStyle = i < 3 ? medal[i] : "#efebe4"; ctx.fill();
-      ctx.fillStyle = i < 3 ? "#ffffff" : "#3a3748";
+      ctx.fillStyle = i < 3 ? medal[i] : C.badge; ctx.fill();
+      ctx.fillStyle = i < 3 ? "#ffffff" : C.badgeText;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.font = `800 ${i + 1 >= 100 ? 26 : 34}px ${FONT}`;
       ctx.fillText(String(i + 1), cx, cy + 1);
@@ -5933,7 +5937,7 @@
       const ph = ROW - 24, pw = Math.round(ph * 0.71), px = x + 112, py = y + 12;
       ctx.save();
       roundRect(ctx, px, py, pw, ph, 10); ctx.clip();
-      ctx.fillStyle = "#e4dfd6"; ctx.fillRect(px, py, pw, ph);
+      ctx.fillStyle = C.poster; ctx.fillRect(px, py, pw, ph);
       const img = posters[i];
       if (img) {
         const r = Math.max(pw / img.width, ph / img.height);
@@ -5944,7 +5948,7 @@
       // 題名・年
       const tx = px + pw + 26, tw = x + w - 28 - tx;
       ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-      ctx.fillStyle = "#1f1d2e";
+      ctx.fillStyle = C.text;
       ctx.font = `700 ${ROW > 140 ? 38 : 34}px ${FONT}`;
       const tl = wrapLines(ctx, m.title || "", tw, 2);
       const lh = ROW > 140 ? 46 : 40;
@@ -5952,14 +5956,14 @@
       let ty = y + (ROW - blockH) / 2 + lh - 8;
       tl.forEach((l) => { ctx.fillText(l, tx, ty); ty += lh; });
       if (m.year) {
-        ctx.fillStyle = "#8a8597";
+        ctx.fillStyle = C.sub;
         ctx.font = `500 28px ${FONT}`;
         ctx.fillText(`${m.year}年`, tx, ty + 2);
       }
       y += ROW + GAP;
     });
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "#8a8597";
+    ctx.fillStyle = C.sub;
     ctx.font = `700 28px ${FONT}`;
     ctx.fillText("Tiari", W / 2, H - 50);
     return new Promise((res) => cv.toBlob(res, "image/png"));
@@ -5972,17 +5976,6 @@
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
-  }
-
-  async function exportRankingPng() {
-    try {
-      const blob = await busyButton(document.getElementById("rankExportBtn"), "作成中…", drawRankingImage);
-      if (blob) await showImageResult(blob, (themeFilterName() || "ranking") + "-ranking.png");
-      else toast("画像を作れませんでした");
-    } catch (e) {
-      console.error(e);
-      toast("画像を作れませんでした。もう一度お試しください");
-    }
   }
 
   // 補完（監督・出演・種別）がまだ必要か。ID未保持でも、まだ検索での解決を
@@ -9434,6 +9427,9 @@
     setShareBusy(true);
     syncShareControls();
     const wrap = document.getElementById("sharePreview");
+    if (share.size === "list" && !share.rankIds) share.size = "story";
+    if (share.size === "list") return renderShareList(seq, wrap);
+    wrap.classList.remove("is-list");
     const sz = SHARE_SIZES[share.size] || SHARE_SIZES.story;
     const { card, ids, rows } = buildShareCard();
     wrap.innerHTML = "";
@@ -9469,19 +9465,53 @@
     try {
       const fontEmbedCSS = await shareFontCSS();
       if (seq !== share.seq) return;
-      const blob = await window.htmlToImage.toBlob(card, {
+      const opts = {
         pixelRatio: sz.out / sz.w,
         cacheBust: false,
         includeQueryParams: true,
         fontEmbedCSS,
         backgroundColor: share.style === "dark" ? "#141210" : "#f4eee2",
-      });
+      };
+      // iPhone（Safari）は1回目にポスターや文字が抜けることがあるので、もう一度描く
+      if (isSafariLike()) { await window.htmlToImage.toBlob(card, opts); if (seq !== share.seq) return; }
+      const blob = await window.htmlToImage.toBlob(card, opts);
       if (seq !== share.seq) return;
       share.blob = blob;
       setShareBusy(false);
     } catch (e) {
       console.error(e);
       if (seq === share.seq) setShareBusy(false, "画像化に失敗しました。外部URLのポスターが読めない場合があります。");
+    }
+  }
+
+  function isSafariLike() {
+    const ua = navigator.userAgent;
+    return /iPhone|iPad|iPod/.test(ua) || (/Safari/.test(ua) && !/Chrome|Chromium|Android/.test(ua));
+  }
+
+  // ランキングの全順位を縦に長い1枚に（直接描くのでiPhoneでも崩れない）
+  async function renderShareList(seq, wrap) {
+    wrap.classList.add("is-list");
+    wrap.innerHTML = `<div class="share-list-loading"><span class="btn-spinner"></span> 画像を作っています…</div>`;
+    const ids = share.rankIds || [];
+    if (!shareTextTouched) document.getElementById("shareText").value = defaultShareText(ids, []);
+    const rankNote = document.getElementById("shareRankNote");
+    if (rankNote) rankNote.classList.add("hidden");
+    try {
+      const title = (share.title || shareThemeName()) + (/ランキング$/.test(share.title || "") ? "" : " ランキング");
+      const blob = await drawRankingImage({ ids, title, style: share.style });
+      if (seq !== share.seq) return;
+      share.blob = blob;
+      const img = document.createElement("img");
+      img.className = "share-list-img";
+      img.alt = "";
+      img.src = URL.createObjectURL(blob);
+      wrap.innerHTML = "";
+      wrap.appendChild(img);
+      setShareBusy(false);
+    } catch (e) {
+      console.error(e);
+      if (seq === share.seq) setShareBusy(false, "画像を作れませんでした");
     }
   }
 
@@ -9512,7 +9542,13 @@
       seg.querySelectorAll("button").forEach((b) => b.classList.toggle("active", String(share[key]) === b.dataset.v));
     });
     const countOpt = document.getElementById("shareCountOpt");
-    if (countOpt) countOpt.classList.toggle("hidden", share.mode !== "best");
+    if (countOpt) countOpt.classList.toggle("hidden", share.mode !== "best" || share.size === "list");
+    const listBtn = document.querySelector('#shareModal [data-opt="size"] [data-v="list"]');
+    if (listBtn) listBtn.classList.toggle("hidden", !share.rankIds);
+    const modeOpt = document.querySelector('#shareModal [data-opt="mode"]');
+    if (modeOpt) modeOpt.closest(".share-opt").classList.toggle("hidden", share.size === "list");
+    const save = document.getElementById("shareSaveBtn");
+    if (save) save.textContent = canShareFiles() && window.matchMedia("(hover: none)").matches ? "📥 写真に保存" : "⬇ 画像を保存";
     const native = document.getElementById("shareNativeBtn");
     if (native) native.classList.toggle("hidden", !canShareFiles());
   }
@@ -9567,6 +9603,7 @@
     loadShareSettings();
     share.rankIds = opts.rankIds || null;
     if (opts.mode) share.mode = opts.mode;
+    if (opts.size) share.size = opts.size;
     share.title = shareThemeName();
     shareTextTouched = false;
     const input = document.getElementById("shareTitleInput");
@@ -9586,6 +9623,8 @@
     if (btn) btn.addEventListener("click", () => openShareModal());
     const rankBtn = document.getElementById("rankShareBtn");
     if (rankBtn) rankBtn.addEventListener("click", () => openShareModal({ mode: "best", rankIds: rankOrder.slice(0, hasRankCut() ? rankCut : undefined) }));
+    const rankImg = document.getElementById("rankExportBtn");
+    if (rankImg) rankImg.addEventListener("click", () => openShareModal({ mode: "best", size: "list", rankIds: rankOrder.slice(0, hasRankCut() ? rankCut : undefined) }));
     document.querySelectorAll("#shareModal .share-seg").forEach((seg) => {
       seg.addEventListener("click", (e) => {
         const b = e.target.closest("button");
@@ -9608,7 +9647,18 @@
     const on = (id, fn) => { const b = document.getElementById(id); if (b) b.addEventListener("click", fn); };
     on("shareNativeBtn", shareNative);
     on("shareXBtn", shareToX);
-    on("shareSaveBtn", () => { if (downloadShareImage()) toast("画像を保存しました"); });
+    on("shareSaveBtn", async () => {
+      if (!share.blob) return;
+      if (canShareFiles() && window.matchMedia("(hover: none)").matches) {
+        try {
+          await navigator.share({ files: [new File([share.blob], shareFileName(), { type: "image/png" })] });
+        } catch (e) {
+          if (e && e.name !== "AbortError") toast("保存できませんでした。もう一度お試しください");
+        }
+        return;
+      }
+      if (downloadShareImage()) toast(window.matchMedia("(hover: none)").matches ? "「ファイル」アプリの「ダウンロード」に保存しました" : "「ダウンロード」フォルダに保存しました");
+    });
     on("shareCopyBtn", copyShareText);
     let rt = null;
     window.addEventListener("resize", () => {
@@ -11578,7 +11628,6 @@
     const rankTier = document.getElementById("rankByTierBtn");
     if (rankTier) rankTier.addEventListener("click", rankByTier);
     const rankExport = document.getElementById("rankExportBtn");
-    if (rankExport) rankExport.addEventListener("click", exportRankingPng);
     const imgShare = document.getElementById("imgOutShare");
     if (imgShare) imgShare.addEventListener("click", imgOutShare);
     const imgDl = document.getElementById("imgOutDl");

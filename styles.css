@@ -8805,3 +8805,9 @@ img.movie-poster.no-fade { transition: none !important; }
 .ranking-export.is-exporting .rank-badge svg { display: none; }
 .ranking-export.is-exporting .rank-badge { font-size: 0 !important; }
 .ranking-export.is-exporting .rank-badge::after { content: attr(data-rank); font-size: 14px; font-weight: 800; }
+
+/* ランキング：画像・シェアを1つに */
+#rankingModal .rank-foot .rank-foot-share { flex: 0 0 auto; }
+.share-preview.is-list { overflow-y: auto; display: block; }
+.share-list-img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.share-list-loading { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; min-height: 200px; font-size: 13px; color: var(--text-dim); }
