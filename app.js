@@ -2859,7 +2859,8 @@
 
   async function openChallengeCreate() {
     if (!hasFilter()) { toast("先に「テーマで絞り込み」でテーマを選んでください"); return; }
-    const own = allMovies().filter(matchesFilter);
+    // 上のティアから順に（未分類は最後）。お題は150本までなので、好きな作品から入るように
+    const own = [...state.tiers.flatMap((t) => t.items), ...state.pool].filter(matchesFilter);
     const f = activeFilters.length === 1 ? activeFilters[0] : null;
     const label = f ? challengeUniverseLabel(f) : null;
     if (!label && own.length < 2) { toast("お題にするには2本以上の作品が必要です"); return; }
@@ -2923,7 +2924,7 @@
       `<div class="ch-pickbar"><span id="chPickCount"></span>` +
       `<button type="button" id="chAll" class="mp-link">すべて選択</button><button type="button" id="chNone" class="mp-link">すべて外す</button></div>` +
       (chCreate.mode === "all" ? `<p class="soc-dim">${escapeHtml(chCreate.label)}（短編・ドキュメンタリーなど、お題に合わない作品はチェックを外せます）</p>` : "") +
-      (total > list.length ? `<p class="soc-dim">多すぎるため先頭${list.length}本までが対象です。</p>` : "") +
+      (total > list.length ? `<p class="ch-cap-note">お題にできるのは${CHALLENGE_MAX}本までです。このテーマは${total}本あるため、<b>上のティアから順に${list.length}本</b>を選んでいます。全部を並べてもらうのは相手の負担が大きいので、ジャンルや公開年などで絞ったテーマのほうが参加してもらいやすくなります。</p>` : "") +
       challengePosterGrid(list, { pick: true });
     const boxes = [...wrap.querySelectorAll(".ch-pick input")];
     const count = () => {
