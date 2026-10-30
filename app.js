@@ -5807,8 +5807,9 @@
 
   // できた画像を見せて、保存のしかたを選んでもらう（スマホは写真アプリへ、パソコンはダウンロード）
   let imgOut = null;
-  async function showImageResult(dataUrl, name) {
-    const blob = await (await fetch(dataUrl)).blob();
+  async function showImageResult(src, name) {
+    const blob = src instanceof Blob ? src : await (await fetch(src)).blob();
+    const dataUrl = src instanceof Blob ? URL.createObjectURL(blob) : src;
     imgOut = { blob, name: name.replace(/[\\/:*?"<>|]/g, "").slice(0, 60) || "tiari.png" };
     const phone = window.matchMedia("(hover: none)").matches;
     const canShare = canShareFiles();
@@ -5843,36 +5844,144 @@
     }
   }
 
+  // ランキング画像は、画面を写すのではなく直接描く（iPhoneでもポスターや文字が欠けないように）
+  function loadImg(src) {
+    return new Promise((res) => {
+      if (!src) return res(null);
+      const img = new Image();
+      const t = setTimeout(() => res(null), 8000);
+      img.onload = () => { clearTimeout(t); res(img); };
+      img.onerror = () => { clearTimeout(t); res(null); };
+      img.src = src;
+    });
+  }
+  function wrapLines(ctx, text, maxW, maxLines) {
+    const lines = [];
+    let cur = "";
+    for (const ch of [...text]) {
+      if (ch === "\n") { lines.push(cur); cur = ""; continue; }
+      if (ctx.measureText(cur + ch).width > maxW && cur) { lines.push(cur); cur = ch; } else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      const keep = lines.slice(0, maxLines);
+      let last = keep[maxLines - 1];
+      while (last && ctx.measureText(last + "…").width > maxW) last = last.slice(0, -1);
+      keep[maxLines - 1] = last + "…";
+      return keep;
+    }
+    return lines;
+  }
+  async function drawRankingImage() {
+    const ids = rankOrder.slice(0, hasRankCut() ? rankCut : undefined);
+    const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
+    const title = `${themeFilterName()} ランキング`;
+    const note = ((document.getElementById("rankNote") || {}).value || "").trim();
+    const W = 1080, PAD = 56, ROW = movies.length > 30 ? 128 : 156, GAP = 14;
+    const FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif';
+    const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#6d4aff";
+    const measure = document.createElement("canvas").getContext("2d");
+    measure.font = `800 58px ${FONT}`;
+    const titleLines = wrapLines(measure, title, W - PAD * 2, 2);
+    measure.font = `500 32px ${FONT}`;
+    const noteLines = note ? wrapLines(measure, note, W - PAD * 2 - 40, 6) : [];
+    const headH = 70 + titleLines.length * 72 + (noteLines.length ? noteLines.length * 48 + 52 : 0) + 30;
+    const H = headH + movies.length * (ROW + GAP) + 100;
+
+    const posters = await Promise.all(movies.map((m) => loadImg(sharePosterSrc(m.poster))));
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#f6f3ee";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, W, 14);
+
+    let y = 70;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#1f1d2e";
+    ctx.font = `800 58px ${FONT}`;
+    titleLines.forEach((l) => { ctx.fillText(l, W / 2, y); y += 72; });
+    if (noteLines.length) {
+      y += 22;
+      const boxH = noteLines.length * 48 + 30;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, PAD, y, W - PAD * 2, boxH, 20); ctx.fill();
+      ctx.fillStyle = "#3a3748";
+      ctx.font = `500 32px ${FONT}`;
+      noteLines.forEach((l, i) => ctx.fillText(l, W / 2, y + 16 + i * 48));
+      y += boxH;
+    }
+    y = headH;
+
+    const medal = ["#d9a520", "#9aa4b1", "#c27c46"];
+    ctx.textAlign = "left";
+    movies.forEach((m, i) => {
+      const x = PAD, w = W - PAD * 2;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, x, y, w, ROW, 22); ctx.fill();
+      // 順位
+      const cx = x + 58, cy = y + ROW / 2;
+      ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2);
+      ctx.fillStyle = i < 3 ? medal[i] : "#efebe4"; ctx.fill();
+      ctx.fillStyle = i < 3 ? "#ffffff" : "#3a3748";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = `800 ${i + 1 >= 100 ? 26 : 34}px ${FONT}`;
+      ctx.fillText(String(i + 1), cx, cy + 1);
+      // ポスター
+      const ph = ROW - 24, pw = Math.round(ph * 0.71), px = x + 112, py = y + 12;
+      ctx.save();
+      roundRect(ctx, px, py, pw, ph, 10); ctx.clip();
+      ctx.fillStyle = "#e4dfd6"; ctx.fillRect(px, py, pw, ph);
+      const img = posters[i];
+      if (img) {
+        const r = Math.max(pw / img.width, ph / img.height);
+        const dw = img.width * r, dh = img.height * r;
+        ctx.drawImage(img, px + (pw - dw) / 2, py + (ph - dh) / 2, dw, dh);
+      }
+      ctx.restore();
+      // 題名・年
+      const tx = px + pw + 26, tw = x + w - 28 - tx;
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#1f1d2e";
+      ctx.font = `700 ${ROW > 140 ? 38 : 34}px ${FONT}`;
+      const tl = wrapLines(ctx, m.title || "", tw, 2);
+      const lh = ROW > 140 ? 46 : 40;
+      const blockH = tl.length * lh + (m.year ? 36 : 0);
+      let ty = y + (ROW - blockH) / 2 + lh - 8;
+      tl.forEach((l) => { ctx.fillText(l, tx, ty); ty += lh; });
+      if (m.year) {
+        ctx.fillStyle = "#8a8597";
+        ctx.font = `500 28px ${FONT}`;
+        ctx.fillText(`${m.year}年`, tx, ty + 2);
+      }
+      y += ROW + GAP;
+    });
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#8a8597";
+    ctx.font = `700 28px ${FONT}`;
+    ctx.fillText("Tiari", W / 2, H - 50);
+    return new Promise((res) => cv.toBlob(res, "image/png"));
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   async function exportRankingPng() {
-    if (!window.htmlToImage) { toast("画像ライブラリの読み込みに失敗しました（ネット接続を確認）"); return; }
-    const region = document.getElementById("rankingExport");
-    const exTitle = document.getElementById("rankingExportTitle");
-    if (!region) return;
-    if (exTitle) exTitle.style.display = "block";
-    const exNote = document.getElementById("rankingExportNote");
-    const noteText = ((document.getElementById("rankNote") || {}).value || "").trim();
-    if (exNote) { exNote.textContent = noteText; exNote.style.display = noteText ? "block" : "none"; }
-    region.classList.add("is-exporting");
-    region.querySelectorAll(".rank-row:not(.rank-ghost)").forEach((r, i) => { const b = r.querySelector(".rank-badge"); if (b) b.dataset.rank = i + 1; });
-    const modalEl = region.closest(".modal");
-    const bg = (modalEl && getComputedStyle(modalEl).backgroundColor) || "#ffffff";
     try {
-      const dataUrl = await busyButton(document.getElementById("rankExportBtn"), "作成中…", () =>
-        shareFontCSS().then((fontEmbedCSS) => window.htmlToImage.toPng(region, {
-          pixelRatio: 2,
-          backgroundColor: bg,
-          cacheBust: false,
-          includeQueryParams: true,
-          fontEmbedCSS,
-        })));
-      if (dataUrl) await showImageResult(dataUrl, (themeFilterName() || "ranking") + "-ranking.png");
+      const blob = await busyButton(document.getElementById("rankExportBtn"), "作成中…", drawRankingImage);
+      if (blob) await showImageResult(blob, (themeFilterName() || "ranking") + "-ranking.png");
+      else toast("画像を作れませんでした");
     } catch (e) {
       console.error(e);
-      toast("画像化に失敗しました。外部URLのポスターはCORSで失敗する場合があります。");
-    } finally {
-      if (exTitle) exTitle.style.display = "none";
-      if (exNote) exNote.style.display = "none";
-      region.classList.remove("is-exporting");
+      toast("画像を作れませんでした。もう一度お試しください");
     }
   }
 
