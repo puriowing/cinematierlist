@@ -36,7 +36,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030hr" />
+  <link rel="stylesheet" href="styles.css?v=20261030hs" />
 </head>
 <body>
   <script>
@@ -951,6 +951,10 @@
           <button id="rankExportBtn" class="btn btn-ghost btn-sm">📷 画像として保存</button>
         </div>
         <div id="rankSaveStatus" class="rank-save-status" role="status">並べ替えると自動で保存されます</div>
+        <label class="rank-note-field">
+          <span>💬 このランキングについてひとこと</span>
+          <textarea id="rankNote" rows="2" maxlength="300" placeholder="選んだ基準や、1位への思いなど（画像として保存するときにも載ります）"></textarea>
+        </label>
         <div id="rankScopeBar" class="rank-scope-bar"></div>
         <input id="rankSearch" class="rank-search" type="search" placeholder="🔍 作品名で探す（一覧の中の位置へ移動）" autocomplete="off" />
         <div id="rankCutBar" class="rank-cut-bar hidden">
@@ -959,6 +963,7 @@
         </div>
         <div id="rankingExport" class="ranking-export">
           <div id="rankingExportTitle" class="ranking-export-title" aria-hidden="true"></div>
+          <div id="rankingExportNote" class="ranking-export-note" aria-hidden="true"></div>
           <div id="rankingList" class="ranking-list"></div>
         </div>
         <div class="settings-actions">
@@ -1049,6 +1054,6 @@
 
   <script src="icons.js?v=20261030a"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
-  <script src="app.js?v=20261030hr"></script>
+  <script src="app.js?v=20261030hs"></script>
 </body>
 </html>

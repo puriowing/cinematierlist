@@ -5163,6 +5163,8 @@
     rankPick = null;
     const rs = document.getElementById("rankSearch");
     if (rs) rs.value = "";
+    const noteEl = document.getElementById("rankNote");
+    if (noteEl) noteEl.value = (state.rankingNotes && state.rankingNotes[key]) || "";
     renderRankingList();
     const st = document.getElementById("rankSaveStatus");
     if (st) { st.textContent = "並べ替えると自動で保存されます"; st.classList.remove("is-saved"); }
@@ -5626,7 +5628,8 @@
         const movies = ids.map((id) => (findMovie(id) || {}).movie).filter((m) => m && inRankScope(m, place.get(m.id), scope));
         if (!movies.length) return null;
         const cut = movies.length > RANK_CUT_MIN ? storedCut(key, movies.length) : movies.length;
-        return { key, mode, filters, movies, cut, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
+        const note = (state.rankingNotes && state.rankingNotes[key]) || "";
+        return { key, mode, filters, movies, cut, note, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
       })
       .filter(Boolean)
       .sort((a, b) => b.t - a.t);
@@ -5668,6 +5671,7 @@
         `<span class="rh-posters">${thumbs(r.movies)}</span>` +
         `<span class="rh-info"><b>${escapeHtml(r.name)}</b>` +
         `<small>🥇 ${escapeHtml(r.movies[0].title || "")}</small>` +
+        (r.note ? `<small class="rh-note">💬 ${escapeHtml(r.note)}</small>` : "") +
         `<small>${r.cut < r.movies.length ? `ベスト${r.cut}（全${r.movies.length}本）` : `${r.movies.length}本`}${r.t ? " ・ " + new Date(r.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) + " 更新" : ""}</small></span>` +
         `<span class="rh-chev">›</span></button>` +
         `<button type="button" class="rh-del" data-i="${i}" title="このランキングを削除" aria-label="削除">✕</button>` +
@@ -5692,6 +5696,7 @@
       if (!confirm(`「${r.name}」のランキングを削除しますか？（作品やティアはそのままです）`)) return;
       delete state.rankings[r.key];
       if (state.rankingTimes) delete state.rankingTimes[r.key];
+      if (state.rankingNotes) delete state.rankingNotes[r.key];
       saveState();
       renderRankHub();
       toast("ランキングを削除しました");
@@ -5711,6 +5716,12 @@
     state.rankings[key] = mergeRankBase().slice();
     if (!state.rankingScopes || typeof state.rankingScopes !== "object") state.rankingScopes = {};
     if (rankScope) state.rankingScopes[key] = { tiers: rankScope.tiers.slice(), pool: rankScope.pool, special: rankScope.special };
+    const noteEl = document.getElementById("rankNote");
+    if (noteEl) {
+      if (!state.rankingNotes || typeof state.rankingNotes !== "object") state.rankingNotes = {};
+      const note = noteEl.value.trim();
+      if (note) state.rankingNotes[key] = note; else delete state.rankingNotes[key];
+    }
     if (!state.rankingTimes || typeof state.rankingTimes !== "object") state.rankingTimes = {};
     state.rankingTimes[key] = Date.now();
     if (!state.rankingCuts || typeof state.rankingCuts !== "object") state.rankingCuts = {};
@@ -5761,6 +5772,9 @@
     const exTitle = document.getElementById("rankingExportTitle");
     if (!region) return;
     if (exTitle) exTitle.style.display = "block";
+    const exNote = document.getElementById("rankingExportNote");
+    const noteText = ((document.getElementById("rankNote") || {}).value || "").trim();
+    if (exNote) { exNote.textContent = noteText; exNote.style.display = noteText ? "block" : "none"; }
     region.classList.add("is-exporting");
     try {
       toast("画像を生成中…");
@@ -5780,6 +5794,7 @@
       toast("画像化に失敗しました。外部URLのポスターはCORSで失敗する場合があります。");
     } finally {
       if (exTitle) exTitle.style.display = "none";
+      if (exNote) exNote.style.display = "none";
       region.classList.remove("is-exporting");
     }
   }
@@ -11323,6 +11338,8 @@
     if (mpRank) mpRank.addEventListener("click", () => { closeModal("settingsModal"); openRankHub(); });
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
+    const rankNote = document.getElementById("rankNote");
+    if (rankNote) rankNote.addEventListener("input", autosaveRanking);
     const rankSearch = document.getElementById("rankSearch");
     if (rankSearch) rankSearch.addEventListener("input", () => {
       const kata = (t) => normTitle(t).replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));

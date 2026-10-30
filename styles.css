@@ -8750,3 +8750,13 @@ img.movie-poster.no-fade { transition: none !important; }
   width: 100%; box-sizing: border-box; margin: 0 0 10px; padding: 9px 12px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); font: inherit; font-size: 16px;
 }
+
+/* ランキングのひとこと */
+.rank-note-field { display: grid; gap: 4px; margin: 0 2px 10px; }
+.rank-note-field span { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+.rank-note-field textarea {
+  width: 100%; box-sizing: border-box; resize: vertical; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); font: inherit; font-size: 16px; line-height: 1.5;
+}
+.ranking-export-note { display: none; margin: -4px 8px 12px; font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap; text-align: center; }
+.rh-info small.rh-note { color: var(--text); }
