@@ -5234,6 +5234,7 @@
       const heights = rows.map((r) => r.offsetHeight);
       const step = rows.length > 1 ? tops[1] - tops[0] : heights[index] + 8;
       drag = { row, rows, index, to: index, tops, heights, step, startY: y, y, startScroll: modal ? modal.scrollTop : 0, raf: 0 };
+      drag.scroll = drag.startScroll;
       row.classList.add("rank-lifting");
       wrap.classList.add("rank-dragging");
       haptic(12);
@@ -5248,10 +5249,9 @@
         const head = modal.querySelector(".modal-header");
         const topEdge = mr.top + (head ? head.offsetHeight : 0) + 50;
         const bottomEdge = mr.bottom - 60;
-        if (drag.y < topEdge) modal.scrollTop -= Math.ceil((topEdge - drag.y) / 4);
-        else if (drag.y > bottomEdge) modal.scrollTop += Math.ceil((drag.y - bottomEdge) / 4);
+        if (drag.y < topEdge) { modal.scrollTop -= Math.ceil((topEdge - drag.y) / 4); drag.scroll = modal.scrollTop; apply(); }
+        else if (drag.y > bottomEdge) { modal.scrollTop += Math.ceil((drag.y - bottomEdge) / 4); drag.scroll = modal.scrollTop; apply(); }
       }
-      apply();
       drag.raf = requestAnimationFrame(frame);
     };
 
@@ -5259,8 +5259,8 @@
     const apply = () => {
       if (!drag) return;
       const { row, rows, index, tops, heights, step } = drag;
-      const dy = drag.y - drag.startY + ((modal ? modal.scrollTop : 0) - drag.startScroll);
-      row.style.transform = `translateY(${dy}px) scale(1.02)`;
+      const dy = drag.y - drag.startY + (drag.scroll - drag.startScroll);
+      row.style.transform = `translate3d(0, ${dy}px, 0)`;
       // 持ち上げた行の中心が、どの行の位置に来たかで行き先を決める
       const center = tops[index] + heights[index] / 2 + dy;
       let to = 0;
@@ -5273,11 +5273,10 @@
         rows.forEach((r, i) => {
           if (i === index) return;
           const shift = index < to && i > index && i <= to ? -step : to < index && i >= to && i < index ? step : 0;
-          r.style.transform = shift ? `translateY(${shift}px)` : "";
+          r.style.transform = shift ? `translate3d(0, ${shift}px, 0)` : "";
         });
         const badge = row.querySelector(".rank-badge");
         if (badge) badge.textContent = String(to + 1);
-        haptic(5);
       }
     };
 
