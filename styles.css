@@ -8516,3 +8516,9 @@ img.movie-poster.no-fade { transition: none !important; }
 }
 .rank-dragging .rank-row:not(.rank-lifting) { transition: none; }
 .rank-dragging { cursor: grabbing; }
+
+/* ランキングのドラッグ：ほかの行はすっとずれる（並べ替えは離したときに1回だけ） */
+.rank-dragging .rank-row:not(.rank-lifting) { transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) !important; }
+.rank-row.rank-lifting { transition: box-shadow 0.15s !important; will-change: transform; }
+.rank-row { touch-action: manipulation; }
+.rank-handle { width: 40px; height: 40px; font-size: 22px; }
