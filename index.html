@@ -31,7 +31,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030hi" />
+  <link rel="stylesheet" href="styles.css?v=20261030hj" />
 </head>
 <body>
   <script>
@@ -919,7 +919,7 @@
       </div>
       <div class="settings-body">
         <p class="hint" style="margin-top:0">
-          いちばん上が1位です。右端の <b>≡ をつかんで上下にドラッグ</b>するか、<b>動かしたい作品をタップ → 入れたい位置の作品をタップ</b>で並べ替えられます（↑ ↓ ボタンでも1つずつ動かせます）。順位は絞り込みテーマごとに保存されます。
+          いちばん上が1位です。右端の <b>≡ をつかんで上下にドラッグ</b>するか、<b>動かしたい作品をタップ → 入れたい位置の作品をタップ</b>で並べ替えられます（↑ ↓ ボタンでも1つずつ動かせます）。並べ替えると自動で保存され、次に同じテーマで開くと続きから並べられます。
         </p>
         <div id="rankPickBar" class="rank-pick-bar hidden" role="status"></div>
         <div class="ranking-toolbar">
@@ -928,13 +928,13 @@
           <button id="rankShareBtn" class="btn btn-primary btn-sm">📤 SNSでシェア</button>
           <button id="rankExportBtn" class="btn btn-ghost btn-sm">📷 画像として保存</button>
         </div>
+        <div id="rankSaveStatus" class="rank-save-status" role="status">並べ替えると自動で保存されます</div>
         <div id="rankingExport" class="ranking-export">
           <div id="rankingExportTitle" class="ranking-export-title" aria-hidden="true"></div>
           <div id="rankingList" class="ranking-list"></div>
         </div>
         <div class="settings-actions">
-          <button id="rankingSaveBtn" class="btn btn-primary">保存</button>
-          <button class="btn btn-ghost" data-close="rankingModal">閉じる</button>
+          <button id="rankingSaveBtn" class="btn btn-primary">保存して閉じる</button>
         </div>
       </div>
     </div>
@@ -1021,6 +1021,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261030hi"></script>
+  <script src="app.js?v=20261030hj"></script>
 </body>
 </html>

@@ -5063,6 +5063,8 @@
     if (exTitle) exTitle.textContent = `🏆 ${themeFilterName()} ランキング`;
     rankPick = null;
     renderRankingList();
+    const st = document.getElementById("rankSaveStatus");
+    if (st) { st.textContent = "並べ替えると自動で保存されます"; st.classList.remove("is-saved"); }
     openModal("rankingModal");
   }
 
@@ -5079,6 +5081,7 @@
     if (j < 0 || j >= rankOrder.length) return;
     rankOrder.splice(i, 1);
     rankOrder.splice(j, 0, id);
+    autosaveRanking();
     const wrap = document.getElementById("rankingList");
     const row = wrap && wrap.querySelector(`.rank-row[data-id="${CSS.escape(id)}"]`);
     if (!row) { renderRankingList(); return; }
@@ -5297,6 +5300,7 @@
         const id = rankOrder.splice(index, 1)[0];
         rankOrder.splice(to, 0, id);
         refreshRankBadges(wrap);
+        autosaveRanking();
         row.classList.remove("just-moved");
         void row.offsetWidth;
         row.classList.add("just-moved");
@@ -5364,20 +5368,41 @@
       rankPick = null;
       haptic(15);
       refreshRankBadges(wrap);
+      autosaveRanking();
       updateRankPickUI(wrap);
       if (movedRow) movedRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
 
   }
 
-  function saveRanking() {
+  // 並べ替えるたびに自動で保存（少し待ってまとめて保存）
+  let rankSaveTimer = 0;
+  function writeRanking() {
+    clearTimeout(rankSaveTimer);
+    rankSaveTimer = 0;
     const key = rankKey();
-    if (!key) { closeModal("rankingModal"); return; }
+    if (!key) return false;
     if (!state.rankings || typeof state.rankings !== "object") state.rankings = {};
     state.rankings[key] = rankOrder.slice();
     saveState();
+    return true;
+  }
+  function autosaveRanking() {
+    const st = document.getElementById("rankSaveStatus");
+    if (st) { st.textContent = "保存中…"; st.classList.remove("is-saved"); }
+    clearTimeout(rankSaveTimer);
+    rankSaveTimer = setTimeout(() => {
+      if (writeRanking() && st) { st.textContent = "✓ 保存しました"; st.classList.add("is-saved"); }
+    }, 600);
+  }
+  function flushRankingSave() {
+    if (rankSaveTimer) writeRanking();
+  }
+
+  function saveRanking() {
+    const ok = writeRanking();
     closeModal("rankingModal");
-    toast(`「${themeFilterName()}」のランキングを保存しました`);
+    if (ok) toast(`「${themeFilterName()}」のランキングを保存しました`);
   }
 
   function shuffleRanking() {
@@ -5386,6 +5411,7 @@
       [rankOrder[i], rankOrder[j]] = [rankOrder[j], rankOrder[i]];
     }
     renderRankingList();
+    autosaveRanking();
   }
 
   function rankByTier() {
@@ -5394,6 +5420,7 @@
     // ティアに入っている順を先頭に、それ以外（あれば）は現状順で末尾へ
     rankOrder = [...tierIds, ...rankOrder.filter((id) => !inTier.has(id))];
     renderRankingList();
+    autosaveRanking();
   }
 
   async function exportRankingPng() {
@@ -10709,6 +10736,7 @@
   function closeModal(id) {
     const el = document.getElementById(id);
     if (!el) return;
+    if (id === "rankingModal") flushRankingSave();
     el.classList.add("hidden");
     syncModalOpen();
     if (id === "addMovieModal") resetAddCandidates();

@@ -8628,3 +8628,13 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingList .rank-row.rank-ghost { border-color: var(--accent); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22); will-change: transform; transition: none !important; animation: none !important; }
 /* 作品数が多くても開くのが速いように、画面の外の行は描かない */
 #rankingList .rank-row:not(.rank-ghost) { content-visibility: auto; contain-intrinsic-size: auto 66px; }
+
+/* ランキング：保存の状態と、いつでも押せる「保存して閉じる」 */
+.rank-save-status { font-size: 12px; color: var(--text-dim); margin: 2px 2px 8px; }
+.rank-save-status.is-saved { color: var(--accent); font-weight: 700; }
+#rankingModal .settings-actions {
+  position: sticky; bottom: 0; z-index: 6;
+  margin: 10px -20px -22px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg-elev); border-top: 1px solid var(--border);
+}
+#rankingModal .settings-actions .btn { flex: 1; }
