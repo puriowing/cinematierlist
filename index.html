@@ -36,7 +36,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030hq" />
+  <link rel="stylesheet" href="styles.css?v=20261030hr" />
 </head>
 <body>
   <script>
@@ -952,6 +952,7 @@
         </div>
         <div id="rankSaveStatus" class="rank-save-status" role="status">並べ替えると自動で保存されます</div>
         <div id="rankScopeBar" class="rank-scope-bar"></div>
+        <input id="rankSearch" class="rank-search" type="search" placeholder="🔍 作品名で探す（一覧の中の位置へ移動）" autocomplete="off" />
         <div id="rankCutBar" class="rank-cut-bar hidden">
           <span>順位をつける数</span>
           <button type="button" data-cut="10">10</button><button type="button" data-cut="30">30</button><button type="button" data-cut="50">50</button><button type="button" data-cut="100">100</button><button type="button" data-cut="0">すべて</button>
@@ -1048,6 +1049,6 @@
 
   <script src="icons.js?v=20261030a"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
-  <script src="app.js?v=20261030hq"></script>
+  <script src="app.js?v=20261030hr"></script>
 </body>
 </html>

@@ -5086,9 +5086,18 @@
   function buildRankView(key) {
     const place = rankPlaceMap();
     const ids = new Set(allMovies().filter((m) => matchesFilter(m) && inRankScope(m, place.get(m.id), rankScope)).map((m) => m.id));
+    // あとから加わった作品は、末尾ではなく自分のティアの最後尾（下のティアの作品より上）に入れる
+    const tierRank = new Map(state.tiers.map((t, i) => [t.id, i]));
+    const tierOf = (id) => { const p = place.get(id); return p === "pool" || p == null ? state.tiers.length : tierRank.get(p); };
+    const inBase = new Set(rankBase);
+    filteredIdsByTier().forEach((id) => {
+      if (inBase.has(id) || !ids.has(id)) return;
+      const tr = tierOf(id);
+      const at = rankBase.findIndex((x) => ids.has(x) && tierOf(x) > tr);
+      if (at < 0) rankBase.push(id); else rankBase.splice(at, 0, id);
+      inBase.add(id);
+    });
     rankOrder = rankBase.filter((id) => ids.has(id));
-    const inOrder = new Set(rankOrder);
-    filteredIdsByTier().forEach((id) => { if (ids.has(id) && !inOrder.has(id)) { rankOrder.push(id); inOrder.add(id); } });
     rankCut = storedCut(key, rankOrder.length);
   }
   function renderRankScope() {
@@ -5152,6 +5161,8 @@
     const exTitle = document.getElementById("rankingExportTitle");
     if (exTitle) exTitle.textContent = `🏆 ${themeFilterName()} ランキング`;
     rankPick = null;
+    const rs = document.getElementById("rankSearch");
+    if (rs) rs.value = "";
     renderRankingList();
     const st = document.getElementById("rankSaveStatus");
     if (st) { st.textContent = "並べ替えると自動で保存されます"; st.classList.remove("is-saved"); }
@@ -11312,6 +11323,20 @@
     if (mpRank) mpRank.addEventListener("click", () => { closeModal("settingsModal"); openRankHub(); });
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
+    const rankSearch = document.getElementById("rankSearch");
+    if (rankSearch) rankSearch.addEventListener("input", () => {
+      const kata = (t) => normTitle(t).replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+      const q = kata(rankSearch.value || "");
+      const wrap = document.getElementById("rankingList");
+      if (!q || !wrap) return;
+      const row = [...wrap.querySelectorAll(".rank-row:not(.rank-ghost)")]
+        .find((r) => kata(r.querySelector(".rank-title").textContent).includes(q));
+      if (!row) return;
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      row.classList.remove("just-moved");
+      void row.offsetWidth;
+      row.classList.add("just-moved");
+    });
     const scopeBar = document.getElementById("rankScopeBar");
     if (scopeBar) {
       scopeBar.addEventListener("click", (e) => {

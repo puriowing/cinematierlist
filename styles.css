@@ -8745,3 +8745,8 @@ img.movie-poster.no-fade { transition: none !important; }
 .rs-chip.active { opacity: 1; color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); }
 .rs-special { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 .rank-empty { font-size: 13px; color: var(--text-dim); text-align: center; padding: 24px 8px; }
+
+.rank-search {
+  width: 100%; box-sizing: border-box; margin: 0 0 10px; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); font: inherit; font-size: 16px;
+}
