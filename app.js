@@ -5292,10 +5292,17 @@
       if (to !== index) {
         const id = rankOrder.splice(index, 1)[0];
         rankOrder.splice(to, 0, id);
+        const others = rows.filter((r) => r !== row);
+        if (to >= others.length) others[others.length - 1].after(row);
+        else others[to].before(row);
+        refreshRankBadges(wrap);
+        row.classList.remove("just-moved");
+        void row.offsetWidth;
+        row.classList.add("just-moved");
       }
+      haptic(10);
       wrap._justDragged = true;
       setTimeout(() => { wrap._justDragged = false; }, 50);
-      renderRankingList();
     };
 
     // マウス：押して少し動かしたら持ち上げる
@@ -5316,11 +5323,28 @@
     });
     window.addEventListener("mouseup", () => { mouse = null; finish(); });
 
+    // 指：右端の「≡」をつかんだときだけドラッグ（作品の上をなぞればふつうにスクロール）
+    wrap.addEventListener("touchstart", (e) => {
+      const handle = e.target.closest(".rank-handle");
+      if (!handle || e.touches.length !== 1) return;
+      e.preventDefault();
+      if (rankPick) { rankPick = null; updateRankPickUI(wrap); }
+      begin(handle.closest(".rank-row"), e.touches[0].clientY);
+    }, { passive: false });
+    wrap.addEventListener("touchmove", (e) => {
+      if (!drag) return;
+      e.preventDefault();
+      drag.y = e.touches[0].clientY;
+      apply();
+    }, { passive: false });
+    wrap.addEventListener("touchend", finish);
+    wrap.addEventListener("touchcancel", finish);
+
     // タップで移動：動かしたい作品をタップ → 入れたい位置の作品をタップ
     wrap.addEventListener("click", (e) => {
       if (wrap._justDragged) return;
       const row = e.target.closest(".rank-row");
-      if (!row || e.target.closest(".rank-btn")) return;
+      if (!row || e.target.closest(".rank-btn, .rank-handle")) return;
       const id = row.dataset.id;
       // 一覧は作り直さず、目印と並びだけをその場で変える（すぐ反応させるため）
       if (!rankPick) { rankPick = id; haptic(10); updateRankPickUI(wrap); return; }

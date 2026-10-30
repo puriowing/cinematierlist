@@ -8555,7 +8555,7 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingList.reorder-on .rank-row { touch-action: none; border-style: dashed; border-color: var(--accent); cursor: grab; }
 #rankingList.reorder-on .rank-handle { color: var(--accent); }
 #rankingList:not(.reorder-on) .rank-row { touch-action: pan-y; }
-@media (hover: none) { #rankingList:not(.reorder-on) .rank-handle { display: none; } }
+
 
 /* ランキング：タップで移動 */
 .rank-pick-bar {
@@ -8609,3 +8609,7 @@ img.movie-poster.no-fade { transition: none !important; }
 /* ランキング：タップへの反応を速く（ダブルタップ拡大の待ちをなくす） */
 #rankingList .rank-row { touch-action: manipulation; }
 #rankingList .rank-row.is-picked { transform: none; }
+
+/* ≡ をつかんでドラッグ：指で押さえやすい大きさに。つかんでいる行は浮かせる */
+#rankingList .rank-handle { width: 44px; height: 44px; font-size: 24px; color: var(--text-dim); touch-action: none; }
+#rankingList .rank-row.rank-lifting { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22); border-color: var(--accent); z-index: 5; }
