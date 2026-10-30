@@ -5051,6 +5051,71 @@
     return Math.max(1, Math.min(len, Number.isFinite(v) ? v : RANK_CUT_DEFAULT));
   }
 
+  // 順位をつける対象（ティアで絞る）。偏愛・思い出の作品はティアに関係なく含められる
+  let rankScope = null;
+  let rankBase = []; // 保存済みの並び全体（対象外の作品の位置も覚えておく）
+  function rankScopeFor(key, hasSaved) {
+    const v = state.rankingScopes && state.rankingScopes[key];
+    if (v && Array.isArray(v.tiers)) return { tiers: v.tiers.slice(), pool: !!v.pool, special: v.special !== false };
+    // 以前からあるランキングは全部のまま、新しくつくるときは上位2ティア（S・A）から
+    return { tiers: (hasSaved ? state.tiers : state.tiers.slice(0, 2)).map((t) => t.id), pool: !!hasSaved, special: true };
+  }
+  function rankPlaceMap() {
+    const m = new Map();
+    state.tiers.forEach((t) => (t.items || []).forEach((x) => m.set(x.id, t.id)));
+    state.pool.forEach((x) => m.set(x.id, "pool"));
+    return m;
+  }
+  function inRankScope(movie, place, scope) {
+    if (!place) return false;
+    if (scope.special && (movie.fav || hasMemory(movie))) return true;
+    return place === "pool" ? scope.pool : scope.tiers.includes(place);
+  }
+  // 画面の並び（rankOrder）を、対象外の作品の位置を保ったまま全体の並びに書き戻す
+  function mergeRankBase() {
+    const inView = new Set(rankOrder);
+    const out = [];
+    let k = 0;
+    rankBase.forEach((id) => { if (inView.has(id)) out.push(rankOrder[k++]); else out.push(id); });
+    while (k < rankOrder.length) out.push(rankOrder[k++]);
+    rankBase = out;
+    return out;
+  }
+  function buildRankView(key) {
+    const place = rankPlaceMap();
+    const ids = new Set(allMovies().filter((m) => matchesFilter(m) && inRankScope(m, place.get(m.id), rankScope)).map((m) => m.id));
+    rankOrder = rankBase.filter((id) => ids.has(id));
+    const inOrder = new Set(rankOrder);
+    filteredIdsByTier().forEach((id) => { if (ids.has(id) && !inOrder.has(id)) { rankOrder.push(id); inOrder.add(id); } });
+    rankCut = storedCut(key, rankOrder.length);
+  }
+  function renderRankScope() {
+    const bar = document.getElementById("rankScopeBar");
+    if (!bar || !rankScope) return;
+    const place = rankPlaceMap();
+    const counts = new Map();
+    allMovies().forEach((m) => {
+      if (!matchesFilter(m)) return;
+      const p = place.get(m.id);
+      if (p) counts.set(p, (counts.get(p) || 0) + 1);
+    });
+    const chip = (attr, on, label, n, color) =>
+      `<button type="button" class="rs-chip${on ? " active" : ""}" ${attr}>` +
+      (color ? `<i style="background:${escapeHtml(color)}"></i>` : "") + `${escapeHtml(label)}<small>${n}</small></button>`;
+    bar.innerHTML = `<span class="rs-label">対象</span>` +
+      state.tiers.map((t) => chip(`data-tier="${escapeHtml(t.id)}"`, rankScope.tiers.includes(t.id), t.label, counts.get(t.id) || 0, t.color)).join("") +
+      chip(`data-pool="1"`, rankScope.pool, "未分類", counts.get("pool") || 0, "") +
+      `<label class="rs-special"><input type="checkbox" ${rankScope.special ? "checked" : ""}> 偏愛・思い出の作品はティアに関係なく含める</label>`;
+  }
+  function changeRankScope(fn) {
+    mergeRankBase();
+    fn(rankScope);
+    buildRankView(rankKey());
+    renderRankScope();
+    renderRankingList();
+    autosaveRanking();
+  }
+
   function rankKey() {
     if (!activeFilters.length) return null;
     // 組み合わせ順に依存しないよう、キーは並べ替えて連結する。
@@ -5075,10 +5140,10 @@
     if (!matchIds.size) { toast("この絞り込みに該当する作品がありません"); return; }
     // 保存済みの順位を土台に、存在＆該当する作品だけ残し、新規作をティア順で末尾に追加
     const saved = Array.isArray(state.rankings[key]) ? state.rankings[key] : [];
-    rankOrder = saved.filter((id) => matchIds.has(id));
-    const inOrder = new Set(rankOrder);
-    filteredIdsByTier().forEach((id) => { if (!inOrder.has(id)) { rankOrder.push(id); inOrder.add(id); } });
-    rankCut = storedCut(key, rankOrder.length);
+    rankBase = saved.filter((id) => matchIds.has(id));
+    rankScope = rankScopeFor(key, saved.length > 0);
+    buildRankView(key);
+    renderRankScope();
 
     const titleEl = document.getElementById("rankingTitle");
     if (titleEl) titleEl.textContent = `🏆 ${themeFilterName()} ランキング`;
@@ -5191,6 +5256,7 @@
       row.appendChild(ctrls);
       wrap.appendChild(row);
     });
+    if (!rankOrder.length) wrap.innerHTML = `<p class="rank-empty">選んだティアには、このテーマの作品がありません。上の「対象」でティアを追加してください。</p>`;
     placeRankCut(wrap);
     wireRankingDnd(wrap);
     if (rankJustMoved) {
@@ -5537,12 +5603,14 @@
   }
   function savedRankings() {
     const times = state.rankingTimes || {};
+    const place = rankPlaceMap();
     return Object.entries(state.rankings || {})
       .filter(([, ids]) => Array.isArray(ids) && ids.length)
       .map(([key, ids]) => {
         const { mode, filters } = parseRankKey(key);
         if (!filters.length) return null;
-        const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
+        const scope = rankScopeFor(key, true);
+        const movies = ids.map((id) => (findMovie(id) || {}).movie).filter((m) => m && inRankScope(m, place.get(m.id), scope));
         if (!movies.length) return null;
         const cut = movies.length > RANK_CUT_MIN ? storedCut(key, movies.length) : movies.length;
         return { key, mode, filters, movies, cut, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
@@ -5627,7 +5695,9 @@
     const key = rankKey();
     if (!key) return false;
     if (!state.rankings || typeof state.rankings !== "object") state.rankings = {};
-    state.rankings[key] = rankOrder.slice();
+    state.rankings[key] = mergeRankBase().slice();
+    if (!state.rankingScopes || typeof state.rankingScopes !== "object") state.rankingScopes = {};
+    if (rankScope) state.rankingScopes[key] = { tiers: rankScope.tiers.slice(), pool: rankScope.pool, special: rankScope.special };
     if (!state.rankingTimes || typeof state.rankingTimes !== "object") state.rankingTimes = {};
     state.rankingTimes[key] = Date.now();
     if (!state.rankingCuts || typeof state.rankingCuts !== "object") state.rankingCuts = {};
@@ -5663,7 +5733,8 @@
   }
 
   function rankByTier() {
-    const tierIds = filteredIdsByTier();
+    const view = new Set(rankOrder);
+    const tierIds = filteredIdsByTier().filter((id) => view.has(id));
     const inTier = new Set(tierIds);
     // ティアに入っている順を先頭に、それ以外（あれば）は現状順で末尾へ
     rankOrder = [...tierIds, ...rankOrder.filter((id) => !inTier.has(id))];
@@ -11237,6 +11308,23 @@
     if (mpRank) mpRank.addEventListener("click", () => { closeModal("settingsModal"); openRankHub(); });
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
+    const scopeBar = document.getElementById("rankScopeBar");
+    if (scopeBar) {
+      scopeBar.addEventListener("click", (e) => {
+        const b = e.target.closest(".rs-chip");
+        if (!b) return;
+        changeRankScope((sc) => {
+          if (b.dataset.pool) sc.pool = !sc.pool;
+          else {
+            const id = b.dataset.tier;
+            sc.tiers = sc.tiers.includes(id) ? sc.tiers.filter((x) => x !== id) : [...sc.tiers, id];
+          }
+        });
+      });
+      scopeBar.addEventListener("change", (e) => {
+        if (e.target.matches(".rs-special input")) changeRankScope((sc) => { sc.special = e.target.checked; });
+      });
+    }
     const cutBar = document.getElementById("rankCutBar");
     if (cutBar) cutBar.addEventListener("click", (e) => {
       const b = e.target.closest("[data-cut]");

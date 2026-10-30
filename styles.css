@@ -8730,3 +8730,17 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingList .rank-row.below-cut .rank-badge { font-size: 14px; background: transparent; border: 1px dashed var(--border); color: var(--text-dim); }
 .ranking-export.is-exporting .rank-cut,
 .ranking-export.is-exporting .rank-row.below-cut { display: none !important; }
+
+/* ランキング：対象にするティア */
+.rank-scope-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 2px 10px; }
+.rs-label { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-right: 2px; }
+.rs-chip {
+  display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-elev); color: var(--text-dim); font: inherit; font-size: 13px; font-weight: 700;
+  padding: 4px 10px; cursor: pointer; opacity: 0.6;
+}
+.rs-chip i { width: 10px; height: 10px; border-radius: 50%; }
+.rs-chip small { font-size: 11px; font-weight: 600; opacity: 0.8; }
+.rs-chip.active { opacity: 1; color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); }
+.rs-special { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.rank-empty { font-size: 13px; color: var(--text-dim); text-align: center; padding: 24px 8px; }
