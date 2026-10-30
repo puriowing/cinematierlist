@@ -5079,7 +5079,13 @@
     if (j < 0 || j >= rankOrder.length) return;
     rankOrder.splice(i, 1);
     rankOrder.splice(j, 0, id);
-    renderRankingList();
+    const wrap = document.getElementById("rankingList");
+    const row = wrap && wrap.querySelector(`.rank-row[data-id="${CSS.escape(id)}"]`);
+    if (!row) { renderRankingList(); return; }
+    if (delta < 0 && row.previousElementSibling) row.previousElementSibling.before(row);
+    else if (delta > 0 && row.nextElementSibling) row.nextElementSibling.after(row);
+    refreshRankBadges(wrap);
+    row.scrollIntoView({ block: "nearest" });
   }
 
   let rankPick = null;      // タップで選んだ「動かしたい作品」
@@ -5178,6 +5184,20 @@
   }
 
   // 順位番号・メダル・ボタンの有効/無効を、現在のDOM並びに合わせて更新（再描画せず）
+  function updateRankPickUI(wrap) {
+    wrap.classList.toggle("rank-picking", !!rankPick);
+    wrap.querySelectorAll(".rank-row").forEach((r) => r.classList.toggle("is-picked", r.dataset.id === rankPick));
+    const bar = document.getElementById("rankPickBar");
+    if (!bar) return;
+    const pm = rankPick && findMovie(rankPick);
+    bar.classList.toggle("hidden", !pm);
+    if (pm) {
+      bar.innerHTML = `<span>「<b>${escapeHtml(pm.movie.title || "")}</b>」を移動中：入れたい位置の作品をタップしてください</span>` +
+        `<button type="button" class="btn btn-ghost btn-sm" id="rankPickCancel">やめる</button>`;
+      bar.querySelector("#rankPickCancel").addEventListener("click", () => { rankPick = null; updateRankPickUI(wrap); });
+    }
+  }
+
   function refreshRankBadges(wrap) {
     const rows = [...wrap.querySelectorAll(".rank-row")];
     rows.forEach((r, idx) => {
@@ -5302,16 +5322,25 @@
       const row = e.target.closest(".rank-row");
       if (!row || e.target.closest(".rank-btn")) return;
       const id = row.dataset.id;
-      if (!rankPick) { rankPick = id; haptic(10); renderRankingList(); return; }
-      if (rankPick === id) { rankPick = null; renderRankingList(); return; }
+      // 一覧は作り直さず、目印と並びだけをその場で変える（すぐ反応させるため）
+      if (!rankPick) { rankPick = id; haptic(10); updateRankPickUI(wrap); return; }
+      if (rankPick === id) { rankPick = null; updateRankPickUI(wrap); return; }
       const from = rankOrder.indexOf(rankPick), to = rankOrder.indexOf(id);
       const moved = rankPick;
       rankOrder.splice(from, 1);
       rankOrder.splice(to, 0, moved);
+      const movedRow = wrap.querySelector(`.rank-row[data-id="${CSS.escape(moved)}"]`);
+      if (movedRow) {
+        if (from < to) row.after(movedRow); else row.before(movedRow);
+        movedRow.classList.remove("just-moved");
+        void movedRow.offsetWidth;
+        movedRow.classList.add("just-moved");
+      }
       rankPick = null;
-      rankJustMoved = moved;
       haptic(15);
-      renderRankingList();
+      refreshRankBadges(wrap);
+      updateRankPickUI(wrap);
+      if (movedRow) movedRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
 
   }
@@ -10645,13 +10674,18 @@
     else render();
   }
 
+  function syncModalOpen() {
+    document.body.classList.toggle("modal-open", !!document.querySelector(".modal-overlay:not(.hidden)"));
+  }
   function openModal(id) {
     document.getElementById(id).classList.remove("hidden");
+    syncModalOpen();
   }
   function closeModal(id) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.add("hidden");
+    syncModalOpen();
     if (id === "addMovieModal") resetAddCandidates();
     if (id === "battleModal") battle.teardown();
   }
