@@ -5061,7 +5061,7 @@
     if (titleEl) titleEl.textContent = `🏆 ${themeFilterName()} ランキング`;
     const exTitle = document.getElementById("rankingExportTitle");
     if (exTitle) exTitle.textContent = `🏆 ${themeFilterName()} ランキング`;
-    setRankReorder(false);
+    rankPick = null;
     renderRankingList();
     openModal("rankingModal");
   }
@@ -5082,16 +5082,30 @@
     renderRankingList();
   }
 
+  let rankPick = null;      // タップで選んだ「動かしたい作品」
+  let rankJustMoved = null; // 動かした直後の作品（目印を出す）
+
   function renderRankingList() {
     const wrap = document.getElementById("rankingList");
     if (!wrap) return;
     wrap.innerHTML = "";
+    wrap.classList.toggle("rank-picking", !!rankPick);
+    const bar = document.getElementById("rankPickBar");
+    if (bar) {
+      const pm = rankPick && findMovie(rankPick);
+      bar.classList.toggle("hidden", !pm);
+      if (pm) {
+        bar.innerHTML = `<span>「<b>${escapeHtml(pm.movie.title || "")}</b>」を移動中：入れたい位置の作品をタップしてください</span>` +
+          `<button type="button" class="btn btn-ghost btn-sm" id="rankPickCancel">やめる</button>`;
+        bar.querySelector("#rankPickCancel").addEventListener("click", () => { rankPick = null; renderRankingList(); });
+      }
+    }
     rankOrder.forEach((id, idx) => {
       const found = findMovie(id);
       if (!found) return;
       const m = found.movie;
       const row = document.createElement("div");
-      row.className = "rank-row";
+      row.className = "rank-row" + (id === rankPick ? " is-picked" : "") + (id === rankJustMoved ? " just-moved" : "");
       row.dataset.id = id;
 
       const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "";
@@ -5144,6 +5158,11 @@
       wrap.appendChild(row);
     });
     wireRankingDnd(wrap);
+    if (rankJustMoved) {
+      const moved = wrap.querySelector(".rank-row.just-moved");
+      if (moved) moved.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      rankJustMoved = null;
+    }
   }
 
   // ドラッグ中にホバー中の縦位置から、挿入先の直後要素を求める
@@ -5254,6 +5273,8 @@
         const id = rankOrder.splice(index, 1)[0];
         rankOrder.splice(to, 0, id);
       }
+      wrap._justDragged = true;
+      setTimeout(() => { wrap._justDragged = false; }, 50);
       renderRankingList();
     };
 
@@ -5275,49 +5296,24 @@
     });
     window.addEventListener("mouseup", () => { mouse = null; finish(); });
 
-    // 指：行のどこを触っても、すぐに持ち上げる。持ち上げている間はスクロールを止める
-    let touch = null;
-    wrap.addEventListener("touchstart", (e) => {
+    // タップで移動：動かしたい作品をタップ → 入れたい位置の作品をタップ
+    wrap.addEventListener("click", (e) => {
+      if (wrap._justDragged) return;
       const row = e.target.closest(".rank-row");
-      if (!wrap.classList.contains("reorder-on")) return; // オフの間はふつうにスクロール
-      if (!row || e.touches.length !== 1 || e.target.closest(".rank-btn")) return;
-      const t = e.touches[0];
-      // 触れた瞬間から持ち上げる（長押しを待たない）
-      e.preventDefault();
-      begin(row, t.clientY);
-    }, { passive: false });
-    wrap.addEventListener("touchmove", (e) => {
-      const t = e.touches[0];
-      if (drag) {
-        e.preventDefault();
-        drag.y = t.clientY;
-        apply();
-        return;
-      }
-      if (touch && Math.hypot(t.clientX - touch.x, t.clientY - touch.y) > 10) {
-        clearTimeout(touch.timer); // ふつうのスクロール
-        touch = null;
-      }
-    }, { passive: false });
-    const touchEnd = () => {
-      if (touch) { clearTimeout(touch.timer); touch = null; }
-      finish();
-    };
-    wrap.addEventListener("touchend", touchEnd);
-    wrap.addEventListener("touchcancel", touchEnd);
-    wrap.addEventListener("contextmenu", (e) => { if (drag || touch) e.preventDefault(); });
-  }
+      if (!row || e.target.closest(".rank-btn")) return;
+      const id = row.dataset.id;
+      if (!rankPick) { rankPick = id; haptic(10); renderRankingList(); return; }
+      if (rankPick === id) { rankPick = null; renderRankingList(); return; }
+      const from = rankOrder.indexOf(rankPick), to = rankOrder.indexOf(id);
+      const moved = rankPick;
+      rankOrder.splice(from, 1);
+      rankOrder.splice(to, 0, moved);
+      rankPick = null;
+      rankJustMoved = moved;
+      haptic(15);
+      renderRankingList();
+    });
 
-  function setRankReorder(on) {
-    const wrap = document.getElementById("rankingList");
-    const btn = document.getElementById("rankReorderBtn");
-    if (wrap) wrap.classList.toggle("reorder-on", on);
-    if (btn) {
-      btn.classList.toggle("is-on", on);
-      btn.setAttribute("aria-pressed", String(on));
-      btn.querySelector(".rr-tx").textContent = on ? "並べ替え中" : "並べ替える";
-      btn.querySelector(".rr-sub").textContent = on ? "作品をつかんで上下に動かせます。終わったら押して戻す" : "オンにすると作品をドラッグで動かせます";
-    }
   }
 
   function saveRanking() {
@@ -11103,11 +11099,7 @@
     wireMyPageFolds();
     wireTouchGestures();
     wireTagModal();
-    document.getElementById("rankReorderBtn").addEventListener("click", () => {
-      const on = !document.getElementById("rankingList").classList.contains("reorder-on");
-      setRankReorder(on);
-      haptic(10);
-    });
+
     initAddPickers();
     // 検索欄にブラウザのログイン情報（メールアドレス）が自動入力されないようにする
     document.querySelectorAll('input[type="search"]').forEach((i) => {
