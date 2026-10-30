@@ -8522,3 +8522,7 @@ img.movie-poster.no-fade { transition: none !important; }
 .rank-row.rank-lifting { transition: box-shadow 0.15s !important; will-change: transform; }
 .rank-row { touch-action: manipulation; }
 .rank-handle { width: 40px; height: 40px; font-size: 22px; }
+
+/* 指で触れた瞬間からドラッグできるよう、行の上ではスクロールさせない */
+#rankingList .rank-handle { touch-action: none; }
+.rank-dragging .rank-row:not(.rank-lifting) { transition: transform 0.12s ease-out !important; }

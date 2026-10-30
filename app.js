@@ -5274,22 +5274,15 @@
     });
     window.addEventListener("mouseup", () => { mouse = null; finish(); });
 
-    // 指：≡ はすぐ、行は長押しで持ち上げる。持ち上げたらスクロールを止める
+    // 指：行のどこを触っても、すぐに持ち上げる。持ち上げている間はスクロールを止める
     let touch = null;
     wrap.addEventListener("touchstart", (e) => {
       const row = e.target.closest(".rank-row");
       if (!row || e.touches.length !== 1 || e.target.closest(".rank-btn")) return;
       const t = e.touches[0];
-      if (e.target.closest(".rank-handle")) {
-        e.preventDefault();
-        begin(row, t.clientY);
-        return;
-      }
-      touch = { row, x: t.clientX, y: t.clientY, timer: setTimeout(() => {
-        if (!touch) return;
-        begin(touch.row, touch.y);
-        touch = null;
-      }, 280) };
+      // 触れた瞬間から持ち上げる（長押しを待たない）
+      e.preventDefault();
+      begin(row, t.clientY);
     }, { passive: false });
     wrap.addEventListener("touchmove", (e) => {
       const t = e.touches[0];
