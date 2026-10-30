@@ -8455,3 +8455,37 @@ img.movie-poster.no-fade { transition: none !important; }
 
 .ptr.done .ptr-ic { transform: none; background: #2fa36b; color: #fff; border-color: transparent; }
 .ptr.done { color: #2fa36b; }
+
+/* スマホ：作品追加の探し方を横スクロールにせず、4列で全部見えるように */
+@media (max-width: 768px) {
+  #addMovieModal .tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    overflow: visible;
+    flex-wrap: wrap;
+    padding: 10px 12px 0;
+  }
+  #addMovieModal .tabs .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 2px;
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  #addMovieModal .tabs .tab .ic { width: 18px; height: 18px; margin: 0; }
+  #addMovieModal .tabs .tab[style*="display: none"] { display: none !important; }
+}
+@media (max-width: 768px) {
+  #addMovieModal .modal { display: flex; flex-direction: column; }
+  #addMovieModal .modal > .modal-footer { margin-top: auto; }
+}
