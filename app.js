@@ -9524,7 +9524,9 @@
     if (!hint) return;
     if (err) hint.textContent = err;
     else if (busy) hint.textContent = "画像を準備中…";
-    else hint.textContent = canShareFiles()
+    else hint.textContent = canShareFiles() && window.matchMedia("(hover: none)").matches
+      ? "「保存・共有」を押すと、「画像を保存」で写真アプリに保存したり、X・Instagram・LINE などへ画像付きで送ったりできます。"
+      : canShareFiles()
       ? "「アプリで共有」から X・Instagram・LINE などへ画像付きで送れます。"
       : "「𝕏 でポスト」は画像を保存してから投稿画面を開きます。画像を添付して投稿してください。";
   }
@@ -9547,10 +9549,16 @@
     if (listBtn) listBtn.classList.toggle("hidden", !share.rankIds);
     const modeOpt = document.querySelector('#shareModal [data-opt="mode"]');
     if (modeOpt) modeOpt.closest(".share-opt").classList.toggle("hidden", share.size === "list");
+    // スマホは「共有」の中に「画像を保存」もあるので、ボタンを1つにまとめる
+    const phoneShare = canShareFiles() && window.matchMedia("(hover: none)").matches;
     const save = document.getElementById("shareSaveBtn");
-    if (save) save.textContent = canShareFiles() && window.matchMedia("(hover: none)").matches ? "📥 写真に保存" : "⬇ 画像を保存";
+    if (save) save.classList.toggle("hidden", phoneShare);
     const native = document.getElementById("shareNativeBtn");
-    if (native) native.classList.toggle("hidden", !canShareFiles());
+    if (native) {
+      native.classList.toggle("hidden", !canShareFiles());
+      const label = phoneShare ? "📤 保存・共有" : "📤 アプリで共有";
+      if (native.dataset.label !== label) { native.dataset.label = label; native.textContent = label; }
+    }
   }
 
   function shareFileName() {
