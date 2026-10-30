@@ -36,7 +36,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030hs" />
+  <link rel="stylesheet" href="styles.css?v=20261030ht" />
 </head>
 <body>
   <script>
@@ -939,34 +939,39 @@
         <h3 id="rankingTitle">🏆 ランキング</h3>
         <button class="modal-close" data-close="rankingModal">✕</button>
       </div>
-      <div class="settings-body">
-        <p class="hint" style="margin-top:0">
-          いちばん上が1位です。右端の <b>≡ をつかんで上下にドラッグ</b>するか、<b>動かしたい作品をタップ → 入れたい位置の作品をタップ</b>で並べ替えられます（↑ ↓ ボタンでも1つずつ動かせます）。並べ替えると自動で保存され、次に同じテーマで開くと続きから並べられます。作品が多いときは「ここまで」の線を動かして、上位だけをランキングにできます。
-        </p>
-        <div id="rankPickBar" class="rank-pick-bar hidden" role="status"></div>
-        <div class="ranking-toolbar">
-          <button id="rankByTierBtn" class="btn btn-ghost btn-sm">⬇ ティア順に整列</button>
-          <button id="rankShuffleBtn" class="btn btn-ghost btn-sm">🔀 シャッフル</button>
-          <button id="rankShareBtn" class="btn btn-primary btn-sm">📤 SNSでシェア</button>
-          <button id="rankExportBtn" class="btn btn-ghost btn-sm">📷 画像として保存</button>
-        </div>
-        <div id="rankSaveStatus" class="rank-save-status" role="status">並べ替えると自動で保存されます</div>
-        <label class="rank-note-field">
-          <span>💬 このランキングについてひとこと</span>
-          <textarea id="rankNote" rows="2" maxlength="300" placeholder="選んだ基準や、1位への思いなど（画像として保存するときにも載ります）"></textarea>
-        </label>
+      <div class="settings-body rank-body">
         <div id="rankScopeBar" class="rank-scope-bar"></div>
-        <input id="rankSearch" class="rank-search" type="search" placeholder="🔍 作品名で探す（一覧の中の位置へ移動）" autocomplete="off" />
-        <div id="rankCutBar" class="rank-cut-bar hidden">
-          <span>順位をつける数</span>
-          <button type="button" data-cut="10">10</button><button type="button" data-cut="30">30</button><button type="button" data-cut="50">50</button><button type="button" data-cut="100">100</button><button type="button" data-cut="0">すべて</button>
+        <div class="rank-top-row">
+          <input id="rankSearch" class="rank-search" type="search" placeholder="🔍 作品名で探す" autocomplete="off" />
+          <button type="button" id="rankMoreBtn" class="rank-more-btn" aria-expanded="false">⚙ 設定・ひとこと</button>
         </div>
+        <div id="rankMore" class="rank-more hidden">
+          <label class="rank-note-field">
+            <span>💬 このランキングについてひとこと</span>
+            <textarea id="rankNote" rows="2" maxlength="300" placeholder="選んだ基準や、1位への思いなど（画像として保存するときにも載ります）"></textarea>
+          </label>
+          <div id="rankCutBar" class="rank-cut-bar hidden">
+            <span>順位をつける数</span>
+            <button type="button" data-cut="10">10</button><button type="button" data-cut="30">30</button><button type="button" data-cut="50">50</button><button type="button" data-cut="100">100</button><button type="button" data-cut="0">すべて</button>
+          </div>
+          <div id="rankSpecial"></div>
+          <div class="rank-more-row">
+            <span>並べ直す</span>
+            <button id="rankByTierBtn" class="btn btn-ghost btn-sm">⬇ ティア順</button>
+            <button id="rankShuffleBtn" class="btn btn-ghost btn-sm">🔀 シャッフル</button>
+          </div>
+        </div>
+        <p class="rank-howto">右端の ≡ をつかんで上下に動かすか、作品を2つ続けてタップすると入れ替わります</p>
+        <div id="rankPickBar" class="rank-pick-bar hidden" role="status"></div>
         <div id="rankingExport" class="ranking-export">
           <div id="rankingExportTitle" class="ranking-export-title" aria-hidden="true"></div>
           <div id="rankingExportNote" class="ranking-export-note" aria-hidden="true"></div>
           <div id="rankingList" class="ranking-list"></div>
         </div>
-        <div class="settings-actions">
+        <div class="settings-actions rank-foot">
+          <div id="rankSaveStatus" class="rank-save-status" role="status">並べ替えると自動で保存されます</div>
+          <button id="rankShareBtn" class="btn btn-ghost rank-foot-icon" title="SNSでシェア">📤<span> シェア</span></button>
+          <button id="rankExportBtn" class="btn btn-ghost rank-foot-icon" title="画像として保存">📷<span> 画像</span></button>
           <button id="rankingSaveBtn" class="btn btn-primary">保存して閉じる</button>
         </div>
       </div>
@@ -1054,6 +1059,6 @@
 
   <script src="icons.js?v=20261030a"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
-  <script src="app.js?v=20261030hs"></script>
+  <script src="app.js?v=20261030ht"></script>
 </body>
 </html>

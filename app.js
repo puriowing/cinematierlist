@@ -5115,8 +5115,14 @@
       (color ? `<i style="background:${escapeHtml(color)}"></i>` : "") + `${escapeHtml(label)}<small>${n}</small></button>`;
     bar.innerHTML = `<span class="rs-label">対象</span>` +
       state.tiers.map((t) => chip(`data-tier="${escapeHtml(t.id)}"`, rankScope.tiers.includes(t.id), t.label, counts.get(t.id) || 0, t.color)).join("") +
-      chip(`data-pool="1"`, rankScope.pool, "未分類", counts.get("pool") || 0, "") +
-      `<label class="rs-special"><input type="checkbox" ${rankScope.special ? "checked" : ""}> 偏愛・思い出の作品はティアに関係なく含める</label>`;
+      chip(`data-pool="1"`, rankScope.pool, "未分類", counts.get("pool") || 0, "");
+    const sp = document.getElementById("rankSpecial");
+    if (sp) sp.innerHTML = `<label class="rs-special"><input type="checkbox" ${rankScope.special ? "checked" : ""}> 偏愛・思い出の作品は、対象のティアに関係なく含める</label>`;
+  }
+  function syncRankMoreBtn() {
+    const btn = document.getElementById("rankMoreBtn");
+    const note = document.getElementById("rankNote");
+    if (btn) btn.classList.toggle("has-note", !!(note && note.value.trim()));
   }
   function changeRankScope(fn) {
     mergeRankBase();
@@ -5165,6 +5171,11 @@
     if (rs) rs.value = "";
     const noteEl = document.getElementById("rankNote");
     if (noteEl) noteEl.value = (state.rankingNotes && state.rankingNotes[key]) || "";
+    const more = document.getElementById("rankMore");
+    if (more) more.classList.add("hidden");
+    const moreBtn = document.getElementById("rankMoreBtn");
+    if (moreBtn) { moreBtn.classList.remove("is-open"); moreBtn.setAttribute("aria-expanded", "false"); }
+    syncRankMoreBtn();
     renderRankingList();
     const st = document.getElementById("rankSaveStatus");
     if (st) { st.textContent = "並べ替えると自動で保存されます"; st.classList.remove("is-saved"); }
@@ -11339,7 +11350,14 @@
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
     const rankNote = document.getElementById("rankNote");
-    if (rankNote) rankNote.addEventListener("input", autosaveRanking);
+    if (rankNote) rankNote.addEventListener("input", () => { autosaveRanking(); syncRankMoreBtn(); });
+    const moreBtn = document.getElementById("rankMoreBtn");
+    if (moreBtn) moreBtn.addEventListener("click", () => {
+      const more = document.getElementById("rankMore");
+      const open = more.classList.toggle("hidden") === false;
+      moreBtn.setAttribute("aria-expanded", String(open));
+      moreBtn.classList.toggle("is-open", open);
+    });
     const rankSearch = document.getElementById("rankSearch");
     if (rankSearch) rankSearch.addEventListener("input", () => {
       const kata = (t) => normTitle(t).replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
@@ -11367,7 +11385,8 @@
           }
         });
       });
-      scopeBar.addEventListener("change", (e) => {
+      const sp = document.getElementById("rankSpecial");
+      if (sp) sp.addEventListener("change", (e) => {
         if (e.target.matches(".rs-special input")) changeRankScope((sc) => { sc.special = e.target.checked; });
       });
     }
