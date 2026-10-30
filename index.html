@@ -36,7 +36,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030ht" />
+  <link rel="stylesheet" href="styles.css?v=20261030hw" />
 </head>
 <body>
   <script>
@@ -978,6 +978,24 @@
     </div>
   </div>
 
+  <!-- 画像の書き出し結果 -->
+  <div id="imgOutModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📷 画像ができました</h3>
+        <button class="modal-close" data-close="imgOutModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <p id="imgOutHint" class="hint" style="margin-top:0"></p>
+        <img id="imgOutImg" class="img-out" alt="" />
+        <div class="settings-actions img-out-actions">
+          <button id="imgOutShare" class="btn btn-primary">📥 写真に保存・共有</button>
+          <button id="imgOutDl" class="btn btn-ghost">ダウンロード</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SNS share modal -->
   <div id="shareModal" class="modal-overlay hidden">
     <div class="modal modal-wide share-modal">
@@ -1059,6 +1077,6 @@
 
   <script src="icons.js?v=20261030a"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
-  <script src="app.js?v=20261030ht"></script>
+  <script src="app.js?v=20261030hw"></script>
 </body>
 </html>

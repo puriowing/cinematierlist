@@ -8787,3 +8787,21 @@ img.movie-poster.no-fade { transition: none !important; }
 #rankingModal .rank-foot .rank-foot-icon { flex: 0 0 auto; }
 #rankingModal .rank-foot #rankingSaveBtn { flex: 1; }
 @media (max-width: 420px) { .rank-foot-icon span { display: none; } }
+
+/* 画像の書き出し */
+.btn-spinner {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor;
+  animation: list-spin 0.8s linear infinite;
+}
+.btn.is-busy { opacity: 1; gap: 6px; display: inline-flex; align-items: center; }
+#rankingModal .rank-foot .rank-foot-icon.is-busy span { display: inline; }
+.img-out { display: block; width: 100%; max-height: 55vh; object-fit: contain; border-radius: 12px; background: #171a21; margin: 4px 0 6px; -webkit-touch-callout: default; }
+.img-out-actions .btn { flex: 1; }
+
+/* 画像として保存するときは、並べ替え用のボタンを消し、メダルは数字で */
+.ranking-export.is-exporting { padding: 12px 6px; }
+.ranking-export.is-exporting .rank-ctrls { display: none !important; }
+.ranking-export.is-exporting .rank-badge svg { display: none; }
+.ranking-export.is-exporting .rank-badge { font-size: 0 !important; }
+.ranking-export.is-exporting .rank-badge::after { content: attr(data-rank); font-size: 14px; font-weight: 800; }

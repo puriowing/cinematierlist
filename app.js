@@ -5777,6 +5777,72 @@
     autosaveRanking();
   }
 
+  // 画面に一度描いてから次へ進む（裏に回っているときも止まらないよう時間でも進める）
+  function paintThen() {
+    return new Promise((r) => {
+      let done = false;
+      const go = () => { if (!done) { done = true; r(); } };
+      requestAnimationFrame(() => requestAnimationFrame(go));
+      setTimeout(go, 120);
+    });
+  }
+
+  // 押した瞬間に「作成中」を見せてから、重い画像づくりを始める
+  async function busyButton(btn, label, fn) {
+    if (!btn) return fn();
+    if (btn._busy) return;
+    btn._busy = true;
+    const html = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add("is-busy");
+    btn.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span>${label ? `<span>${escapeHtml(label)}</span>` : ""}`;
+    await paintThen();
+    try { return await fn(); } finally {
+      btn.innerHTML = html;
+      btn.disabled = false;
+      btn.classList.remove("is-busy");
+      btn._busy = false;
+    }
+  }
+
+  // できた画像を見せて、保存のしかたを選んでもらう（スマホは写真アプリへ、パソコンはダウンロード）
+  let imgOut = null;
+  async function showImageResult(dataUrl, name) {
+    const blob = await (await fetch(dataUrl)).blob();
+    imgOut = { blob, name: name.replace(/[\\/:*?"<>|]/g, "").slice(0, 60) || "tiari.png" };
+    const phone = window.matchMedia("(hover: none)").matches;
+    const canShare = canShareFiles();
+    document.getElementById("imgOutImg").src = dataUrl;
+    document.getElementById("imgOutShare").classList.toggle("hidden", !canShare);
+    document.getElementById("imgOutDl").textContent = phone ? "ファイルとして保存" : "⬇ ダウンロード";
+    document.getElementById("imgOutDl").className = "btn " + (canShare ? "btn-ghost" : "btn-primary");
+    document.getElementById("imgOutHint").textContent = phone
+      ? (canShare
+        ? "「写真に保存・共有」を押して「画像を保存」を選ぶと、写真アプリに保存されます。下の画像を長押ししても保存できます。"
+        : "下の画像を長押しして「写真に追加」を選ぶと、写真アプリに保存されます。")
+      : "「ダウンロード」を押すと、パソコンの「ダウンロード」フォルダに保存されます。";
+    openModal("imgOutModal");
+  }
+  function imgOutDownload() {
+    if (!imgOut) return;
+    const url = URL.createObjectURL(imgOut.blob);
+    const a = document.createElement("a");
+    a.download = imgOut.name;
+    a.href = url;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    const phone = window.matchMedia("(hover: none)").matches;
+    toast(phone ? "「ファイル」アプリの「ダウンロード」に保存しました" : "「ダウンロード」フォルダに保存しました");
+  }
+  async function imgOutShare() {
+    if (!imgOut) return;
+    try {
+      await navigator.share({ files: [new File([imgOut.blob], imgOut.name, { type: "image/png" })] });
+    } catch (e) {
+      if (e && e.name !== "AbortError") { console.error(e); toast("共有できませんでした。画像を長押しして保存してください"); }
+    }
+  }
+
   async function exportRankingPng() {
     if (!window.htmlToImage) { toast("画像ライブラリの読み込みに失敗しました（ネット接続を確認）"); return; }
     const region = document.getElementById("rankingExport");
@@ -5787,19 +5853,19 @@
     const noteText = ((document.getElementById("rankNote") || {}).value || "").trim();
     if (exNote) { exNote.textContent = noteText; exNote.style.display = noteText ? "block" : "none"; }
     region.classList.add("is-exporting");
+    region.querySelectorAll(".rank-row:not(.rank-ghost)").forEach((r, i) => { const b = r.querySelector(".rank-badge"); if (b) b.dataset.rank = i + 1; });
+    const modalEl = region.closest(".modal");
+    const bg = (modalEl && getComputedStyle(modalEl).backgroundColor) || "#ffffff";
     try {
-      toast("画像を生成中…");
-      const dataUrl = await window.htmlToImage.toPng(region, {
-        pixelRatio: 2,
-        backgroundColor: "#171a21",
-        cacheBust: true,
-        includeQueryParams: true,
-      });
-      const a = document.createElement("a");
-      a.download = (themeFilterName() || "ranking") + "-ranking.png";
-      a.href = dataUrl;
-      a.click();
-      toast("画像を保存しました");
+      const dataUrl = await busyButton(document.getElementById("rankExportBtn"), "作成中…", () =>
+        shareFontCSS().then((fontEmbedCSS) => window.htmlToImage.toPng(region, {
+          pixelRatio: 2,
+          backgroundColor: bg,
+          cacheBust: false,
+          includeQueryParams: true,
+          fontEmbedCSS,
+        })));
+      if (dataUrl) await showImageResult(dataUrl, (themeFilterName() || "ranking") + "-ranking.png");
     } catch (e) {
       console.error(e);
       toast("画像化に失敗しました。外部URLのポスターはCORSで失敗する場合があります。");
@@ -8817,18 +8883,16 @@
     el.tierExportTitle.textContent = title || "Tiari";
     el.tierExportTitle.style.display = "block";
     try {
-      toast("画像を生成中…");
+      toast("画像を作っています…");
+      await paintThen();
       const dataUrl = await window.htmlToImage.toPng(el.tierBoard, {
         pixelRatio: 2,
         backgroundColor: "#171a21",
-        cacheBust: true,
+        cacheBust: false,
         includeQueryParams: true,
+        fontEmbedCSS: await shareFontCSS(),
       });
-      const a = document.createElement("a");
-      a.download = (title || "cinema-tier-list") + ".png";
-      a.href = dataUrl;
-      a.click();
-      toast("画像を保存しました");
+      await showImageResult(dataUrl, (title || "cinema-tier-list") + ".png");
     } catch (e) {
       console.error(e);
       toast("画像化に失敗しました。外部URLのポスターはCORSで失敗する場合があります。");
@@ -11406,6 +11470,10 @@
     if (rankTier) rankTier.addEventListener("click", rankByTier);
     const rankExport = document.getElementById("rankExportBtn");
     if (rankExport) rankExport.addEventListener("click", exportRankingPng);
+    const imgShare = document.getElementById("imgOutShare");
+    if (imgShare) imgShare.addEventListener("click", imgOutShare);
+    const imgDl = document.getElementById("imgOutDl");
+    if (imgDl) imgDl.addEventListener("click", imgOutDownload);
     wireShare();
     const chBtn = document.getElementById("challengeCreateBtn");
     if (chBtn) chBtn.addEventListener("click", openChallengeCreate);
