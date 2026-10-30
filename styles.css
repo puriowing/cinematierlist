@@ -8489,3 +8489,30 @@ img.movie-poster.no-fade { transition: none !important; }
   #addMovieModal .modal { display: flex; flex-direction: column; }
   #addMovieModal .modal > .modal-footer { margin-top: auto; }
 }
+
+/* ランキング：行をつかんで上下に動かす */
+.rank-row { user-select: none; -webkit-user-select: none; touch-action: pan-y; -webkit-touch-callout: none; }
+.rank-handle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 34px;
+  margin-left: 2px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: grab;
+  touch-action: none;
+}
+.rank-handle:hover { background: var(--bg-elev-2); color: var(--text); }
+.rank-row.rank-lifting {
+  position: relative;
+  z-index: 5;
+  cursor: grabbing;
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  transition: box-shadow 0.15s;
+}
+.rank-dragging .rank-row:not(.rank-lifting) { transition: none; }
+.rank-dragging { cursor: grabbing; }

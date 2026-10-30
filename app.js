@@ -5091,7 +5091,6 @@
       const m = found.movie;
       const row = document.createElement("div");
       row.className = "rank-row";
-      row.draggable = true;
       row.dataset.id = id;
 
       const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "";
@@ -5130,6 +5129,12 @@
       down.addEventListener("click", () => moveRank(id, 1));
       ctrls.appendChild(up);
       ctrls.appendChild(down);
+      const handle = document.createElement("span");
+      handle.className = "rank-handle";
+      handle.title = "ドラッグして順位を入れ替え";
+      handle.setAttribute("aria-hidden", "true");
+      handle.textContent = "≡";
+      ctrls.appendChild(handle);
 
       row.appendChild(badge);
       row.appendChild(thumb);
@@ -5172,35 +5177,106 @@
   // 描画のたびに行は作り直されるので dragstart/dragend は毎回付け直す。
   // 一方 wrap への dragover は一度だけ登録し、ドラッグ中はDOMを直接動かす
   // （毎回 renderRankingList すると掴んだ要素が消えて1つずつしか動かせなくなるため）。
+  // 行をつかんで上下に動かす（マウス・指どちらでも）。
+  // 指の場合は「≡」をつかむとすぐ、行のほかの場所は少し長押しで持ち上がる（スクロールと区別するため）
   function wireRankingDnd(wrap) {
-    wrap.querySelectorAll(".rank-row").forEach((row) => {
-      row.addEventListener("dragstart", (e) => {
-        row.classList.add("dragging");
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", row.dataset.id); // Firefox対策
-        }
-      });
-      row.addEventListener("dragend", () => {
-        row.classList.remove("dragging");
-        // DOMの最終的な並びから順位配列を確定し、番号などを整える
-        rankOrder = [...wrap.querySelectorAll(".rank-row")].map((r) => r.dataset.id);
-        renderRankingList();
-      });
-    });
     if (wrap._rankDndBound) return;
     wrap._rankDndBound = true;
-    wrap.addEventListener("dragover", (e) => {
-      const dragging = wrap.querySelector(".rank-row.dragging");
-      if (!dragging) return;
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      const after = rankRowAfter(wrap, e.clientY);
-      if (after == null) wrap.appendChild(dragging);
-      else if (after !== dragging.nextSibling) wrap.insertBefore(dragging, after);
-      refreshRankBadges(wrap);
+    const modal = wrap.closest(".modal");
+    let drag = null;
+
+    const begin = (row, e) => {
+      const r = row.getBoundingClientRect();
+      drag = { row, pointerId: e.pointerId, grab: e.clientY - r.top, y: e.clientY, raf: 0 };
+      row.classList.add("rank-lifting");
+      wrap.classList.add("rank-dragging");
+      haptic(12);
+      place();
+      tick();
+    };
+    const place = () => {
+      const { row, y, grab } = drag;
+      // 動かしている行の中心が隣の行の中心を越えたら入れ替える
+      const rows = [...wrap.querySelectorAll(".rank-row")];
+      const i = rows.indexOf(row);
+      const center = y - grab + row.offsetHeight / 2;
+      const prev = rows[i - 1], next = rows[i + 1];
+      const firstPos = new Map(rows.map((x) => [x, x.getBoundingClientRect().top]));
+      let moved = false;
+      if (prev && center < prev.getBoundingClientRect().top + prev.offsetHeight / 2) {
+        wrap.insertBefore(row, prev); moved = true;
+      } else if (next && center > next.getBoundingClientRect().top + next.offsetHeight / 2) {
+        wrap.insertBefore(row, next.nextSibling); moved = true;
+      }
+      if (moved) {
+        refreshRankBadges(wrap);
+        if (!reduceMotion) rows.forEach((x) => {
+          if (x === row || !x.animate) return;
+          const d = firstPos.get(x) - x.getBoundingClientRect().top;
+          if (Math.abs(d) > 1) x.animate([{ transform: `translateY(${d}px)` }, { transform: "none" }], { duration: 180, easing: "ease-out" });
+        });
+      }
+      row.style.transform = "";
+      const natural = row.getBoundingClientRect().top;
+      row.style.transform = `translateY(${y - grab - natural}px) scale(1.02)`;
+    };
+    // 画面の端に近づいたら、ポップアップの中を自動でスクロール
+    const tick = () => {
+      if (!drag) return;
+      if (modal) {
+        const mr = modal.getBoundingClientRect();
+        const edge = 70;
+        let v = 0;
+        if (drag.y < mr.top + edge + 40) v = -Math.ceil((mr.top + edge + 40 - drag.y) / 6);
+        else if (drag.y > mr.bottom - edge) v = Math.ceil((drag.y - (mr.bottom - edge)) / 6);
+        if (v) { modal.scrollTop += v; place(); }
+      }
+      drag.raf = requestAnimationFrame(tick);
+    };
+    const finish = () => {
+      if (!drag) return;
+      cancelAnimationFrame(drag.raf);
+      const { row } = drag;
+      drag = null;
+      row.classList.remove("rank-lifting");
+      wrap.classList.remove("rank-dragging");
+      row.style.transform = "";
+      rankOrder = [...wrap.querySelectorAll(".rank-row")].map((r) => r.dataset.id);
+      haptic(8);
+      renderRankingList();
+    };
+
+    let pending = null;
+    wrap.addEventListener("pointerdown", (e) => {
+      const row = e.target.closest(".rank-row");
+      if (!row || e.target.closest(".rank-btn") || drag) return;
+      const onHandle = !!e.target.closest(".rank-handle");
+      pending = { row, e, x: e.clientX, y: e.clientY, timer: 0, touch: e.pointerType !== "mouse" };
+      if (onHandle || !pending.touch) {
+        if (onHandle) { e.preventDefault(); begin(row, e); pending = null; }
+      } else {
+        pending.timer = setTimeout(() => { if (pending) { begin(pending.row, pending.e); pending = null; } }, 260);
+      }
     });
-    wrap.addEventListener("drop", (e) => e.preventDefault());
+    window.addEventListener("pointermove", (e) => {
+      if (drag && e.pointerId === drag.pointerId) {
+        drag.y = e.clientY;
+        place();
+        return;
+      }
+      if (!pending) return;
+      const dist = Math.hypot(e.clientX - pending.x, e.clientY - pending.y);
+      if (pending.touch) {
+        if (dist > 8) { clearTimeout(pending.timer); pending = null; } // スクロールしたい動き
+      } else if (dist > 4) {
+        const p = pending; pending = null; begin(p.row, p.e); drag.y = e.clientY; place();
+      }
+    });
+    const up = () => { if (pending) { clearTimeout(pending.timer); pending = null; } finish(); };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    // 指で持ち上げている間は、画面のスクロールを止める
+    wrap.addEventListener("touchmove", (e) => { if (drag) e.preventDefault(); }, { passive: false });
   }
 
   function saveRanking() {
