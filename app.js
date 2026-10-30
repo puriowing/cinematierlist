@@ -4493,8 +4493,7 @@
       btn.classList.toggle("active", hasFilter());
     }
     if (clear) clear.classList.toggle("hidden", !hasFilter());
-    const rank = document.getElementById("rankThemeBtn");
-    if (rank) rank.classList.toggle("hidden", !hasFilter());
+
     const ch = document.getElementById("challengeCreateBtn");
     if (ch) ch.classList.toggle("hidden", !hasFilter() || !!activeChallenge());
     renderChallengeBar();
@@ -4508,6 +4507,10 @@
     if (currentThemePanel) {
       currentThemePanel.remove();
       currentThemePanel = null;
+      if (rankAfterPick) {
+        rankAfterPick = false;
+        if (hasFilter()) setTimeout(openRankingModal, 0);
+      }
       const bd = document.querySelector(".theme-sheet-backdrop");
       if (bd) bd.remove();
       document.body.classList.remove("sheet-open");
@@ -4550,7 +4553,11 @@
     pop.className = "theme-panel" + (asSheet ? " theme-panel-sheet" : "");
     pop.innerHTML =
       (asSheet
-        ? `<div class="theme-sheet-head"><b>🎯 テーマで絞り込み</b><button type="button" class="theme-sheet-close">完了</button></div>`
+        ? `<div class="theme-sheet-head"><b>${rankAfterPick ? "🏆 ランキングのテーマ" : "🎯 テーマで絞り込み"}</b><button type="button" class="theme-sheet-close">完了</button></div>`
+        : "") +
+      (rankAfterPick
+        ? `<div class="theme-rank-cta"><span>順位をつけたいテーマを選んでください（複数選ぶと掛け合わせ）</span>` +
+          `<button type="button" class="btn btn-primary btn-sm theme-rank-go">🏆 このテーマで並べる</button></div>`
         : "") +
       `<div class="theme-media" role="group" aria-label="作品の種類"></div>` +
       `<div class="theme-active"></div>` +
@@ -4569,6 +4576,11 @@
     const optionsWrap = pop.querySelector(".theme-options");
     const activeWrap = pop.querySelector(".theme-active");
     const mediaWrap = pop.querySelector(".theme-media");
+    const rankGo = pop.querySelector(".theme-rank-go");
+    if (rankGo) rankGo.addEventListener("click", () => {
+      if (!hasFilter()) { toast("テーマを1つ以上選んでください"); return; }
+      closeThemePanel();
+    });
 
     // 作品の種類（映画／ドラマ／アニメ）。他のテーマと常に掛け合わせる
     const renderMediaSeg = () => {
@@ -5375,6 +5387,106 @@
 
   }
 
+  // ---- マイランキング（つくったランキングの一覧と、新しくつくる入口） ----
+  let rankAfterPick = false;
+  function parseRankKey(key) {
+    let mode = "and", body = key;
+    const mm = /^(and|or)\|/.exec(key);
+    if (mm) { mode = mm[1]; body = key.slice(mm[0].length); }
+    const filters = body.split(/&(?=[a-zA-Z]+:)/).map((p) => {
+      const i = p.indexOf(":");
+      return i > 0 ? { type: p.slice(0, i), value: p.slice(i + 1) } : null;
+    }).filter(Boolean);
+    return { mode, filters };
+  }
+  function withFilters(filters, mode, fn) {
+    const saved = activeFilters, savedMode = filterMode;
+    activeFilters = filters; filterMode = mode;
+    try { return fn(); } finally { activeFilters = saved; filterMode = savedMode; }
+  }
+  function savedRankings() {
+    const times = state.rankingTimes || {};
+    return Object.entries(state.rankings || {})
+      .filter(([, ids]) => Array.isArray(ids) && ids.length)
+      .map(([key, ids]) => {
+        const { mode, filters } = parseRankKey(key);
+        if (!filters.length) return null;
+        const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
+        if (!movies.length) return null;
+        return { key, mode, filters, movies, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.t - a.t);
+  }
+  function openSavedRanking(r) {
+    activeFilters = r.filters.map((f) => ({ ...f }));
+    filterMode = r.mode;
+    zoneLimits.clear();
+    render();
+    closeModal("rankHubModal");
+    openRankingModal();
+  }
+  function openRankHub() {
+    renderRankHub();
+    openModal("rankHubModal");
+  }
+  function renderRankHub() {
+    const body = document.getElementById("rankHubBody");
+    if (!body) return;
+    const list = savedRankings();
+    const curKey = rankKey();
+    const cur = curKey && list.find((r) => r.key === curKey);
+    const thumbs = (movies) => movies.slice(0, 3).map((m, i) =>
+      `<span class="rh-poster" style="z-index:${3 - i}">${m.poster ? `<img src="${escapeHtml(m.poster)}" alt="" loading="lazy" decoding="async">` : "🎬"}</span>`).join("");
+    let html = `<div class="rh-new">`;
+    if (hasFilter() && !cur) {
+      html += `<button type="button" class="rh-new-btn rh-new-cur" data-act="cur"><span class="rh-new-ic">🏆</span>` +
+        `<span><b>「${escapeHtml(themeFilterName())}」で順位をつける</b><small>いま絞り込んでいるテーマ</small></span></button>`;
+    }
+    html += `<button type="button" class="rh-new-btn" data-act="pick"><span class="rh-new-ic">＋</span>` +
+      `<span><b>テーマを選んで新しくつくる</b><small>ジャンル・監督・公開年・タグなど</small></span></button></div>`;
+    html += `<p class="rh-head">つくったランキング<span>${list.length}</span></p>`;
+    if (!list.length) {
+      html += `<p class="rh-empty">まだありません。テーマを選んで順位をつけると、ここに並びます。</p>`;
+    } else {
+      html += `<div class="rh-list">` + list.map((r, i) =>
+        `<div class="rh-card${r.key === curKey ? " is-current" : ""}">` +
+        `<button type="button" class="rh-open" data-i="${i}">` +
+        `<span class="rh-posters">${thumbs(r.movies)}</span>` +
+        `<span class="rh-info"><b>${escapeHtml(r.name)}</b>` +
+        `<small>🥇 ${escapeHtml(r.movies[0].title || "")}</small>` +
+        `<small>${r.movies.length}本${r.t ? " ・ " + new Date(r.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) + " 更新" : ""}</small></span>` +
+        `<span class="rh-chev">›</span></button>` +
+        `<button type="button" class="rh-del" data-i="${i}" title="このランキングを削除" aria-label="削除">✕</button>` +
+        `</div>`).join("") + `</div>`;
+    }
+    body.innerHTML = html;
+    body.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => {
+      closeModal("rankHubModal");
+      if (b.dataset.act === "cur") { openRankingModal(); return; }
+      rankAfterPick = false;
+      closeThemePanel();
+      activeFilters = [];
+      filterMode = "and";
+      zoneLimits.clear();
+      render();
+      rankAfterPick = true;
+      openThemePanel(document.getElementById("themeFilterBtn"));
+    }));
+    body.querySelectorAll(".rh-open").forEach((b) => b.addEventListener("click", () => openSavedRanking(list[+b.dataset.i])));
+    body.querySelectorAll(".rh-del").forEach((b) => b.addEventListener("click", () => {
+      const r = list[+b.dataset.i];
+      if (!confirm(`「${r.name}」のランキングを削除しますか？（作品やティアはそのままです）`)) return;
+      delete state.rankings[r.key];
+      if (state.rankingTimes) delete state.rankingTimes[r.key];
+      saveState();
+      renderRankHub();
+      toast("ランキングを削除しました");
+    }));
+    const sum = document.getElementById("mpRankSum");
+    if (sum) sum.textContent = list.length ? `${list.length}件` : "テーマごとにつくったランキング";
+  }
+
   // 並べ替えるたびに自動で保存（少し待ってまとめて保存）
   let rankSaveTimer = 0;
   function writeRanking() {
@@ -5384,6 +5496,8 @@
     if (!key) return false;
     if (!state.rankings || typeof state.rankings !== "object") state.rankings = {};
     state.rankings[key] = rankOrder.slice();
+    if (!state.rankingTimes || typeof state.rankingTimes !== "object") state.rankingTimes = {};
+    state.rankingTimes[key] = Date.now();
     saveState();
     return true;
   }
@@ -10980,7 +11094,11 @@
     const themeDel = document.getElementById("themeDeleteBtn");
     if (themeDel) themeDel.addEventListener("click", deleteThemeEdit);
     const rankBtn = document.getElementById("rankThemeBtn");
-    if (rankBtn) rankBtn.addEventListener("click", openRankingModal);
+    if (rankBtn) rankBtn.addEventListener("click", openRankHub);
+    const rankBack = document.getElementById("rankBackBtn");
+    if (rankBack) rankBack.addEventListener("click", () => { closeModal("rankingModal"); openRankHub(); });
+    const mpRank = document.getElementById("mpRankHubBtn");
+    if (mpRank) mpRank.addEventListener("click", () => { closeModal("settingsModal"); openRankHub(); });
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
     const rankShuffle = document.getElementById("rankShuffleBtn");

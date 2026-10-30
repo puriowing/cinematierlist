@@ -8638,3 +8638,74 @@ img.movie-poster.no-fade { transition: none !important; }
   background: var(--bg-elev); border-top: 1px solid var(--border);
 }
 #rankingModal .settings-actions .btn { flex: 1; }
+
+/* マイページ：マイランキングへのリンク行 */
+.mp-fold.mp-link {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 14px 16px; font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--text); text-align: left; cursor: pointer;
+}
+.mp-fold.mp-link:hover { background: var(--bg-elev-2); }
+.mp-link .mp-chev {
+  margin-left: auto; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--bg-elev-2); color: var(--text-dim); font-size: 16px;
+}
+
+/* マイランキング */
+.rh-new { display: grid; gap: 8px; }
+.rh-new-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px;
+  border: 1.5px dashed var(--accent); border-radius: 14px; background: transparent;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.rh-new-btn b { display: block; font-size: 15px; }
+.rh-new-btn small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.rh-new-btn.rh-new-cur { border-style: solid; background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev)); }
+.rh-new-ic {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; font-size: 20px; font-weight: 700;
+}
+.rh-head { display: flex; align-items: center; gap: 6px; margin: 20px 2px 8px; font-size: 13px; font-weight: 700; color: var(--text-dim); }
+.rh-head span { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--bg-elev-2); }
+.rh-empty { font-size: 13px; color: var(--text-dim); margin: 4px 2px; }
+.rh-list { display: grid; gap: 8px; }
+.rh-card {
+  position: relative; display: flex; align-items: stretch;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elev); overflow: hidden;
+}
+.rh-card.is-current { border-color: var(--accent); }
+.rh-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.rh-open:hover { background: var(--bg-elev-2); }
+.rh-posters { flex: 0 0 auto; display: flex; width: 74px; height: 56px; }
+.rh-poster {
+  position: relative; width: 40px; height: 56px; border-radius: 6px; overflow: hidden; margin-right: -23px;
+  background: var(--bg-elev-2); display: grid; place-items: center; font-size: 18px;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.18);
+}
+.rh-poster img { width: 100%; height: 100%; object-fit: cover; }
+.rh-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.rh-info b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rh-info small { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rh-chev { color: var(--text-dim); font-size: 20px; }
+.rh-del {
+  flex: 0 0 auto; width: 40px; border: 0; border-left: 1px solid var(--border);
+  background: transparent; color: var(--text-dim); font-size: 14px; cursor: pointer;
+}
+.rh-del:hover { color: #d33; background: var(--bg-elev-2); }
+
+/* テーマ選択パネル：ランキングをつくる途中の案内 */
+.theme-rank-cta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between;
+  margin: 0 0 10px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev)); font-size: 13px;
+}
+
+/* ランキング画面：一覧へ戻る */
+#rankingModal .modal-header { gap: 8px; }
+.rank-back-btn {
+  flex: 0 0 auto; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev);
+  color: var(--text); font: inherit; font-size: 13px; font-weight: 700; padding: 4px 12px; cursor: pointer;
+}

@@ -31,7 +31,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030hj" />
+  <link rel="stylesheet" href="styles.css?v=20261030hk" />
 </head>
 <body>
   <script>
@@ -117,7 +117,7 @@
       <span class="filter-label">🎯 テーマで絞り込み</span>
       <button id="themeFilterBtn" class="btn btn-ghost btn-sm theme-filter-btn" title="テーマを選んで絞り込みます">すべて表示 ▾</button>
       <button id="clearThemeBtn" class="btn btn-ghost btn-sm hidden" title="絞り込みを解除">✕ 解除</button>
-      <button id="rankThemeBtn" class="btn btn-primary btn-sm hidden" title="絞り込んだ作品に順位をつけます">🏆 ランキングをつける</button>
+      <button id="rankThemeBtn" class="btn btn-primary btn-sm" title="テーマごとに順位をつけたランキングをつくる・見る">🏆 ランキング</button>
       <button id="challengeCreateBtn" class="btn btn-ghost btn-sm challenge-btn hidden" title="このテーマで、みんなにティアリストを作ってもらうリンクを作ります">📣 お題にする</button>
       <button id="shareThemeBtn" class="btn btn-ghost btn-sm share-theme-btn" title="SNS向けの共有画像を作ります">📤 シェア</button>
       <input id="listSearchInput" class="movie-search-input" type="search" name="tiari-list-search" placeholder="🔍 登録作品を検索" aria-label="登録作品をタイトルで検索" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true" />
@@ -405,6 +405,8 @@
           <summary><span class="mp-ic">🔑</span><span class="mp-sum"><b>アカウント</b><small id="mpAccountSum">ログイン・ほかの端末と同期</small></span><span id="mpAccountBadge" class="mp-badge"></span></summary>
           <div class="mp-fold-body"><div id="authBody"></div></div>
         </details>
+
+        <button type="button" id="mpRankHubBtn" class="mp-fold mp-link"><span class="mp-ic">🏆</span><span class="mp-sum"><b>マイランキング</b><small id="mpRankSum">テーマごとにつくったランキング</small></span><span class="mp-chev">›</span></button>
 
         <p class="mp-group">公開と共有</p>
         <details id="mpPrivacy" class="mp-fold">
@@ -910,10 +912,24 @@
     </div>
   </div>
 
+  <!-- Ranking hub -->
+  <div id="rankHubModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🏆 マイランキング</h3>
+        <button class="modal-close" data-close="rankHubModal">✕</button>
+      </div>
+      <div class="settings-body">
+        <div id="rankHubBody"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Theme ranking modal -->
   <div id="rankingModal" class="modal-overlay hidden">
     <div class="modal modal-wide">
       <div class="modal-header">
+        <button type="button" id="rankBackBtn" class="rank-back-btn" title="マイランキングの一覧へ">‹ 一覧</button>
         <h3 id="rankingTitle">🏆 ランキング</h3>
         <button class="modal-close" data-close="rankingModal">✕</button>
       </div>
@@ -1021,6 +1037,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261030hj"></script>
+  <script src="app.js?v=20261030hk"></script>
 </body>
 </html>
