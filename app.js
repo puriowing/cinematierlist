@@ -5272,8 +5272,9 @@
       const badge = r.querySelector(".rank-badge");
       if (badge) {
         const medal = !below && (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "");
-        badge.textContent = medal || String(i + 1);
+        badge.textContent = below ? "−" : medal || String(i + 1);
         badge.classList.toggle("rank-badge-top", !below && i < 3);
+        badge.classList.toggle("rank-badge-out", below);
       }
     });
     if (bar) {
@@ -5354,7 +5355,7 @@
         if (to >= others.length) others[others.length - 1].after(drag.row);
         else others[to].before(drag.row);
         const badge = ghost.querySelector(".rank-badge");
-        if (badge) badge.textContent = String(to + 1);
+        if (badge) badge.textContent = hasRankCut() && to >= rankCut ? "−" : String(to + 1);
       }
     };
 
