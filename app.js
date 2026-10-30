@@ -12479,11 +12479,12 @@
     // ボトムシート（ポップアップ）：中身が一番上のときに下へ引くと閉じる
     let sheet = null, sy = 0, sdy = 0, sx = 0, locked = false;
     document.addEventListener("touchstart", (e) => {
-      const m = e.target.closest(".modal-overlay:not(.hidden) .modal");
+      // ポップアップに加えて、下から出るパネル（テーマで絞り込み・ティアを編集）も対象
+      const m = e.target.closest(".modal-overlay:not(.hidden) .modal, .theme-panel-sheet, .tier-editor-sheet");
       if (!m || e.touches.length !== 1 || window.innerWidth > 768) { sheet = null; return; }
       // 入力欄や、中で並べ替えをする一覧（ランキングなど）では、シートを引いて閉じる動きをしない
       if (e.target.closest("input, textarea, select, .tl-switch, [data-no-swipe], .rank-row, #rankingList")) { sheet = null; return; }
-      const inHeader = !!e.target.closest(".modal-header");
+      const inHeader = !!e.target.closest(".modal-header, .theme-sheet-head");
       if (!inHeader && m.scrollTop > 0) { sheet = null; return; }
       // 横スクロール中の領域や、内側でスクロールしている領域では反応しない
       for (let el = e.target; el && el !== m; el = el.parentElement) {
@@ -12513,7 +12514,11 @@
       if (sdy > 110) {
         m.style.transform = "translateY(100%)";
         const ov = m.closest(".modal-overlay");
-        setTimeout(() => { closeModal(ov.id); m.style.transform = ""; m.style.transition = ""; }, 180);
+        setTimeout(() => {
+          if (ov) closeModal(ov.id);
+          else { const done = m.querySelector(".theme-sheet-close"); if (done) done.click(); }
+          m.style.transform = ""; m.style.transition = "";
+        }, 180);
       } else {
         m.style.transform = "";
         setTimeout(() => { m.style.transition = ""; }, 220);
