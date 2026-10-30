@@ -5061,6 +5061,7 @@
     if (titleEl) titleEl.textContent = `🏆 ${themeFilterName()} ランキング`;
     const exTitle = document.getElementById("rankingExportTitle");
     if (exTitle) exTitle.textContent = `🏆 ${themeFilterName()} ランキング`;
+    setRankReorder(false);
     renderRankingList();
     openModal("rankingModal");
   }
@@ -5278,6 +5279,7 @@
     let touch = null;
     wrap.addEventListener("touchstart", (e) => {
       const row = e.target.closest(".rank-row");
+      if (!wrap.classList.contains("reorder-on")) return; // オフの間はふつうにスクロール
       if (!row || e.touches.length !== 1 || e.target.closest(".rank-btn")) return;
       const t = e.touches[0];
       // 触れた瞬間から持ち上げる（長押しを待たない）
@@ -5304,6 +5306,18 @@
     wrap.addEventListener("touchend", touchEnd);
     wrap.addEventListener("touchcancel", touchEnd);
     wrap.addEventListener("contextmenu", (e) => { if (drag || touch) e.preventDefault(); });
+  }
+
+  function setRankReorder(on) {
+    const wrap = document.getElementById("rankingList");
+    const btn = document.getElementById("rankReorderBtn");
+    if (wrap) wrap.classList.toggle("reorder-on", on);
+    if (btn) {
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-pressed", String(on));
+      btn.querySelector(".rr-tx").textContent = on ? "並べ替え中" : "並べ替える";
+      btn.querySelector(".rr-sub").textContent = on ? "作品をつかんで上下に動かせます。終わったら押して戻す" : "オンにすると作品をドラッグで動かせます";
+    }
   }
 
   function saveRanking() {
@@ -11089,6 +11103,11 @@
     wireMyPageFolds();
     wireTouchGestures();
     wireTagModal();
+    document.getElementById("rankReorderBtn").addEventListener("click", () => {
+      const on = !document.getElementById("rankingList").classList.contains("reorder-on");
+      setRankReorder(on);
+      haptic(10);
+    });
     initAddPickers();
     // 検索欄にブラウザのログイン情報（メールアドレス）が自動入力されないようにする
     document.querySelectorAll('input[type="search"]').forEach((i) => {

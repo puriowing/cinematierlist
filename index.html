@@ -31,7 +31,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261030rk6" />
+  <link rel="stylesheet" href="styles.css?v=20261030rm" />
 </head>
 <body>
   <script>
@@ -919,8 +919,11 @@
       </div>
       <div class="settings-body">
         <p class="hint" style="margin-top:0">
-          作品をつかんで上下にドラッグするか、↑ ↓ ボタンで順位を入れ替えられます（一覧をスクロールしたいときは、右の ↑ ↓ ボタンの上や作品の外側をなぞってください。ドラッグ中に上下の端へ近づけても自動で動きます）。いちばん上が1位です。順位は絞り込みテーマごとに保存されます。
+          いちばん上が1位です。「並べ替える」をオンにすると、作品をつかんで上下にドラッグできます（オフの間はふつうにスクロール）。↑ ↓ ボタンでも入れ替えられます。順位は絞り込みテーマごとに保存されます。
         </p>
+        <button type="button" id="rankReorderBtn" class="rank-reorder-btn" aria-pressed="false">
+          <span class="rr-ic">↕</span><span class="rr-tx">並べ替える</span><span class="rr-sub">オンにすると作品をドラッグで動かせます</span>
+        </button>
         <div class="ranking-toolbar">
           <button id="rankByTierBtn" class="btn btn-ghost btn-sm">⬇ ティア順に整列</button>
           <button id="rankShuffleBtn" class="btn btn-ghost btn-sm">🔀 シャッフル</button>
@@ -1020,6 +1023,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
   <script src="icons.js?v=20261025b"></script>
-  <script src="app.js?v=20261030rk5"></script>
+  <script src="app.js?v=20261030rm"></script>
 </body>
 </html>

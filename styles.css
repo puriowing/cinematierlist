@@ -8526,3 +8526,33 @@ img.movie-poster.no-fade { transition: none !important; }
 /* 指で触れた瞬間からドラッグできるよう、行の上ではスクロールさせない */
 #rankingList .rank-handle { touch-action: none; }
 .rank-dragging .rank-row:not(.rank-lifting) { transition: transform 0.12s ease-out !important; }
+
+/* ランキング：並べ替えモード */
+.rank-reorder-btn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rank-reorder-btn .rr-ic { grid-row: 1 / 3; font-size: 22px; font-weight: 800; color: var(--accent); }
+.rank-reorder-btn .rr-tx { font-size: 14px; font-weight: 800; }
+.rank-reorder-btn .rr-sub { font-size: 11px; color: var(--text-dim); }
+.rank-reorder-btn.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rank-reorder-btn.is-on .rr-ic,
+.rank-reorder-btn.is-on .rr-sub { color: #fff; }
+/* オンの間：行全体がつかめる・スクロールの判定を止める・行を少し揺らして「動かせる」ことを示す */
+#rankingList.reorder-on .rank-row { touch-action: none; border-style: dashed; border-color: var(--accent); cursor: grab; }
+#rankingList.reorder-on .rank-handle { color: var(--accent); }
+#rankingList:not(.reorder-on) .rank-row { touch-action: pan-y; }
+@media (hover: none) { #rankingList:not(.reorder-on) .rank-handle { display: none; } }
