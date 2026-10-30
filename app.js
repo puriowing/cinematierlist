@@ -2975,6 +2975,27 @@
     render();
   }
 
+  // 作ったお題のリンクを、あとからもう一度出す
+  async function openChallengeLink(c) {
+    const body = document.getElementById("challengeBody");
+    body.innerHTML = `<p class="soc-note">お題を読み込み中…</p>`;
+    openModal("challengeModal");
+    const res = await fetchChallenge(c.id);
+    if (!res || !res.ok) {
+      body.innerHTML = `<p class="soc-empty">${res && res.status === 404 ? "このお題は見つかりませんでした。" : "サーバーに接続できません。"}</p>`;
+      return;
+    }
+    const ch = res.data;
+    body.innerHTML =
+      `<div class="ch-done"><div class="ch-done-icon">📣</div>` +
+      `<h4>「${escapeHtml(ch.title)}」のお題</h4>` +
+      `<p class="hint">このリンクを送ると、相手は同じ ${ch.movies.length} 本でティアリストを作れます。</p></div>` +
+      challengeShareHtml(ch) +
+      `<div class="ch-actions"><button type="button" id="chSeeResults" class="btn btn-ghost">📊 結果を見る</button></div>`;
+    bindChallengeShare(ch);
+    document.getElementById("chSeeResults").addEventListener("click", () => openChallengeResults(ch.id));
+  }
+
   // ---- 参加（リンクを受け取った側） ----
   async function fetchChallenge(id) {
     try {
@@ -3151,10 +3172,11 @@
       `<span class="ch-bar-label">📣 ${c.owner ? "あなたのお題" : "お題に参加中"}：<b>${escapeHtml(c.title)}</b></span>` +
       `<span class="ch-bar-progress">ティアに振り分け済み ${done} / ${items.length} 本</span>` +
       `<span class="ch-bar-btns">` +
-      (c.owner ? "" : `<button type="button" class="btn btn-primary btn-sm" data-ch="send">📨 結果を送る</button>`) +
+      (c.owner ? `<button type="button" class="btn btn-primary btn-sm" data-ch="link">🔗 リンクを送る</button>`
+        : `<button type="button" class="btn btn-primary btn-sm" data-ch="send">📨 結果を送る</button>`) +
       `<button type="button" class="btn btn-ghost btn-sm" data-ch="view">📊 みんなの結果</button></span>`;
     bar.querySelectorAll("[data-ch]").forEach((b) =>
-      b.addEventListener("click", () => openChallengeResults(c.id, b.dataset.ch === "send")));
+      b.addEventListener("click", () => b.dataset.ch === "link" ? openChallengeLink(c) : openChallengeResults(c.id, b.dataset.ch === "send")));
   }
 
   function renderChallengeList() {
@@ -4497,7 +4519,13 @@
     if (rank) rank.classList.toggle("hidden", !hasFilter());
 
     const ch = document.getElementById("challengeCreateBtn");
-    if (ch) ch.classList.toggle("hidden", !hasFilter() || !!activeChallenge());
+    if (ch) {
+      // すでにお題にしたテーマでは、リンクをもう一度送れるボタンにする
+      const cur = activeChallenge();
+      ch.classList.toggle("hidden", !hasFilter() || (cur && !cur.owner));
+      const label = cur && cur.owner ? "📣 お題のリンク" : "📣 お題にする";
+      if (ch.dataset.label !== label) { ch.dataset.label = label; ch.textContent = label; }
+    }
     renderChallengeBar();
   }
 
@@ -11642,7 +11670,10 @@
     if (imgDl) imgDl.addEventListener("click", imgOutDownload);
     wireShare();
     const chBtn = document.getElementById("challengeCreateBtn");
-    if (chBtn) chBtn.addEventListener("click", openChallengeCreate);
+    if (chBtn) chBtn.addEventListener("click", () => {
+      const cur = activeChallenge();
+      if (cur && cur.owner) openChallengeLink(cur); else openChallengeCreate();
+    });
     document.querySelectorAll(".tp-sort-btn").forEach((b) =>
       b.addEventListener("click", () => {
         if (b.dataset.sort === themePickSort) {
