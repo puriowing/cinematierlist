@@ -5040,6 +5040,16 @@
   // テーマ別ランキング（絞り込んだ作品に順位をつける）
   // =======================================================================
   let rankOrder = []; // モーダル内の暫定順位（作品ID配列・保存時に反映）
+  // 「ここまでがランキング」の線。上から何位までを順位とするか（作品が多いときだけ出す）
+  const RANK_CUT_MIN = 30;
+  const RANK_CUT_DEFAULT = 100;
+  let rankCut = 0;
+  function hasRankCut() { return rankOrder.length > RANK_CUT_MIN; }
+  function storedCut(key, len) {
+    const v = state.rankingCuts && state.rankingCuts[key];
+    if (v === 0) return len; // 「すべて」
+    return Math.max(1, Math.min(len, Number.isFinite(v) ? v : RANK_CUT_DEFAULT));
+  }
 
   function rankKey() {
     if (!activeFilters.length) return null;
@@ -5068,6 +5078,7 @@
     rankOrder = saved.filter((id) => matchIds.has(id));
     const inOrder = new Set(rankOrder);
     filteredIdsByTier().forEach((id) => { if (!inOrder.has(id)) { rankOrder.push(id); inOrder.add(id); } });
+    rankCut = storedCut(key, rankOrder.length);
 
     const titleEl = document.getElementById("rankingTitle");
     if (titleEl) titleEl.textContent = `🏆 ${themeFilterName()} ランキング`;
@@ -5097,8 +5108,10 @@
     const wrap = document.getElementById("rankingList");
     const row = wrap && wrap.querySelector(`.rank-row[data-id="${CSS.escape(id)}"]`);
     if (!row) { renderRankingList(); return; }
-    if (delta < 0 && row.previousElementSibling) row.previousElementSibling.before(row);
-    else if (delta > 0 && row.nextElementSibling) row.nextElementSibling.after(row);
+    const sib = (el, dir) => { let n = el[dir]; while (n && !n.classList.contains("rank-row")) n = n[dir]; return n; };
+    const prev = sib(row, "previousElementSibling"), next = sib(row, "nextElementSibling");
+    if (delta < 0 && prev) prev.before(row);
+    else if (delta > 0 && next) next.after(row);
     refreshRankBadges(wrap);
     row.scrollIntoView({ block: "nearest" });
   }
@@ -5178,6 +5191,7 @@
       row.appendChild(ctrls);
       wrap.appendChild(row);
     });
+    placeRankCut(wrap);
     wireRankingDnd(wrap);
     if (rankJustMoved) {
       const moved = wrap.querySelector(".rank-row.just-moved");
@@ -5226,6 +5240,50 @@
       if (btns[0]) btns[0].disabled = idx === 0;
       if (btns[1]) btns[1].disabled = idx === rows.length - 1;
     });
+    placeRankCut(wrap);
+  }
+
+  // 線を「上から rankCut 本目」のすぐ下に置き、線より下の行を薄くする
+  function placeRankCut(wrap) {
+    const rows = [...wrap.querySelectorAll(".rank-row:not(.rank-ghost)")];
+    let cut = wrap.querySelector(".rank-cut");
+    const bar = document.getElementById("rankCutBar");
+    if (rows.length <= RANK_CUT_MIN) {
+      if (cut) cut.remove();
+      rows.forEach((r) => r.classList.remove("below-cut"));
+      if (bar) bar.classList.add("hidden");
+      return;
+    }
+    rankCut = Math.max(1, Math.min(rows.length, rankCut || RANK_CUT_DEFAULT));
+    if (!cut) {
+      cut = document.createElement("div");
+      cut.className = "rank-cut";
+      cut.innerHTML = `<span class="rank-cut-grip" aria-hidden="true">≡</span><span class="rank-cut-label"></span><span class="rank-cut-grip" aria-hidden="true">≡</span>`;
+    }
+    const all = rankCut >= rows.length;
+    cut.querySelector(".rank-cut-label").innerHTML = all
+      ? `ここまでがランキング（<b>全${rows.length}位</b>）`
+      : `ここまでが <b>ベスト${rankCut}</b> ・ 下は圏外`;
+    if (all) rows[rows.length - 1].after(cut);
+    else if (rows[rankCut].previousElementSibling !== cut) rows[rankCut].before(cut);
+    rows.forEach((r, i) => {
+      const below = i >= rankCut;
+      r.classList.toggle("below-cut", below);
+      const badge = r.querySelector(".rank-badge");
+      if (badge) {
+        const medal = !below && (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "");
+        badge.textContent = medal || String(i + 1);
+        badge.classList.toggle("rank-badge-top", !below && i < 3);
+      }
+    });
+    if (bar) {
+      bar.classList.remove("hidden");
+      bar.querySelectorAll("[data-cut]").forEach((b) => {
+        const v = +b.dataset.cut;
+        b.classList.toggle("active", v === 0 ? all : v === rankCut && !all);
+        b.classList.toggle("hidden", v > 0 && v >= rows.length);
+      });
+    }
   }
 
   // ランキング行のドラッグ＆ドロップ並べ替え。
@@ -5322,6 +5380,78 @@
       setTimeout(() => { wrap._justDragged = false; }, 50);
     };
 
+    // 「ここまで」の線をつかんで上下に動かす
+    let cutDrag = null;
+    const cutBegin = (y) => {
+      const cut = wrap.querySelector(".rank-cut");
+      if (!cut) return;
+      const rows = [...wrap.querySelectorAll(".rank-row")];
+      const wrapTop = wrap.getBoundingClientRect().top;
+      const h = cut.getBoundingClientRect().height + 8;
+      // 線がないときの各行の中心（一覧の中での位置）
+      const centers = rows.map((r, i) => {
+        const rc = r.getBoundingClientRect();
+        return rc.top - wrapTop + rc.height / 2 - (i >= rankCut ? h : 0);
+      });
+      cutDrag = { cut, centers, wrapTop, startScroll: modal ? modal.scrollTop : 0, y, raf: 0 };
+      cut.classList.add("is-dragging");
+      haptic(12);
+      cutDrag.raf = requestAnimationFrame(cutFrame);
+    };
+    const cutApply = () => {
+      if (!cutDrag) return;
+      const y = cutDrag.y - cutDrag.wrapTop + ((modal ? modal.scrollTop : 0) - cutDrag.startScroll);
+      let n = 0;
+      while (n < cutDrag.centers.length && cutDrag.centers[n] < y) n++;
+      n = Math.max(1, n);
+      if (n !== rankCut) {
+        rankCut = n;
+        placeRankCut(wrap);
+      }
+    };
+    const cutFrame = () => {
+      if (!cutDrag) return;
+      if (modal) {
+        const mr = modal.getBoundingClientRect();
+        const head = modal.querySelector(".modal-header");
+        const topEdge = mr.top + (head ? head.offsetHeight : 0) + 50;
+        const bottomEdge = mr.bottom - 90;
+        if (cutDrag.y < topEdge) { modal.scrollTop -= Math.ceil((topEdge - cutDrag.y) / 4); cutApply(); }
+        else if (cutDrag.y > bottomEdge) { modal.scrollTop += Math.ceil((cutDrag.y - bottomEdge) / 4); cutApply(); }
+      }
+      cutDrag.raf = requestAnimationFrame(cutFrame);
+    };
+    const cutFinish = () => {
+      if (!cutDrag) return;
+      cancelAnimationFrame(cutDrag.raf);
+      cutDrag.cut.classList.remove("is-dragging");
+      cutDrag = null;
+      haptic(10);
+      autosaveRanking();
+      wrap._justDragged = true;
+      setTimeout(() => { wrap._justDragged = false; }, 50);
+    };
+    wrap.addEventListener("touchstart", (e) => {
+      if (!e.target.closest(".rank-cut") || e.touches.length !== 1) return;
+      e.preventDefault();
+      cutBegin(e.touches[0].clientY);
+    }, { passive: false });
+    wrap.addEventListener("touchmove", (e) => {
+      if (!cutDrag) return;
+      e.preventDefault();
+      cutDrag.y = e.touches[0].clientY;
+      cutApply();
+    }, { passive: false });
+    wrap.addEventListener("touchend", cutFinish);
+    wrap.addEventListener("touchcancel", cutFinish);
+    wrap.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || !e.target.closest(".rank-cut")) return;
+      e.preventDefault();
+      cutBegin(e.clientY);
+    });
+    window.addEventListener("mousemove", (e) => { if (cutDrag) { cutDrag.y = e.clientY; cutApply(); } });
+    window.addEventListener("mouseup", cutFinish);
+
     // マウス：押して少し動かしたら持ち上げる
     let mouse = null;
     wrap.addEventListener("mousedown", (e) => {
@@ -5413,7 +5543,8 @@
         if (!filters.length) return null;
         const movies = ids.map((id) => (findMovie(id) || {}).movie).filter(Boolean);
         if (!movies.length) return null;
-        return { key, mode, filters, movies, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
+        const cut = movies.length > RANK_CUT_MIN ? storedCut(key, movies.length) : movies.length;
+        return { key, mode, filters, movies, cut, name: withFilters(filters, mode, joinedFilterLabels), t: times[key] || 0 };
       })
       .filter(Boolean)
       .sort((a, b) => b.t - a.t);
@@ -5455,7 +5586,7 @@
         `<span class="rh-posters">${thumbs(r.movies)}</span>` +
         `<span class="rh-info"><b>${escapeHtml(r.name)}</b>` +
         `<small>🥇 ${escapeHtml(r.movies[0].title || "")}</small>` +
-        `<small>${r.movies.length}本${r.t ? " ・ " + new Date(r.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) + " 更新" : ""}</small></span>` +
+        `<small>${r.cut < r.movies.length ? `ベスト${r.cut}（全${r.movies.length}本）` : `${r.movies.length}本`}${r.t ? " ・ " + new Date(r.t).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) + " 更新" : ""}</small></span>` +
         `<span class="rh-chev">›</span></button>` +
         `<button type="button" class="rh-del" data-i="${i}" title="このランキングを削除" aria-label="削除">✕</button>` +
         `</div>`).join("") + `</div>`;
@@ -5498,6 +5629,8 @@
     state.rankings[key] = rankOrder.slice();
     if (!state.rankingTimes || typeof state.rankingTimes !== "object") state.rankingTimes = {};
     state.rankingTimes[key] = Date.now();
+    if (!state.rankingCuts || typeof state.rankingCuts !== "object") state.rankingCuts = {};
+    if (hasRankCut()) state.rankingCuts[key] = rankCut >= rankOrder.length ? 0 : rankCut;
     saveState();
     return true;
   }
@@ -5543,6 +5676,7 @@
     const exTitle = document.getElementById("rankingExportTitle");
     if (!region) return;
     if (exTitle) exTitle.style.display = "block";
+    region.classList.add("is-exporting");
     try {
       toast("画像を生成中…");
       const dataUrl = await window.htmlToImage.toPng(region, {
@@ -5561,6 +5695,7 @@
       toast("画像化に失敗しました。外部URLのポスターはCORSで失敗する場合があります。");
     } finally {
       if (exTitle) exTitle.style.display = "none";
+      region.classList.remove("is-exporting");
     }
   }
 
@@ -9166,7 +9301,7 @@
     const btn = document.getElementById("shareThemeBtn");
     if (btn) btn.addEventListener("click", () => openShareModal());
     const rankBtn = document.getElementById("rankShareBtn");
-    if (rankBtn) rankBtn.addEventListener("click", () => openShareModal({ mode: "best", rankIds: rankOrder.slice() }));
+    if (rankBtn) rankBtn.addEventListener("click", () => openShareModal({ mode: "best", rankIds: rankOrder.slice(0, hasRankCut() ? rankCut : undefined) }));
     document.querySelectorAll("#shareModal .share-seg").forEach((seg) => {
       seg.addEventListener("click", (e) => {
         const b = e.target.closest("button");
@@ -11101,6 +11236,16 @@
     if (mpRank) mpRank.addEventListener("click", () => { closeModal("settingsModal"); openRankHub(); });
     const rankSave = document.getElementById("rankingSaveBtn");
     if (rankSave) rankSave.addEventListener("click", saveRanking);
+    const cutBar = document.getElementById("rankCutBar");
+    if (cutBar) cutBar.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-cut]");
+      if (!b) return;
+      const v = +b.dataset.cut;
+      rankCut = v === 0 ? rankOrder.length : v;
+      const wrap = document.getElementById("rankingList");
+      if (wrap) placeRankCut(wrap);
+      autosaveRanking();
+    });
     const rankShuffle = document.getElementById("rankShuffleBtn");
     if (rankShuffle) rankShuffle.addEventListener("click", shuffleRanking);
     const rankTier = document.getElementById("rankByTierBtn");
