@@ -10534,6 +10534,8 @@
       "seriesActions"]);
     seriesSessions = {};
     personPicked.clear();
+    // 一覧の選択（1行にたたんだ状態）と絞り込みの文字も元に戻す
+    Object.values(pickers).forEach((p) => p.reset());
     // 人物のフィルモグラフィ表示を閉じる
     const pf = document.getElementById("personFilmography");
     if (pf) pf.classList.add("hidden");
