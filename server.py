@@ -86,6 +86,8 @@ _fetch_sem = threading.Semaphore(FETCH_MAX_CONCURRENCY)
 
 def _cache_ttl(url):
     """URL の種類ごとにキャッシュの有効期間（秒）を返す。"""
+    if "itunes.apple.com" in url:
+        return 24 * 3600
     if "/search/" in url:
         return 6 * 3600           # 検索結果は短め
     if "/list/" in url:
