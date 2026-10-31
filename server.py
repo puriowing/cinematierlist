@@ -14,6 +14,7 @@
 
 import base64
 import errno
+import gzip
 import hashlib
 import hmac
 import json
@@ -58,7 +59,7 @@ def _poster_url(url):
     """ポスターURLを正規化する。
     - // 始まりは https 補完
     - noimg プレースホルダは空文字に
-    - CDNはCORS非対応の可能性があるためローカルプロキシ経由に
+    表示は CDN から直接読む（画像書き出し時だけ /api/img を使う）。
     """
     if not url:
         return ""
@@ -66,7 +67,7 @@ def _poster_url(url):
         url = "https:" + url
     if "noimg" in url:
         return ""
-    return "/api/img?u=" + urllib.parse.quote(url, safe="")
+    return url
 
 
 # ---------------------------------------------------------------------------
@@ -2193,22 +2194,27 @@ class Handler(SimpleHTTPRequestHandler):
         if "api/filmarks/search" in (self.path or ""):
             super().log_message(fmt, *args)
 
-    def end_headers(self):
-        # 静的ファイル（HTML/JS/CSS）はキャッシュさせない。
-        # 更新が即座に反映され、古い app.js が残って不具合になるのを防ぐ。
-        path = (self.path or "").split("?", 1)[0]
-        if not path.startswith("/api/"):
-            self.send_header("Cache-Control", "no-store, must-revalidate")
-        super().end_headers()
+    def _accepts_gzip(self):
+        return "gzip" in (self.headers.get("Accept-Encoding", "") or "").lower()
+
+    def _write_body(self, body, compressible=True):
+        """Content-Length を付けて本文を送る。大きい本文は gzip 対応端末に圧縮して返す。"""
+        if compressible and len(body) > 1024 and self._accepts_gzip():
+            body = gzip.compress(body, 6)
+            self.send_header("Content-Encoding", "gzip")
+        if compressible:
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def _send_json(self, obj, status=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def _send_private_json(self, obj, status=200, cookies=None):
         """認証/データ用の同一オリジン向け JSON 応答。Cookie を付与でき、
@@ -2216,12 +2222,10 @@ class Handler(SimpleHTTPRequestHandler):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         for c in (cookies or []):
             self.send_header("Set-Cookie", c)
-        self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def _cookies(self):
         raw = self.headers.get("Cookie", "") or ""
@@ -2762,20 +2766,12 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/site.js":
-            body = sites.site_js(SITE).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/javascript; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_generated(sites.site_js(SITE).encode("utf-8"),
+                                 "application/javascript; charset=utf-8")
             return
         if parsed.path == "/manifest.webmanifest":
-            body = json.dumps(sites.manifest(SITE), ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_generated(json.dumps(sites.manifest(SITE), ensure_ascii=False).encode("utf-8"),
+                                 "application/manifest+json; charset=utf-8")
             return
         if parsed.path == "/api/auth/me":
             self._h_me()
@@ -3087,22 +3083,118 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": []}, 502)
             return
-        if not self._static_allowed():
-            return
-        super().do_GET()
+        self._serve_static()
 
     def do_HEAD(self):
-        if not self._static_allowed():
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path in ("/site.js", "/manifest.webmanifest"):
+            self.do_GET()
             return
-        super().do_HEAD()
+        self._serve_static()
 
-    def _static_allowed(self):
-        """フロントが使うファイルだけを配信し、それ以外（data/ 等）は 404。"""
-        path = urllib.parse.urlparse(self.path).path
-        if path in ("/", "/index.html") or path in STATIC_FILES:
-            return True
-        self.send_error(404)
-        return False
+    def _not_modified(self, etag):
+        inm = self.headers.get("If-None-Match")
+        if not inm:
+            return False
+        tags = [t.strip().removeprefix("W/") for t in inm.split(",")]
+        return "*" in tags or etag in tags
+
+    def _send_generated(self, body, ctype):
+        etag = '"%s"' % hashlib.sha1(body).hexdigest()[:20]
+        if self._not_modified(etag):
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-cache")
+        self._write_body(body)
+
+    def _serve_static(self):
+        """フロントが使うファイルだけを配信し、それ以外（data/ 等）は 404。
+        no-cache＋ETag で毎回更新を確認し、変わっていなければ 304（本文なし）を返す。"""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path == "/":
+            path = "/index.html"
+        if path != "/index.html" and path not in STATIC_FILES:
+            self.send_error(404)
+            return
+        fpath = os.path.join(APP_DIR, path.lstrip("/"))
+        try:
+            st = os.stat(fpath)
+        except OSError:
+            self.send_error(404)
+            return
+        etag = '"%x-%x"' % (st.st_mtime_ns, st.st_size)
+        ext = os.path.splitext(path)[1].lower()
+        ctype = STATIC_TYPES.get(ext, "application/octet-stream")
+        compressible = ext in GZIP_EXTS
+        use_gz = compressible and self._accepts_gzip()
+        if use_gz:
+            etag = etag[:-1] + '-gz"'
+        if path.startswith("/icons/") and "v=" in parsed.query:
+            cache = "public, max-age=31536000, immutable"
+        else:
+            cache = "no-cache"
+        if self._not_modified(etag):
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", cache)
+            if compressible:
+                self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            return
+        try:
+            body = _static_bytes(fpath, st, use_gz)
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("ETag", etag)
+        self.send_header("Last-Modified", self.date_time_string(int(st.st_mtime)))
+        self.send_header("Cache-Control", cache)
+        if use_gz:
+            self.send_header("Content-Encoding", "gzip")
+        if compressible:
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
+    ".webmanifest": "application/manifest+json; charset=utf-8", ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+}
+GZIP_EXTS = {".html", ".js", ".css", ".svg", ".webmanifest", ".json"}
+_static_cache = {}
+_static_cache_lock = threading.Lock()
+
+
+def _static_bytes(fpath, st, use_gz):
+    key = (fpath, st.st_mtime_ns, st.st_size, use_gz)
+    with _static_cache_lock:
+        hit = _static_cache.get(key)
+    if hit is not None:
+        return hit
+    with open(fpath, "rb") as f:
+        data = f.read()
+    if use_gz:
+        data = gzip.compress(data, 9)
+    with _static_cache_lock:
+        for k in [k for k in _static_cache if k[0] == fpath and k[3] == use_gz]:
+            del _static_cache[k]
+        _static_cache[key] = data
+    return data
 
 
 STATIC_FILES = {

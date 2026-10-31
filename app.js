@@ -994,14 +994,10 @@
     if (movie.poster) {
       const img = document.createElement("img");
       img.className = "movie-poster";
-      img.src = movie.poster;
+      img.src = imgSrc(movie.poster);
       img.alt = movie.title;
       img.loading = "lazy";
-      // PNG書き出しでキャンバスが汚染されないよう crossorigin を付ける。
-      // ただし CORS 非対応の直リンク画像は表示に失敗するため、失敗時は
-      // CORS対応のプロキシ(/api/img)経由で1度だけ再試行し、それでも駄目なら
-      // タイトルのフォールバックにする。
-      img.crossOrigin = "anonymous";
+      // 表示は CDN から直接読む。失敗時だけプロキシ(/api/img)で1度再試行し、駄目ならタイトル表示にする。
       img.decoding = "async";
       // 一度表示したポスターは、描き直しでもふわっと演出をやり直さずにそのまま出す
       if (shownPosters.has(movie.poster)) img.classList.add("is-loaded", "no-fade");
@@ -1326,10 +1322,9 @@
     if (movie.poster) {
       const img = document.createElement("img");
       img.className = "wl-poster";
-      img.src = movie.poster;
+      img.src = imgSrc(movie.poster);
       img.alt = movie.title;
       img.loading = "lazy";
-      img.crossOrigin = "anonymous";
       img.addEventListener("error", () => {
         const src = img.getAttribute("src") || "";
         if (!img.dataset.proxied && src && !src.startsWith("data:") && !src.includes("/api/img")) {
@@ -2563,7 +2558,7 @@
 
   function socPoster(m) {
     return m.poster
-      ? `<img class="soc-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
+      ? `<img class="soc-poster" src="${escapeHtml(imgSrc(m.poster))}" alt="" loading="lazy" />`
       : `<div class="soc-poster soc-poster-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`;
   }
 
@@ -2656,7 +2651,7 @@
     } else if (!d.people.length) {
       html += `<p class="soc-note">まだ見つかりません。共通の作品が増えると見つかりやすくなります。</p>`;
     } else {
-      const poster = (m) => m.poster ? `<img class="sim-poster" src="${escapeHtml(m.poster)}" alt="" title="${escapeHtml(m.title || "")}" loading="lazy" />` : "";
+      const poster = (m) => m.poster ? `<img class="sim-poster" src="${escapeHtml(imgSrc(m.poster))}" alt="" title="${escapeHtml(m.title || "")}" loading="lazy" />` : "";
       html += `<div class="sim-list">` + d.people.map((p, i) => {
         const t = matchLabel(p.match);
         return `<div class="sim-card">` +
@@ -3023,7 +3018,7 @@
     return `<div class="ch-grid">` + movies.map((m, i) => {
       const own = opts.pick ? findOwnMovie(m) : null;
       const img = m.poster
-        ? `<img src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
+        ? `<img src="${escapeHtml(imgSrc(m.poster))}" alt="" loading="lazy" />`
         : `<div class="ch-fallback">${escapeHtml(m.title)}</div>`;
       const inner = `${img}<span class="ch-cap">${escapeHtml(m.title)}${has("itunes") && m.artist ? `<small> / ${escapeHtml(m.artist)}</small>` : ""}</span>`;
       if (!opts.pick) return `<div class="ch-cell">${inner}</div>`;
@@ -3652,7 +3647,7 @@
   function setInfoPreview(src) {
     const img = document.getElementById("infoPosterImg");
     if (!img) return;
-    if (src) { img.src = src; img.style.display = ""; }
+    if (src) { img.src = imgSrc(src); img.style.display = ""; }
     else { img.removeAttribute("src"); img.style.display = "none"; }
   }
 
@@ -3816,7 +3811,7 @@
       chip.hidden = false;
     } else chip.hidden = true;
     const img = $("memoryPoster");
-    if (movie.poster) { img.src = movie.poster; img.style.display = ""; }
+    if (movie.poster) { img.src = imgSrc(movie.poster); img.style.display = ""; }
     else { img.removeAttribute("src"); img.style.display = "none"; }
     renderMemoryFav();
     openModal("memoryModal");
@@ -3913,7 +3908,7 @@
     const tier = m.tier;
     const sub = [memoryWhereLabel(mem), memoryWithLabel(mem)].filter(Boolean).map(escapeHtml).join("・");
     const poster = m.poster
-      ? `<img class="tl-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
+      ? `<img class="tl-poster" src="${escapeHtml(imgSrc(m.poster))}" alt="" loading="lazy" />`
       : `<div class="tl-poster tl-poster-fb">${escapeHtml(m.title || "")}</div>`;
     const tag = readOnly ? "div" : "button";
     return (
@@ -4427,7 +4422,7 @@
       card.className = "person-card";
       card.innerHTML =
         (p.photo
-          ? `<img class="person-photo" src="${p.photo}" alt="" loading="lazy" crossorigin="anonymous" />`
+          ? `<img class="person-photo" src="${escapeHtml(imgSrc(p.photo))}" alt="" loading="lazy" />`
           : `<div class="person-photo person-photo-fb">👤</div>`) +
         `<div class="person-cardname">${escapeHtml(p.name)}</div>`;
       card.addEventListener("click", () => loadFilmography(p));
@@ -4677,7 +4672,7 @@
         card.className = "result-card";
         card.innerHTML =
           (it.poster
-            ? `<img src="${escapeHtml(it.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
+            ? `<img src="${escapeHtml(imgSrc(it.poster))}" alt="" loading="lazy" />`
             : `<div class="result-fallback">💿</div>`) +
           `<div class="result-meta">
              <div class="result-title">${escapeHtml(it.title)}</div>
@@ -5522,7 +5517,7 @@
       thumb.className = "theme-pick-thumb";
       if (m.poster) {
         const img = document.createElement("img");
-        img.src = m.poster;
+        img.src = imgSrc(m.poster);
         img.alt = "";
         img.loading = "lazy";
         thumb.appendChild(img);
@@ -5789,7 +5784,7 @@
       thumb.className = "rank-thumb";
       if (m.poster) {
         const img = document.createElement("img");
-        img.decoding = "async"; img.src = m.poster; img.alt = ""; img.loading = "lazy";
+        img.decoding = "async"; img.src = imgSrc(m.poster); img.alt = ""; img.loading = "lazy";
         thumb.appendChild(img);
       } else { thumb.textContent = MUSIC ? "🎵" : "🎬"; }
 
@@ -6213,7 +6208,7 @@
     const curKey = rankKey();
     const cur = curKey && list.find((r) => r.key === curKey);
     const thumbs = (movies) => movies.slice(0, 3).map((m, i) =>
-      `<span class="rh-poster" style="z-index:${3 - i}">${m.poster ? `<img src="${escapeHtml(m.poster)}" alt="" loading="lazy" decoding="async">` : "🎬"}</span>`).join("");
+      `<span class="rh-poster" style="z-index:${3 - i}">${m.poster ? `<img src="${escapeHtml(imgSrc(m.poster))}" alt="" loading="lazy" decoding="async">` : "🎬"}</span>`).join("");
     let html = `<div class="rh-new">`;
     if (hasFilter() && !cur) {
       html += `<button type="button" class="rh-new-btn rh-new-cur" data-act="cur"><span class="rh-new-ic">🏆</span>` +
@@ -6398,6 +6393,7 @@
     return new Promise((res) => {
       if (!src) return res(null);
       const img = new Image();
+      if (/^https?:/.test(src)) img.crossOrigin = "anonymous";
       const t = setTimeout(() => res(null), 8000);
       img.onload = () => { clearTimeout(t); res(img); };
       img.onerror = () => { clearTimeout(t); res(null); };
@@ -6967,7 +6963,7 @@
       : (f.date ? f.date.replace(/-/g, "/") : (f.year || ""));
     card.innerHTML =
       (f.poster
-        ? `<img src="${escapeHtml(f.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
+        ? `<img src="${escapeHtml(imgSrc(f.poster))}" alt="" loading="lazy" />`
         : `<div class="result-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`) +
       `<div class="result-meta">
          <div class="result-title">${escapeHtml(f.title)}</div>
@@ -8222,7 +8218,7 @@
 
     card.innerHTML =
       (f.poster
-        ? `<img class="up-poster" src="${escapeHtml(f.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
+        ? `<img class="up-poster" src="${escapeHtml(imgSrc(f.poster))}" alt="" loading="lazy" />`
         : `<div class="up-poster up-poster-fallback">🎬</div>`) +
       `<div class="up-info">
          <div class="up-title">${escapeHtml(f.title)}</div>
@@ -9544,14 +9540,15 @@
     try {
       toast("画像を作っています…");
       await paintThen();
-      const dataUrl = await window.htmlToImage.toPng(el.tierBoard, {
+      const fontEmbedCSS = await shareFontCSS();
+      const dataUrl = await withExportImages(el.tierBoard, () => window.htmlToImage.toPng(el.tierBoard, {
         pixelRatio: 2,
         backgroundColor: "#171a21",
         filter: (n) => !(n.classList && n.classList.contains("song-play")),
         cacheBust: false,
         includeQueryParams: true,
-        fontEmbedCSS: await shareFontCSS(),
-      });
+        fontEmbedCSS,
+      }));
       await showImageResult(dataUrl, (title || "cinema-tier-list") + ".png");
     } catch (e) {
       console.error(e);
@@ -9630,14 +9627,41 @@
       .filter((r) => r.items.length);
   }
 
+  // 以前保存した「/api/img?u=…」形式は、表示時だけ元の CDN の URL に戻す（保存データは変えない）
+  function imgSrc(src) {
+    if (typeof src === "string" && src.startsWith("/api/img?u=")) {
+      try { return decodeURIComponent(src.slice(11).split("&")[0]); } catch (_) { /* そのまま */ }
+    }
+    return src;
+  }
+
+  // 画像書き出し用の URL。CORS に対応した CDN（iTunes）は直接、それ以外は同一オリジンのプロキシ経由
   function sharePosterSrc(src) {
+    src = imgSrc(src);
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src;
     try {
       const u = new URL(src, location.href);
       if (u.origin === location.origin) return src;
+      if (/(^|\.)mzstatic\.com$/.test(u.hostname)) return src;
     } catch (_) { return src; }
-    // 書き出し時にキャンバスが汚染されないよう、同一オリジンのプロキシ経由で読む
     return /^https?:/.test(location.protocol) ? "/api/img?u=" + encodeURIComponent(src) : src;
+  }
+
+  // html-to-image で書き出す間だけ、画面内の画像をプロキシ経由に差し替え、終わったら元に戻す
+  async function withExportImages(root, fn) {
+    const swapped = [];
+    root.querySelectorAll("img").forEach((img) => {
+      const cur = img.getAttribute("src") || "";
+      const next = sharePosterSrc(cur);
+      if (img.loading === "lazy") img.loading = "eager";
+      if (next && next !== cur) { swapped.push([img, cur]); img.src = next; }
+    });
+    await waitImages(root);
+    try {
+      return await fn();
+    } finally {
+      swapped.forEach(([img, cur]) => { if (img.isConnected) img.src = cur; });
+    }
   }
 
   function sharePoster(m, cls) {
@@ -9651,7 +9675,7 @@
       img.addEventListener("error", () => {
         if (!img.dataset.retried && m.poster && img.src.includes("/api/img")) {
           img.dataset.retried = "1";
-          img.src = m.poster;
+          img.src = imgSrc(m.poster);
           return;
         }
         img.remove();
@@ -11332,7 +11356,7 @@
     const list = items.slice(0, 14);
     return `<div class="ta-posters">` + list.map((m) =>
       m.poster
-        ? `<img class="ta-poster" src="${escapeHtml(m.poster)}" alt="" title="${escapeHtml(m.title)}" loading="lazy" crossorigin="anonymous">`
+        ? `<img class="ta-poster" src="${escapeHtml(imgSrc(m.poster))}" alt="" title="${escapeHtml(m.title)}" loading="lazy">`
         : `<span class="ta-poster ta-poster-fb" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</span>`
     ).join("") + `</div>`;
   }
@@ -11478,14 +11502,13 @@
     if (!region || !tier) return;
     try {
       toast("画像を生成中…");
-      region.querySelectorAll("img[loading=lazy]").forEach((img) => { img.loading = "eager"; });
-      await waitImages(region);
       const bg = getComputedStyle(region.closest(".modal")).backgroundColor;
-      const dataUrl = await window.htmlToImage.toPng(region, {
+      const fontEmbedCSS = await shareFontCSS();
+      const dataUrl = await withExportImages(region, () => window.htmlToImage.toPng(region, {
         pixelRatio: 2, backgroundColor: bg, cacheBust: false, includeQueryParams: true,
-        fontEmbedCSS: await shareFontCSS(),
+        fontEmbedCSS,
         imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-      });
+      }));
       const a = document.createElement("a");
       a.download = `tier-analysis-${tier.label}.png`;
       a.href = dataUrl;
@@ -11687,9 +11710,8 @@
       if (movie.poster) {
         const img = document.createElement("img");
         img.className = "battle-poster";
-        img.src = movie.poster;
+        img.src = imgSrc(movie.poster);
         img.alt = movie.title;
-        img.crossOrigin = "anonymous";
         img.addEventListener("error", () => {
           const src = img.getAttribute("src") || "";
           if (!img.dataset.proxied && src && !src.startsWith("data:") && !src.includes("/api/img")) {
@@ -11997,7 +12019,7 @@
       card.className = "result-card pick-card" + (owned ? " result-added" : wanted ? " result-wl" : "");
       card.innerHTML =
         (r.poster
-          ? `<img src="${escapeHtml(r.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
+          ? `<img src="${escapeHtml(imgSrc(r.poster))}" alt="" loading="lazy" />`
           : `<div class="result-fallback">${r.itunesId ? "🎵" : "🎬"}</div>`) +
         `<div class="result-meta">
            <div class="result-title">${escapeHtml(r.title)}</div>
@@ -12114,7 +12136,7 @@
     results = results.filter((r) => r.poster).slice(0, 18);
     if (!results.length) { box.innerHTML = `<p class="soc-note">候補が見つかりませんでした。画像のアップロードかURLで設定できます。</p>`; return; }
     box.innerHTML = `<p class="pv-note">正しいポスターを押して選び、「保存」で確定します。</p><div class="pp-grid">` +
-      results.map((r, i) => `<button type="button" class="pp-item" data-i="${i}"><img src="${escapeHtml(r.poster)}" alt="" loading="lazy" />` +
+      results.map((r, i) => `<button type="button" class="pp-item" data-i="${i}"><img src="${escapeHtml(imgSrc(r.poster))}" alt="" loading="lazy" />` +
         `<span>${escapeHtml(r.title)}</span><small>${escapeHtml(String(r.year || ""))}</small></button>`).join("") + `</div>`;
     box.querySelectorAll(".pp-item").forEach((b) => b.addEventListener("click", () => {
       const r = results[Number(b.dataset.i)];
