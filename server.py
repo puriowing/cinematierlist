@@ -32,10 +32,13 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", "8000"))
+import sites
+
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else int(os.environ.get("PORT", "8000"))
 # 既定で全インターフェースを待受け、同じネットワーク/ Tailscale の他端末（スマホ）から
 # 到達できるようにする。ローカル専用に戻したい場合は HOST=127.0.0.1 を指定する。
 HOST = os.environ.get("HOST", "0.0.0.0")
+SITE = sites.get_site(os.environ.get("TIARI_SITE"))
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " \
      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -1131,7 +1134,7 @@ def filmarks_person_movies(person_id, max_pages=8):
 #   - セッションは HMAC 署名付きの stateless トークン（Cookie）
 #   - ユーザー情報は data/users.json、各ユーザーの Tier List は data/lists/<id>.json
 # =======================================================================
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DATA_DIR = os.environ.get("TIARI_DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LISTS_DIR = os.path.join(DATA_DIR, "lists")
 CHALLENGES_DIR = os.path.join(DATA_DIR, "challenges")
 USERS_PATH = os.path.join(DATA_DIR, "users.json")
@@ -2636,6 +2639,22 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/site.js":
+            body = sites.site_js(SITE).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == "/manifest.webmanifest":
+            body = json.dumps(sites.manifest(SITE), ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if parsed.path == "/api/auth/me":
             self._h_me()
             return

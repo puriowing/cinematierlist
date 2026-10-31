@@ -4,11 +4,11 @@
  * これにより「古い app.js が残って不具合」を避けつつ、電波が無い場所でも
  * 直近のリスト画面を開けるようにする。
  */
-const CACHE = "ctl-cache-v10";
+const CACHE = "ctl-cache-v11";
 // ポスター画像は中身が変わらないので、端末に保存して次からは即表示（cache-first）
 const IMG_CACHE = "ctl-img-v1";
 const IMG_MAX = 1500;
-const CORE = ["./", "./index.html", "./app.js", "./icons.js", "./styles.css", "./icon.svg", "./icon-pop.svg", "./manifest.webmanifest", "./icons/icon-192.png"];
+const CORE = ["./", "./index.html", "./app.js", "./icons.js", "./styles.css", "./icon.svg", "./icon-pop.svg", "./manifest.webmanifest", "./site.js", "./icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
