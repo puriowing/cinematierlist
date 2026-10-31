@@ -20,6 +20,12 @@
   if (subEl) subEl.textContent = SITE.fullName.replace(/^tiari\s*/i, "");
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta && SITE.themeColor) themeMeta.content = SITE.themeColor;
+  document.querySelectorAll("[data-feature]").forEach((el) => {
+    if (!el.dataset.feature.split(" ").some(has)) el.classList.add("site-off");
+  });
+  const MUSIC = SITE.id === "music";
+  const creditEl = document.getElementById("footerCredit");
+  if (creditEl && MUSIC) creditEl.textContent = "曲情報：Apple Music（iTunes）";
 
   const COLLAPSE_ICON =
     '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -1680,17 +1686,17 @@
       row("生まれた年", `<input class="pf-input" data-key="birthYear" type="text" inputmode="numeric" maxlength="4" placeholder="例: 1990" value="${escapeHtml(String(profileValue("birthYear") || ""))}" />`) +
       row("性別", sel("gender", PROFILE_OPTIONS.gender, profileValue("gender") || "")) +
       row("住んでいる地域", sel("prefecture", PREFECTURES.map((x) => [x, x]), profileValue("prefecture") || "")) +
-      row("映画館に行く回数", sel("theaterFreq", PROFILE_OPTIONS.theaterFreq, profileValue("theaterFreq") || "")) +
+      (has("theaterFreq") ? row("映画館に行く回数", sel("theaterFreq", PROFILE_OPTIONS.theaterFreq, profileValue("theaterFreq") || "")) : "") +
       `</div>` +
-      `<div class="pv-group"><p class="pv-title">よく行く映画館<small>3つまで</small></p>` +
+      (has("theater") ? `<div class="pv-group"><p class="pv-title">よく行く映画館<small>3つまで</small></p>` +
       [0, 1, 2].map((i) => `<input class="pf-input pf-theater" data-i="${i}" type="text" maxlength="40" placeholder="例: TOHOシネマズ新宿" value="${escapeHtml(theaters[i] || "")}" />`).join("") +
-      `</div>` +
-      `<div class="pv-group"><p class="pv-title">加入している配信サービス<small>いくつでも</small></p><div class="mem-chips pf-services">` +
+      `</div>` : "") +
+      (has("watch") ? `<div class="pv-group"><p class="pv-title">加入している配信サービス<small>いくつでも</small></p><div class="mem-chips pf-services">` +
       STREAM_SERVICES.map((sv) => {
         const on = services.includes(sv);
         return `<button type="button" class="mem-chip${on ? " is-on" : ""}" data-sv="${escapeHtml(sv)}" aria-pressed="${on}">${escapeHtml(sv)}</button>`;
       }).join("") +
-      `</div></div>` +
+      `</div></div>` : "") +
       `<div class="settings-actions"><button type="button" id="profileClear" class="btn btn-ghost btn-sm">プロフィールをすべて削除</button></div>`;
 
     document.getElementById("pfAvatarPick").addEventListener("click", pickAvatar);
@@ -1722,7 +1728,8 @@
       setProfile("theaters", [...new Set(list)], "mypage");
       saved();
     }));
-    box.querySelector(".pf-services").addEventListener("click", (e) => {
+    const svBox = box.querySelector(".pf-services");
+    if (svBox) svBox.addEventListener("click", (e) => {
       const b = e.target.closest(".mem-chip");
       if (!b) return;
       const cur = (profileValue("services") || []).slice();
@@ -2889,6 +2896,7 @@
 
   // テーマの「全作品」を Filmarks から取得できる場合はその一覧、できなければ null
   function challengeUniverseLabel(f) {
+    if (!has("filmarks")) return null;
     if (f.type === "director") return `Filmarks の「${f.value}」監督作品`;
     if (f.type === "actor") return `Filmarks の「${f.value}」出演作品`;
     if (f.type === "collection" && COLLECTIONS.some((c) => c.label === f.value)) return `「${f.value}」の全作品`;
@@ -3333,7 +3341,7 @@
     $("infoTitle").value = movie.title || "";
     $("infoYear").value = movie.year || "";
     $("infoKind").value = movie.kind || "";
-    $("infoDirectors").value = ((movie.meta && movie.meta.directors) || []).join(", ");
+    $("infoDirectors").value = has("itunes") ? movie.artist || "" : ((movie.meta && movie.meta.directors) || []).join(", ");
     $("infoCast").value = ((movie.meta && movie.meta.cast) || []).join(", ");
     $("infoComment").value = movie.comment || "";
     $("infoPosterUrl").value = "";
@@ -3486,11 +3494,18 @@
     if (kind) m.kind = kind; else delete m.kind;
 
     const splitList = (s) => s.split(/[,、]/).map((x) => x.trim()).filter(Boolean);
-    m.meta = { directors: splitList($("infoDirectors").value), cast: splitList($("infoCast").value) };
-    m.kindChecked = true; // 監督・出演者・種別は手動確定（自動分析で上書きしない）
+    if (has("itunes")) {
+      const artist = $("infoDirectors").value.trim();
+      if (artist) m.artist = artist; else delete m.artist;
+    } else {
+      m.meta = { directors: splitList($("infoDirectors").value), cast: splitList($("infoCast").value) };
+      m.kindChecked = true; // 監督・出演者・種別は手動確定（自動分析で上書きしない）
+    }
 
-    m.genres = [...$("infoGenres").querySelectorAll("input:checked")].map((c) => c.value);
-    m.genreCheckedV = GENRE_FIX_VERSION; // 手動指定を自動取得で上書きしない
+    if (has("genreTag")) {
+      m.genres = [...$("infoGenres").querySelectorAll("input:checked")].map((c) => c.value);
+      m.genreCheckedV = GENRE_FIX_VERSION; // 手動指定を自動取得で上書きしない
+    }
 
 
     const comment = $("infoComment").value.trim();
@@ -3517,13 +3532,20 @@
 
   // ---- 偏愛マーク・思い出カード（ティアの評価とは別軸の記録） ----
   const MEMORY_FIELDS = ["when", "where", "with", "note", "whereType", "withType"];
-  const WHERE_TYPES = [
+  const WHERE_TYPES = has("theater") ? [
     ["theater", "映画館", "映画館名 例: TOHOシネマズ新宿"],
     ["stream", "配信", "サービス名 例: Netflix"],
     ["tv", "テレビ", "番組名など 例: 日曜洋画劇場"],
     ["disc", "ソフト・レンタル", "くわしく（任意）"],
     ["other", "その他", "くわしく（任意） 例: 機内で"],
+  ] : [
+    ["theater", "ライブ", "会場名 例: 日本武道館"],
+    ["stream", "配信・サブスク", "サービス名 例: Spotify"],
+    ["tv", "テレビ・ラジオ", "番組名など 例: ミュージックステーション"],
+    ["disc", "CD・レコード", "くわしく（任意）"],
+    ["other", "その他", "くわしく（任意） 例: カラオケで"],
   ];
+  const MUSIC_SERVICES = ["Apple Music", "Spotify", "Amazon Music", "YouTube Music", "LINE MUSIC", "AWA"];
   const WITH_TYPES = [
     ["alone", "ひとりで"], ["friend", "友人"], ["partner", "恋人・パートナー"],
     ["family", "家族"], ["kids", "子どもと"], ["other", "その他"],
@@ -3566,13 +3588,13 @@
     }).join("");
     const t = WHERE_TYPES.find((x) => x[0] === memoryWhereType);
     const input = document.getElementById("memoryWhere");
-    input.placeholder = t ? t[2] : "例: 日曜洋画劇場 / TOHOシネマズ新宿";
+    input.placeholder = t ? t[2] : has("theater") ? "例: 日曜洋画劇場 / TOHOシネマズ新宿" : "例: 日本武道館 / Spotify";
     const list = document.getElementById("memoryWhereList");
     let opts = [];
     if (memoryWhereType === "theater") {
       opts = [...new Set([...(profileValue("theaters") || []),
         ...allMovies().map((m) => m.memory && m.memory.whereType === "theater" && m.memory.where).filter(Boolean)])];
-    } else if (memoryWhereType === "stream") opts = STREAM_SERVICES;
+    } else if (memoryWhereType === "stream") opts = has("watch") ? STREAM_SERVICES : MUSIC_SERVICES;
     list.innerHTML = opts.map((o) => `<option value="${escapeHtml(o)}"></option>`).join("");
   }
 
@@ -4624,6 +4646,11 @@
     if (media) activeFilters.unshift({ type: "media", value: media });
   }
 
+  function creatorsOf(m) {
+    if (has("itunes")) return m.artist ? [m.artist] : [];
+    return (m.meta && m.meta.directors) || [];
+  }
+
   function matchesOne(movie, f) {
     const { type, value } = f;
     if (type === "year") return String(movie.year || "") === value;
@@ -4631,7 +4658,7 @@
       const y = parseInt(movie.year, 10);
       return y && String(Math.floor(y / 10) * 10) === value;
     }
-    if (type === "director") return !!(movie.meta && (movie.meta.directors || []).includes(value));
+    if (type === "director") return creatorsOf(movie).includes(value);
     if (type === "actor") return !!(movie.meta && (movie.meta.cast || []).includes(value));
     if (type === "collection") return movieCollections(movie).includes(value);
     if (type === "genre") return (movie.genres || []).includes(value) || movieCollections(movie).includes(value);
@@ -4683,10 +4710,8 @@
       if (m.fav) favCount++;
       if (hasMemory(m)) memoryCount++;
       (m.userThemes || []).forEach((t) => userThemeCount.set(t, (userThemeCount.get(t) || 0) + 1));
-      if (m.meta) {
-        (m.meta.directors || []).forEach((d) => dirCount.set(d, (dirCount.get(d) || 0) + 1));
-        (m.meta.cast || []).forEach((c) => actorCount.set(c, (actorCount.get(c) || 0) + 1));
-      }
+      creatorsOf(m).forEach((d) => dirCount.set(d, (dirCount.get(d) || 0) + 1));
+      if (m.meta) (m.meta.cast || []).forEach((c) => actorCount.set(c, (actorCount.get(c) || 0) + 1));
       const cols = movieCollections(m);
       cols.forEach((label) => collCount.set(label, (collCount.get(label) || 0) + 1));
       // ジャンルは「自動取得(m.genres)」＋「ジャンルタブ追加時のタグ」を作品ごとに一度だけ集計
@@ -4889,7 +4914,7 @@
       { key: "award", label: "映画賞・映画祭" },
       { key: "director", label: "監督" },
       { key: "actor", label: "出演者" },
-    ];
+    ].filter((c) => has("filmarks") || !["kind", "collection", "award", "actor"].includes(c.key));
     if (!(data[themePanelCat] || []).length) {
       const first = cats.find((c) => (data[c.key] || []).length);
       themePanelCat = first ? first.key : "year";
@@ -6333,10 +6358,12 @@
 
   // まだ監督・出演者・種別を取得していない（取得可能な）作品数
   function unanalyzedCount() {
+    if (!has("filmarks")) return 0;
     return enrichPool().filter(needsEnrich).length;
   }
 
   async function enrichThemes() {
+    if (!has("filmarks")) return;
     const info = document.getElementById("filterInfo");
     const btn = document.getElementById("analyzeThemesBtn");
     const pool = enrichPool();
@@ -6461,7 +6488,7 @@
   let autoFillTimer = null;
 
   function scheduleAutoFill() {
-    if (autoFillDisabled) return;
+    if (autoFillDisabled || !has("filmarks")) return;
     clearTimeout(autoFillTimer);
     autoFillTimer = setTimeout(autoFillPosters, 1500);
   }
@@ -6532,7 +6559,7 @@
   let genreFixTimer = null;
 
   function scheduleGenreFix() {
-    if (genreFixDisabled) return;
+    if (genreFixDisabled || !has("genreTag")) return;
     clearTimeout(genreFixTimer);
     genreFixTimer = setTimeout(enrichGenres, 2600);
   }
@@ -6590,7 +6617,7 @@
   let kindEnrichTimer = null;
 
   function scheduleKindEnrich() {
-    if (kindEnrichDisabled) return;
+    if (kindEnrichDisabled || !has("filmarks")) return;
     clearTimeout(kindEnrichTimer);
     kindEnrichTimer = setTimeout(enrichKindsBg, 2000);
   }
@@ -7573,6 +7600,7 @@
   }
 
   async function buildRecommendations() {
+    if (!has("recommend")) return;
     recBuilding++;
     try { await buildRecommendationsNow(); } finally { recBuilding--; }
   }
@@ -7830,6 +7858,7 @@
   }
 
   async function buildUpcoming() {
+    if (!has("coming")) return;
     const run = ++upcomingRun;
     renderUpcomingMedia();
     const media = upcomingMedia;
@@ -10182,10 +10211,8 @@
     let posterMissing = 0;
 
     movies.forEach((m) => {
-      if (m.meta) {
-        (m.meta.directors || []).forEach((d) => dirCount.set(d, (dirCount.get(d) || 0) + 1));
-        (m.meta.cast || []).forEach((c) => actCount.set(c, (actCount.get(c) || 0) + 1));
-      }
+      creatorsOf(m).forEach((d) => dirCount.set(d, (dirCount.get(d) || 0) + 1));
+      if (m.meta) (m.meta.cast || []).forEach((c) => actCount.set(c, (actCount.get(c) || 0) + 1));
       const y = parseInt(m.year, 10);
       if (y) {
         withYear++;
@@ -10312,7 +10339,7 @@
     }
 
     // 邦画 / 洋画 の比率
-    if (s.classifiedKind) {
+    if (has("filmarks") && s.classifiedKind) {
       const jpP = pct(s.jpCount, s.classifiedKind);
       const foP = pct(s.foreignCount, s.classifiedKind);
       const lean = jpP > foP ? `邦画寄り（邦画 ${jpP}% / 洋画 ${foP}%）`
@@ -10338,7 +10365,7 @@
     // 偏愛の監督・俳優
     if (s.topDirectors[0] && s.topDirectors[0].count >= 2) {
       const d = s.topDirectors[0];
-      out.push({ icon: "🎥", text: `よく登録している監督は「${d.label}」（${d.count}本）。作家性で選ぶ傾向がうかがえます。` });
+      out.push({ icon: "🎥", text: has("itunes") ? `よく登録しているアーティストは「${d.label}」（${d.count}曲）。` : `よく登録している監督は「${d.label}」（${d.count}本）。作家性で選ぶ傾向がうかがえます。` });
     }
     if (s.topActors[0] && s.topActors[0].count >= 2) {
       const a = s.topActors[0];
@@ -10376,6 +10403,11 @@
   // 実績・マイルストーン
   // =======================================================================
   const prog = (goal, key) => (a) => ({ cur: a[key], goal });
+  const MOVIE_ONLY_ACHV = new Set(["genreMaster", "allkinds", "allkinds250", "anime750", "jp1500", "foreign1500", "balance1000",
+    "star25", "star50", "actGe3x100", "completionist", "perfectionist"]);
+  const MUSIC_ACHV_TITLE = has("itunes")
+    ? { c7500: "ミュージックライブラリ", c10000: "音楽フリーク", pre1950x100: "ルーツ探求者" }
+    : {};
   const ACHIEVEMENTS = [
     // --- 登録数（ボリューム） ---
     { id: "first", icon: "🎬", title: "はじめの一歩", desc: "最初の1本を登録", check: (a) => a.total >= 1, progress: prog(1, "total") },
@@ -10433,7 +10465,7 @@
     { id: "completionist", icon: "🧩", title: "コンプリート魂", desc: "4種別250本＋15ジャンル＋6年代を達成", check: (a) => a.minKindCount >= 250 && a.genreTotal >= 15 && a.decadeTotal >= 6 },
     { id: "grandmaster", icon: "🏆", title: "グランドマスター", desc: "1万本・未分類ゼロ・25ジャンル・10年代を達成", check: (a) => a.total >= 10000 && a.unranked === 0 && a.genreTotal >= 25 && a.decadeTotal >= 10 },
     { id: "perfectionist", icon: "💠", title: "パーフェクショニスト", desc: "全ジャンル制覇＋4種別500本ずつ＋11年代", check: (a) => a.genreDefTotal > 0 && a.genreTotal >= a.genreDefTotal && a.minKindCount >= 500 && a.decadeTotal >= 11 },
-  ];
+  ].filter((x) => has("filmarks") || !MOVIE_ONLY_ACHV.has(x.id)).map((x) => (MUSIC_ACHV_TITLE[x.id] ? { ...x, title: MUSIC_ACHV_TITLE[x.id] } : x));
 
   function achvContextFromStats(s) {
     const tierItems = state.tiers.map((t) => t.items.length);
@@ -10789,10 +10821,16 @@
   // ひと目でわかる数字（推定鑑賞時間・最古／最新・最多の年）
   function statFunFacts(movies) {
     const items = [];
+    if (has("itunes")) {
+      const mins = movies.length * 4;
+      items.push({ icon: "⏱️", big: mins < 60 ? `約${mins}` : `約${Math.round(mins / 60).toLocaleString()}`, unit: mins < 60 ? "分" : "時間",
+        cap: "推定視聴時間", sub: "1曲4分で計算" });
+    } else {
     const hours = movies.length * 2;
     const days = Math.floor(hours / 24);
     items.push({ icon: "⏱️", big: `約${hours.toLocaleString()}`, unit: "時間", cap: "推定鑑賞時間",
       sub: days ? `まる${days}日${hours % 24 ? `と${hours % 24}時間` : ""}分（1本2時間で計算）` : "1本2時間で計算" });
+    }
     const yeared = movies.filter((m) => parseInt(m.year, 10));
     if (yeared.length) {
       const sorted = [...yeared].sort((a, b) => parseInt(a.year, 10) - parseInt(b.year, 10));
@@ -10846,7 +10884,7 @@
         html: s.minYear ? `<span class="hero-num hero-range"><span>${s.minYear}</span><span class="hero-range-sep">–</span><span>${s.maxYear}</span></span>` : "" },
       { value: s.dirTotal, cap: "監督", unit: "人" },
       { value: s.actTotal, cap: "出演者", unit: "人" },
-    ];
+    ].filter((k) => has("people") || k.cap !== "出演者");
     const kpiHtml = kpis.map((k) =>
       `<div class="hero-kpi">` +
       (k.html || `<span class="hero-num">${escapeHtml(String(k.value))}${k.unit ? `<span class="hero-unit">${k.unit}</span>` : ""}</span>`) +
@@ -10870,23 +10908,25 @@
 
     const movies = allMovies();
     const topShare = s.ranked && state.tiers[0] ? state.tiers[0].items.length / s.ranked : null;
-    const prof = filmTypeProfile(movies, { topShare: s.ranked >= FT_MIN ? topShare : null });
+    const prof = has("diagnosis") ? filmTypeProfile(movies, { topShare: s.ranked >= FT_MIN ? topShare : null }) : null;
 
     body.innerHTML =
-      filmTypeHero(prof, "あなたの映画タイプ") +
-      (prof.enough ? panel("🧭 あなたの映画の好み", filmTypeAxes(prof), "stat-panel-wide") : "") +
+      (prof ? filmTypeHero(prof, "あなたの映画タイプ") : "") +
+      (prof && prof.enough ? panel("🧭 あなたの映画の好み", filmTypeAxes(prof), "stat-panel-wide") : "") +
       `<div class="stats-hero">${kpiHtml}</div>` +
       statFunFacts(movies) +
       panel("🔍 あなたの傾向", `<div class="stat-insights">${insightsHtml}</div>`, "stat-panel-wide") +
       `<div class="stat-grid">` +
       panel("🏆 ティア分布", statSegBar(s.tierDist), "stat-panel-wide") +
-      panel("🎞️ 種別", statDonut(s.kinds)) +
+      (has("filmarks") ? panel("🎞️ 種別", statDonut(s.kinds)) : "") +
       panel("🗓️ 年代分布", statDecadeColumns(s.decades, s.total)) +
       panel("🎬 ジャンル TOP", `<div class="stat-bars">${statBarRows(s.topGenres, s.total)}</div>`, "stat-panel-wide") +
       panel("🎥 よく登録している監督", `<div class="stat-rank-list">${statRankRows(s.topDirectors, s.total)}</div>`) +
-      panel("⭐ よく登録している出演者", `<div class="stat-rank-list">${statRankRows(s.topActors, s.total)}</div>`) +
+      (has("people") ? panel("⭐ よく登録している出演者", `<div class="stat-rank-list">${statRankRows(s.topActors, s.total)}</div>`) : "") +
       `</div>` +
-      `<p class="stat-note">数値は「本数」と「全登録数(${s.total}本)に占める割合」です。ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。種別・監督・出演者・ジャンルは自動で補完されます。</p>`;
+      (has("filmarks")
+        ? `<p class="stat-note">数値は「本数」と「全登録数(${s.total}本)に占める割合」です。ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。種別・監督・出演者・ジャンルは自動で補完されます。</p>`
+        : `<p class="stat-note">数値は「本数」と「全登録数(${s.total}本)に占める割合」です。</p>`);
   }
 
   function openStatsModal() {
@@ -10914,7 +10954,7 @@
       kind: m.kind || "",
       genres: [...gset],
       cols,
-      dirs: (m.meta && m.meta.directors) || [],
+      dirs: creatorsOf(m),
       cast: ((m.meta && m.meta.cast) || []).slice(0, 5),
     };
   }
@@ -11032,7 +11072,9 @@
       .filter((p) => p.all >= 3 && p.count >= 2 && p.rate >= Math.min(1, Math.max(0.5, base * 1.8)))
       .sort((x, y) => y.rate - x.rate || y.count - x.count)[0];
     const d = fan(a.directors);
-    if (d) out.push({ icon: "🎬", text: `${d.label}監督の作品は、登録${d.all}本のうち${d.count}本がこのティア（${pct(d.rate)}）。` });
+    if (d) out.push({ icon: "🎬", text: has("itunes")
+      ? `${d.label}の曲は、登録${d.all}曲のうち${d.count}曲がこのティア（${pct(d.rate)}）。`
+      : `${d.label}監督の作品は、登録${d.all}本のうち${d.count}本がこのティア（${pct(d.rate)}）。` });
     const c = fan(a.actors);
     if (c) out.push({ icon: "⭐", text: `${c.label}の出演作は、登録${c.all}本のうち${c.count}本がこのティア（${pct(c.rate)}）。` });
     const col = a.cols.filter((x) => x.count >= 2).sort((x, y) => y.count - x.count)[0];
@@ -11164,7 +11206,7 @@
       { v: a.avgYear ? Math.round(a.avgYear) : "—", u: "年", cap: "平均公開年", sub: yearDelta },
       { v: pct(a.jpRate), u: "", cap: "邦画の割合", sub: deltaPt(a.jpRate, a.allJpRate) },
       { v: pct(a.animeRate), u: "", cap: "アニメの割合", sub: deltaPt(a.animeRate, a.allAnimeRate) },
-    ];
+    ].filter((k) => has("filmarks") || !/邦画|アニメ/.test(k.cap));
     const kpiHtml = kpis.map((k) =>
       `<div class="hero-kpi">` +
       `<span class="hero-num">${escapeHtml(String(k.v))}${k.u ? `<span class="hero-unit">${k.u}</span>` : ""}</span>` +
@@ -11201,8 +11243,8 @@
       `<span class="ta-legend-mark"></span>全体の割合<span class="ta-lift is-up">×1.5</span>＝全体の何倍か</p>`;
     const missing = a.n - a.metaKnown;
 
-    const tProf = filmTypeProfile(tier.items, { min: 3 });
-    const aProf = filmTypeProfile(state.tiers.flatMap((t) => t.items));
+    const tProf = has("diagnosis") ? filmTypeProfile(tier.items, { min: 3 }) : { enough: false };
+    const aProf = has("diagnosis") ? filmTypeProfile(state.tiers.flatMap((t) => t.items)) : null;
     body.innerHTML =
       `<div class="ta-head" style="--tier:${tier.color}">` +
       `<span class="ta-badge">${escapeHtml(tier.label)}</span>` +
@@ -11214,17 +11256,19 @@
       (tProf.enough ? panel("🧭 全体と比べた好みの位置", filmTypeAxes(tProf, aProf, tier.color), "stat-panel-wide ta-axes-panel") : "") +
       (insightsHtml ? panel("🔍 このティアの傾向", `<div class="stat-insights">${insightsHtml}</div>`, "stat-panel-wide") : "") +
       `<div class="stat-grid">` +
-      panel("🎞️ 種別", taKindDonut(a.kinds, a.n)) +
+      (has("filmarks") ? panel("🎞️ 種別", taKindDonut(a.kinds, a.n)) : "") +
       panel("🗓️ 年代", legend + `<div class="ta-rows">${taShareRows(decs, tier.color, a.n)}</div>`) +
       panel("🎭 ジャンル TOP", `<div class="ta-rows">${taShareRows(a.genres.slice(0, 10), tier.color, a.n)}</div>`) +
-      panel("📚 コレクション・映画賞", `<div class="ta-rows">${taShareRows(a.cols.slice(0, 8), tier.color, a.n)}</div>`) +
+      (has("awards") ? panel("📚 コレクション・映画賞", `<div class="ta-rows">${taShareRows(a.cols.slice(0, 8), tier.color, a.n)}</div>`) : "") +
       panel("🎥 監督 TOP", `<div class="stat-rank-list">${taPersonRows(a.directors.slice(0, 8))}</div>`) +
-      panel("⭐ 出演者 TOP", `<div class="stat-rank-list">${taPersonRows(a.actors.slice(0, 8))}</div>`) +
+      (has("people") ? panel("⭐ 出演者 TOP", `<div class="stat-rank-list">${taPersonRows(a.actors.slice(0, 8))}</div>`) : "") +
       panel("🎬 このティアの作品", taPosterStrip(tier.items), "stat-panel-wide") +
       `</div>` +
       `<p class="stat-note">「全体」はティアに振り分けた全${a.N.toLocaleString()}本です（未分類・観たいは含みません）。` +
-      `ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。出演者は各作品の主要キャスト（上位5名）で集計しています。` +
-      (missing > 0 ? `監督・出演者の情報がない作品が${missing}本あります。` : "") + `</p>`;
+      (has("filmarks")
+        ? `ジャンルは1作品が複数に該当するため合計が100%を超えることがあります。出演者は各作品の主要キャスト（上位5名）で集計しています。` +
+          (missing > 0 ? `監督・出演者の情報がない作品が${missing}本あります。` : "")
+        : "") + `</p>`;
     body.querySelectorAll("img.ta-poster").forEach((img) => img.addEventListener("error", () => {
       const src = img.getAttribute("src") || "";
       if (!img.dataset.proxied && src && !src.startsWith("data:") && !src.includes("/api/img")) {
@@ -12535,6 +12579,7 @@
   }
 
   function maybeShowNudge() {
+    if (!has("filmarks")) return;
     if (anyModalOpen() || /[?&](compare|challenge|timeline|t)=/.test(location.search)) return;
     const d = nudgeLoad();
     if (d.off) return;

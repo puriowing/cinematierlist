@@ -60,7 +60,7 @@
     <div class="header-actions">
       <button id="helpBtn" class="btn btn-ghost" title="使い方・ティアリストの作り方">❓<span class="btn-label"> 使い方</span></button>
       <button id="battleBtn" class="btn btn-ghost" style="display:none" title="二択で自動ティア分け">⚖️<span class="btn-label"> 二択</span></button>
-      <button id="upcomingBtn" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
+      <button id="upcomingBtn" data-feature="coming" class="btn btn-ghost" title="統計から、これから公開のおすすめ作品を提案">🔮<span class="btn-label"> これから公開</span></button>
       <button id="rankingBtn" class="btn btn-ghost" title="テーマごとにつくったランキング">🏆<span class="btn-label"> ランキング</span></button>
       <button id="socialBtn" class="btn btn-ghost" title="みんなのティア・友だちと比べる">🌐<span class="btn-label"> みんな</span></button>
       <button id="statsBtn" class="btn btn-ghost" title="統計ダッシュボードを開く">📊<span class="btn-label"> 統計</span></button>
@@ -99,8 +99,8 @@
       </form>
       <div class="quick-add-alt">
         <span>タイトルが浮かばないときは</span>
-        <button type="button" class="chip-btn" data-open-tab="recall">🕰️ 公開年から思い出す</button>
-        <button type="button" class="chip-btn" data-open-tab="recommend">✨ おすすめから選ぶ</button>
+        <button type="button" class="chip-btn" data-open-tab="recall" data-feature="yearAdd">🕰️ 公開年から思い出す</button>
+        <button type="button" class="chip-btn" data-open-tab="recommend" data-feature="recommend">✨ おすすめから選ぶ</button>
         <button type="button" id="addMovieBtn" class="chip-btn">その他の追加方法 ›</button>
       </div>
     </section>
@@ -152,7 +152,7 @@
         <a href="privacy.html">プライバシーポリシー</a>
         <a href="privacy.html#contact">お問い合わせ</a>
       </nav>
-      <p class="app-footer-credit">作品情報：Filmarks ／ 配信情報：JustWatch</p>
+      <p class="app-footer-credit" id="footerCredit">作品情報：Filmarks ／ 配信情報：JustWatch</p>
       <p class="app-footer-copy">© 2026 Tiari（ティアリ）</p>
     </footer>
 
@@ -178,7 +178,7 @@
         <button class="modal-close" data-close="addMovieModal">✕</button>
       </div>
 
-      <div class="add-media-chips" id="addMediaChips" role="tablist" aria-label="作品の種類">
+      <div class="add-media-chips" id="addMediaChips" data-feature="series" role="tablist" aria-label="作品の種類">
         <button class="add-media-chip active" data-media="movie">🎬 映画</button>
         <button class="add-media-chip" data-media="drama">📺 ドラマシリーズ</button>
         <button class="add-media-chip" data-media="anime">🎞️ アニメシリーズ</button>
@@ -186,14 +186,14 @@
 
       <div class="tabs">
         <button class="tab active" data-tab="search" data-media="movie drama anime">🔍 検索して追加</button>
-        <button class="tab" data-tab="trend" data-media="drama anime" style="display:none">🔥 いま人気</button>
-        <button class="tab" data-tab="recall" data-media="movie drama anime">🕰️ 公開年</button>
-        <button class="tab" data-tab="recommend" data-media="movie">✨ おすすめ</button>
-        <button class="tab" data-tab="collection" data-media="movie drama anime">📚 コレクション</button>
-        <button class="tab" data-tab="genre" data-media="movie drama">🎬 ジャンル</button>
-        <button class="tab" data-tab="country" data-media="drama" style="display:none">🌏 国・地域</button>
-        <button class="tab" data-tab="award" data-media="movie">🏆 映画賞・映画祭</button>
-        <button class="tab" data-tab="person" data-media="movie drama anime">👥 人物</button>
+        <button class="tab" data-feature="series" data-tab="trend" data-media="drama anime" style="display:none">🔥 いま人気</button>
+        <button class="tab" data-feature="yearAdd" data-tab="recall" data-media="movie drama anime">🕰️ 公開年</button>
+        <button class="tab" data-feature="recommend" data-tab="recommend" data-media="movie">✨ おすすめ</button>
+        <button class="tab" data-feature="awards" data-tab="collection" data-media="movie drama anime">📚 コレクション</button>
+        <button class="tab" data-feature="yearAdd" data-tab="genre" data-media="movie drama">🎬 ジャンル</button>
+        <button class="tab" data-feature="series" data-tab="country" data-media="drama" style="display:none">🌏 国・地域</button>
+        <button class="tab" data-feature="awards" data-tab="award" data-media="movie">🏆 映画賞・映画祭</button>
+        <button class="tab" data-feature="people" data-tab="person" data-media="movie drama anime">👥 人物</button>
         <button class="tab" data-tab="manual" data-media="movie drama anime">✍️ 手動で追加</button>
       </div>
 
@@ -852,7 +852,7 @@
               <span>またはポスター画像URL</span>
               <input id="infoPosterUrl" type="text" placeholder="https://..." />
             </label>
-            <button type="button" id="infoPosterPickBtn" class="btn btn-ghost btn-sm">🔍 ポスターが違うときは、候補から選び直す</button>
+            <button type="button" id="infoPosterPickBtn" data-feature="filmarks" class="btn btn-ghost btn-sm">🔍 ポスターが違うときは、候補から選び直す</button>
           </div>
         </div>
         <div id="infoPosterCands" class="pp-cands hidden"></div>
@@ -869,7 +869,7 @@
           <span>公開年</span>
           <input id="infoYear" type="text" inputmode="numeric" placeholder="例: 2016" />
         </label>
-        <label class="field">
+        <label class="field" data-feature="filmarks">
           <span>種別</span>
           <select id="infoKind">
             <option value="">未設定</option>
@@ -879,7 +879,7 @@
             <option value="foreign_anime">洋画アニメ</option>
           </select>
         </label>
-        <div class="field">
+        <div class="field" data-feature="genreTag">
           <span>ジャンル</span>
           <div id="infoGenres" class="info-genre-list"></div>
         </div>
@@ -887,7 +887,7 @@
           <span>監督（カンマ区切り）</span>
           <input id="infoDirectors" type="text" placeholder="例: クリストファー・ノーラン" />
         </label>
-        <label class="field">
+        <label class="field" data-feature="people">
           <span>出演者（カンマ区切り）</span>
           <input id="infoCast" type="text" placeholder="例: レオナルド・ディカプリオ, 渡辺謙" />
         </label>
