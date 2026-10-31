@@ -98,6 +98,15 @@ body {
   flex-direction: column;
 }
 
+.site-sub {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  line-height: 1;
+  margin-top: 3px;
+}
+
 /* シンプルな2トーンのワードマーク（Montserrat） */
 .app-header h1.wordmark {
   font-family: "Montserrat", "Noto Sans JP", sans-serif;
