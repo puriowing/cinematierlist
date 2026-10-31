@@ -2096,7 +2096,11 @@
     const t = scoreTier(s);
     return t ? `<span class="soc-tier" style="background:${escapeHtml(t.color || "#cfcfcf")}">${escapeHtml(t.label)}</span>` : "";
   }
-  function score10(s) { return (s * 10).toFixed(1); }
+  // 点数は出さず、ティアで見せる（大きめ）
+  function tierBig(s) {
+    const t = scoreTier(s);
+    return t ? `<span class="soc-tier soc-tier-lg" style="background:${escapeHtml(t.color || "#cfcfcf")}">${escapeHtml(t.label)}</span>` : "";
+  }
   function adminCount(n, pre = "", post = "") {
     return currentUser && currentUser.admin && n != null ? `${pre}${n}人${post}` : "";
   }
@@ -2110,8 +2114,8 @@
 
   function communitySummaryHtml(c, mine) {
     return `<div class="soc-sum">` +
-      `<span class="soc-score"><b>${score10(c.avg)}</b><small>/10</small></span>` +
-      `<span class="soc-sum-txt">あなたのティアでいうと ${tierChip(c.avg)}` +
+      `<span class="soc-score">${tierBig(c.avg)}</span>` +
+      `<span class="soc-sum-txt">みんなのティアは、あなたのティアでいうと ${tierChip(c.avg)}` +
       `<small>みんなの平均${adminCount(c.count, "（", "）")}${mine != null ? " ・ あなた " + tierChip(mine) : ""}</small></span>` +
       `</div>` + histHtml(c.hist);
   }
@@ -2236,16 +2240,17 @@
     let vs = "";
     if (mine != null) {
       const diff = mine - a.avg;
-      const ad = Math.abs(diff);
       const word = diff > 0 ? "甘口" : "辛口";
+      // 同じティアに置きかわるときは「同じくらい」とする（S と S なのに甘口、とならないように）
+      const ad = scoreTier(mine) === scoreTier(a.avg) ? 0 : Math.abs(diff);
       const msg = ad < 0.05 ? "この作品の好き度は、みんなと同じくらいです"
         : ad < 0.25 ? `この作品、あなたはみんなより少しだけ“${word}”です` : `この作品、あなたはみんなより“${word}”です`;
-      vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierChip(mine)}<b>${score10(mine)}</b></div>` +
-        `<div class="comm-vs-mid ${diff >= 0.05 ? "is-up" : diff <= -0.05 ? "is-down" : ""}">` +
-        (Math.abs(diff) < 0.05 ? `<span class="comm-vs-sym">＝</span><small>同じくらい</small>`
-          : `<span class="comm-vs-sym">${diff > 0 ? "＞" : "＜"}</span><small>${(Math.abs(diff) * 10).toFixed(1)}点 ${diff > 0 ? "甘口" : "辛口"}</small>`) +
+      vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierBig(mine)}</div>` +
+        `<div class="comm-vs-mid ${ad < 0.05 ? "" : diff > 0 ? "is-up" : "is-down"}">` +
+        (ad < 0.05 ? `<span class="comm-vs-sym">＝</span><small>同じくらい</small>`
+          : `<span class="comm-vs-sym">${diff > 0 ? "＞" : "＜"}</span><small>${ad < 0.25 ? "少し" : ""}${word}</small>`) +
         `</div>` +
-        `<div class="comm-vs-col"><small>みんな</small>${tierChip(a.avg)}<b>${score10(a.avg)}</b></div></div>` +
+        `<div class="comm-vs-col"><small>みんな</small>${tierBig(a.avg)}</div></div>` +
         `<p class="comm-vs-msg">${msg}</p>`;
     } else {
       vs = `<p class="comm-vs-msg">この作品をティアに振り分けると、みんなと好き度を比べられます。</p>`;
@@ -2266,12 +2271,12 @@
         : watchlistExists(ref) ? `<span class="comm-also-tag">観たいに追加済み</span>`
         : `<button type="button" class="btn btn-ghost btn-sm comm-also-add" data-i="${i}">🔖 観たい</button>`;
       return `<div class="comm-also-item">${socPoster(m)}<p class="comm-also-title">${escapeHtml(m.title)}</p>` +
-        `<p class="comm-also-score">${score10(m.avg)}<small>/10</small></p>${act}</div>`;
+        `<p class="comm-also-score">${tierChip(m.avg)}</p>${act}</div>`;
     }).join("");
     box.innerHTML =
       `<div class="comm-score">` +
-      `<div class="comm-score-main"><span class="comm-score-cap">みんなの好き度</span><b>${score10(a.avg)}</b><small>/10</small></div>` +
-      `<div class="comm-score-side"><p>あなたのティアでいうと ${tierChip(a.avg)}</p>` +
+      `<div class="comm-score-main"><span class="comm-score-cap">みんなのティア</span>${tierBig(a.avg)}</div>` +
+      `<div class="comm-score-side"><p>みんなの平均を、あなたのティアに置きかえて表示しています</p>` +
       `<p class="comm-verdict">みんなの中では <b>${rankVerdict(d.rank, d.total)}</b></p>` +
       `<p class="comm-rank">みんなのティアに並ぶ${d.total}作品のうち ${d.rank}位</p>` +
       `<div class="comm-pos" title="左ほど好き度が高い"><span style="left:${(((d.rank - 1) / Math.max(1, d.total - 1)) * 100).toFixed(1)}%"></span></div>` +
@@ -2446,7 +2451,7 @@
     const mineLow = gaps.filter((g) => g.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 8);
 
     let html = `<p class="hint soc-lead">ログインしているユーザー全員のティアリストを、作品ごとに平均した「みんなのティア」です。` +
-      `ティアの段数が違っても比べられるよう、一番上のティア＝10点、一番下＝0点に換算しています。` +
+      `ティアの段数は人それぞれなので、一番上のティア〜一番下のティアの位置をそろえて平均し、あなたのティアに置きかえて表示しています。` +
       `個人の評価が分からないよう、あなた以外の${min}人以上が評価した作品だけを表示します。</p>`;
     if (top.data.demo) html += `<p class="soc-demo">🎭 いまはデモ表示です。仮のユーザー${top.data.demo}人分の評価がまざっています。</p>`;
 
@@ -2462,7 +2467,7 @@
       html += `<p class="soc-empty">まだ表示できる作品がありません。同じ作品を${min}人以上が評価すると、ここにランキングが出ます${adminCount(top.data.raters, "（現在の参加者：", "）")}。</p>`;
     } else {
       html += `<div class="soc-list">` + items.map((m, i) => socRow(m,
-        `<div class="soc-line"><span class="soc-score soc-score-sm"><b>${score10(m.avg)}</b><small>/10</small></span>` +
+        `<div class="soc-line"><small class="soc-dim">みんな</small> ${tierChip(m.avg)}` +
         `<small class="soc-dim">${adminCount(m.count)}</small>${histHtml(m.hist)}</div>` +
         `<div class="soc-line">${mine[m.key] != null ? `<small class="soc-dim">あなた</small> ${tierChip(mine[m.key])}` : socWatchBtn(m)}</div>`,
         i + 1)).join("") + `</div>`;
@@ -2471,7 +2476,7 @@
     if (mineHigh.length || mineLow.length) {
       const gapRow = (g) => socRow(g,
         `<div class="soc-line"><small class="soc-dim">あなた</small> ${tierChip(g.mine)}` +
-        `<small class="soc-dim">みんな</small> ${tierChip(g.c.avg)}<small class="soc-dim">${score10(g.c.avg)}点${adminCount(g.c.count, "・")}</small></div>`);
+        `<small class="soc-dim">みんな</small> ${tierChip(g.c.avg)}<small class="soc-dim">${adminCount(g.c.count)}</small></div>`);
       html += `<h4 class="soc-h">🔀 あなたとみんなで評価が分かれた作品</h4><div class="soc-cols">` +
         `<div><p class="soc-sub">あなたは高評価・みんなは低め</p>${mineHigh.map(gapRow).join("") || `<p class="soc-empty">なし</p>`}</div>` +
         `<div><p class="soc-sub">みんなは高評価・あなたは低め</p>${mineLow.map(gapRow).join("") || `<p class="soc-empty">なし</p>`}</div>` +

@@ -8813,3 +8813,7 @@ img.movie-poster.no-fade { transition: none !important; }
 .share-list-loading { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; min-height: 200px; font-size: 13px; color: var(--text-dim); }
 
 .ch-cap-note { font-size: 13px; line-height: 1.6; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev)); margin: 6px 0 10px; }
+
+/* みんなのティア：点数の代わりに大きなティア表示 */
+.soc-tier.soc-tier-lg { font-size: 22px; min-width: 44px; height: 44px; line-height: 44px; padding: 0 10px; border-radius: 12px; display: inline-block; text-align: center; font-weight: 800; }
+.comm-vs-col .soc-tier-lg { margin-top: 4px; }
