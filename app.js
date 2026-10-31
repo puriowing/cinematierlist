@@ -949,6 +949,8 @@
       card.appendChild(nb);
     }
 
+    if (has("preview") && movie.previewUrl) card.appendChild(buildPreviewBtn(movie, "song-play"));
+
     const remove = document.createElement("button");
     remove.className = "movie-remove";
     remove.textContent = "✕";
@@ -977,6 +979,64 @@
 
     attachCardDnD(card);
     return card;
+  }
+
+  const PLAY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>`;
+  const STOP_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor"/></svg>`;
+  let previewAudio = null;
+  function previewPlaying(src) {
+    return !!(previewAudio && src && previewAudio.dataset.src === src && !previewAudio.paused);
+  }
+  function paintPreviewBtn(b) {
+    const on = previewPlaying(b.dataset.src);
+    b.classList.toggle("is-playing", on);
+    b.setAttribute("aria-label", on ? "試聴を止める" : "30秒試聴");
+    b.title = on ? "試聴を止める" : "30秒試聴";
+    if (b.classList.contains("song-play-wide")) b.innerHTML = (on ? STOP_SVG : PLAY_SVG) + `<span>${on ? "停止" : "30秒試聴"}</span>`;
+    else b.innerHTML = on ? STOP_SVG : PLAY_SVG;
+  }
+  function syncPreviewButtons() {
+    document.querySelectorAll(".song-play").forEach(paintPreviewBtn);
+  }
+  function togglePreview(src) {
+    if (!src) return;
+    if (!previewAudio) {
+      previewAudio = new Audio();
+      previewAudio.preload = "none";
+      ["play", "pause", "ended"].forEach((ev) => previewAudio.addEventListener(ev, syncPreviewButtons));
+      previewAudio.addEventListener("error", () => {
+        if (!previewAudio.dataset.src) return;
+        previewAudio.dataset.src = "";
+        syncPreviewButtons();
+        toast("試聴を再生できませんでした");
+      });
+    }
+    if (previewPlaying(src)) { previewAudio.pause(); return; }
+    if (previewAudio.dataset.src !== src) {
+      previewAudio.pause();
+      previewAudio.dataset.src = src;
+      previewAudio.src = src;
+    }
+    const p = previewAudio.play();
+    if (p && p.catch) p.catch(() => {});
+    syncPreviewButtons();
+  }
+  function stopPreview() {
+    if (previewAudio && !previewAudio.paused) previewAudio.pause();
+  }
+  function buildPreviewBtn(item, cls) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "song-play " + cls;
+    b.draggable = false;
+    b.dataset.src = item.previewUrl;
+    paintPreviewBtn(b);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      togglePreview(item.previewUrl);
+    });
+    return b;
   }
 
   function buildFallback(title) {
@@ -3293,8 +3353,30 @@
         `<span>${g.emoji} ${escapeHtml(g.label)}</span>`;
       wrap.appendChild(lbl);
     });
+    const watchField = $("infoWatchField");
+    if (watchField) watchField.classList.toggle("hidden", !has("watch"));
+    renderInfoPreview(movie);
     openModal("movieInfoModal");
-    loadWatchOptions(movie);
+    if (has("watch")) loadWatchOptions(movie);
+  }
+
+  function renderInfoPreview(movie) {
+    const box = document.getElementById("infoPreview");
+    if (!box) return;
+    box.innerHTML = "";
+    const show = has("preview") && (movie.previewUrl || movie.appleUrl);
+    box.classList.toggle("hidden", !show);
+    if (!show) return;
+    if (movie.previewUrl) box.appendChild(buildPreviewBtn(movie, "song-play-wide"));
+    if (movie.appleUrl) {
+      const a = document.createElement("a");
+      a.className = "apple-music-link";
+      a.href = movie.appleUrl;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = "Apple Music で聴く ↗";
+      box.appendChild(a);
+    }
   }
 
   // 「いま観られる方法」（配信/レンタル/購入/劇場）を JustWatch(日本) から取得して表示
@@ -9256,6 +9338,7 @@
       const dataUrl = await window.htmlToImage.toPng(el.tierBoard, {
         pixelRatio: 2,
         backgroundColor: "#171a21",
+        filter: (n) => !(n.classList && n.classList.contains("song-play")),
         cacheBust: false,
         includeQueryParams: true,
         fontEmbedCSS: await shareFontCSS(),

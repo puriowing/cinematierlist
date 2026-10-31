@@ -8831,3 +8831,67 @@ img.movie-poster.no-fade { transition: none !important; }
 /* みんなのティア：点数の代わりに大きなティア表示 */
 .soc-tier.soc-tier-lg { font-size: 22px; min-width: 44px; height: 44px; line-height: 44px; padding: 0 10px; border-radius: 12px; display: inline-block; text-align: center; font-weight: 800; }
 .comm-vs-col .soc-tier-lg { margin-top: 4px; }
+
+.song-play {
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.song-play svg { width: 14px; height: 14px; display: block; }
+.movie-card .song-play {
+  position: absolute;
+  top: calc(var(--poster-h) / 2 - 15px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75);
+  z-index: 3;
+}
+.movie-card .song-play svg { margin-left: 2px; }
+.movie-card .song-play.is-playing { background: var(--accent); }
+.movie-card .song-play.is-playing svg { margin-left: 0; }
+@media (hover: hover) {
+  .movie-card .song-play:hover { background: var(--accent); }
+}
+@media (hover: none) {
+  .movie-card .song-play { width: 34px; height: 34px; top: calc(var(--poster-h) / 2 - 17px); }
+}
+.info-preview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+.info-preview.hidden { display: none; }
+.song-play-wide {
+  gap: 6px;
+  padding: 0 16px;
+  min-height: 40px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.apple-music-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.15));
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
