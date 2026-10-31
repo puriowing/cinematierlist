@@ -75,3 +75,14 @@ class RemasterTest(unittest.TestCase):
               dict(TRACK, trackId=3, trackName="曲A (Live)")]
         out = itunes._songs(rs)
         self.assertEqual([(s["itunesId"], s["title"]) for s in out], [("1", "曲A"), ("3", "曲A (Live)")])
+
+    def test_long_title_fast(self):
+        import time
+        for t in ("a" * 100000, "曲 " + " (remaster)" * 10000, "x" + " - remastered 2011" * 6000 + "!"):
+            st = time.perf_counter()
+            itunes.song_title_norm(t)
+            self.assertLess(time.perf_counter() - st, 0.5)
+
+    def test_trailing_newline(self):
+        self.assertEqual(itunes.song_title_norm("曲A (Remaster)\n"), "曲a")
+        self.assertEqual(itunes.song_title_norm("  曲A - Remastered 2011 \n\t"), "曲a")

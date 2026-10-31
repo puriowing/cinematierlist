@@ -37,7 +37,8 @@ def _norm(v):
 
 
 def song_title_norm(v):
-    return _KEY_STRIP.sub("", VERSION_TAG.sub("", unicodedata.normalize("NFKC", v or "").lower()))
+    t = unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower()[:200].strip()
+    return _KEY_STRIP.sub("", VERSION_TAG.sub("", t))
 
 
 def _songs(results):

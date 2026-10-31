@@ -2319,7 +2319,8 @@
   }
 
   function songTitleNorm(v) {
-    return keyNorm(String(v || "").normalize("NFKC").toLowerCase().replace(VERSION_TAG, ""));
+    const t = Array.from(String(v || "").normalize("NFKC").toLowerCase().slice(0, 400)).slice(0, 200).join("").trim();
+    return t.replace(VERSION_TAG, "").replace(KEY_STRIP, "");
   }
 
   function movieKey(m) {
