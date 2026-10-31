@@ -4309,6 +4309,7 @@
   let itunesMode = "song";
   let itunesSongsList = [];
   let itunesSongsMode = "artist";
+  let itunesReq = 0;
 
   function songItem(s) {
     return copySongFields(s, { title: s.title, poster: s.poster || "", year: s.year || "" });
@@ -4354,6 +4355,7 @@
     const status = document.getElementById("searchStatus");
     const box = document.getElementById("searchResults");
     closeItunesSongs();
+    const req = itunesReq;
     status.textContent = "";
     box.innerHTML = "";
     let data;
@@ -4361,10 +4363,10 @@
       data = await withLoading(box, `「${q}」を検索中…`, () =>
         itunesFetch(`/api/itunes/search?type=${mode}&q=${encodeURIComponent(q)}`));
     } catch (e) {
-      status.textContent = itunesErrorText(e);
+      if (req === itunesReq) status.textContent = itunesErrorText(e);
       return;
     }
-    if (mode !== itunesMode) return;
+    if (req !== itunesReq) return;
     const list = data.results || [];
     if (!list.length) {
       status.textContent = "見つかりませんでした。";
@@ -4394,7 +4396,7 @@
         card.className = "result-card";
         card.innerHTML =
           (it.poster
-            ? `<img src="${it.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
+            ? `<img src="${escapeHtml(it.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
             : `<div class="result-fallback">💿</div>`) +
           `<div class="result-meta">
              <div class="result-title">${escapeHtml(it.title)}</div>
@@ -4410,16 +4412,17 @@
     const status = document.getElementById("searchStatus");
     const box = document.getElementById("searchResults");
     const label = mode === "artist" ? it.name : it.title;
+    const req = ++itunesReq;
     status.textContent = "";
     let data;
     try {
       data = await withLoading(box, `「${label}」の曲を取得中…`, () =>
         itunesFetch(`/api/itunes/${mode}?id=${encodeURIComponent(it.id)}`));
     } catch (e) {
-      status.textContent = itunesErrorText(e);
+      if (req === itunesReq) status.textContent = itunesErrorText(e);
       return;
     }
-    if (mode !== itunesMode) return;
+    if (req !== itunesReq) return;
     itunesSongsMode = mode;
     itunesSongsList = (data.songs || []).map(songItem);
     box.classList.add("hidden");
@@ -4473,6 +4476,7 @@
   }
 
   function closeItunesSongs() {
+    itunesReq++;
     const songs = document.getElementById("itunesSongs");
     if (songs) songs.classList.add("hidden");
     const grid = document.getElementById("itunesGrid");
