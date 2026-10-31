@@ -157,6 +157,9 @@ def _fetch(url, use_cache=True):
     return text
 
 
+itunes.fetch_json = lambda u: json.loads(_fetch(u))
+
+
 def _prefetch(urls):
     """複数ページを並列に取得してキャッシュに載せておく（後続の逐次処理を速くする）。"""
     urls = [u for u in urls if _cache_read(u) is None]
@@ -2712,14 +2715,17 @@ class Handler(SimpleHTTPRequestHandler):
                 if kind == "search":
                     fn = {"artist": itunes.search_artists, "album": itunes.search_albums}.get(arg("type"), itunes.search_songs)
                     self._send_json({"results": fn(arg("q")) if arg("q") else []})
-                elif kind == "artist":
-                    self._send_json(itunes.artist_songs(arg("id")))
-                elif kind == "album":
-                    self._send_json(itunes.album_songs(arg("id")))
+                elif kind in ("artist", "album"):
+                    if not arg("id"):
+                        self._send_json({"error": "id required"}, 400)
+                        return
+                    fn = itunes.artist_songs if kind == "artist" else itunes.album_songs
+                    self._send_json(fn(arg("id")))
                 else:
                     self._send_json({"error": "not found"}, 404)
             except Exception as exc:  # noqa: BLE001
-                self._send_json({"error": str(exc)}, 502)
+                print("itunes error:", exc, file=sys.stderr)
+                self._send_json({"error": "itunes unavailable"}, 502)
             return
         if parsed.path == "/api/filmarks/search":
             params = urllib.parse.parse_qs(parsed.query)

@@ -4,8 +4,7 @@ BASE = "https://itunes.apple.com"
 COMMON = {"country": "JP", "lang": "ja_jp"}
 
 def _default_fetch(url):
-    import server
-    return json.loads(server._fetch(url))
+    raise RuntimeError("fetch not configured")
 
 fetch_json = _default_fetch
 

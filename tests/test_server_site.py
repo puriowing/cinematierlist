@@ -1,4 +1,4 @@
-import json, os, threading, unittest, urllib.request, tempfile
+import urllib.error, json, os, threading, unittest, urllib.request, tempfile
 os.environ["TIARI_SITE"] = "music"
 os.environ["TIARI_DATA_DIR"] = tempfile.mkdtemp()
 import server
@@ -33,3 +33,9 @@ class SiteRoutesTest(unittest.TestCase):
         itunes.fetch_json = lambda url: {"results": [{"wrapperType": "track", "kind": "song", "trackId": 1, "trackName": "X"}]}
         r = json.loads(self.get("/api/itunes/search?q=X&type=song"))
         self.assertEqual(r["results"][0]["itunesId"], "1")
+
+    def test_itunes_empty_id(self):
+        for k in ("artist", "album"):
+            with self.assertRaises(urllib.error.HTTPError) as c:
+                self.get(f"/api/itunes/{k}?id=")
+            self.assertEqual(c.exception.code, 400)
