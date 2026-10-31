@@ -1,4 +1,4 @@
-import json, urllib.parse
+import json, re, unicodedata, urllib.parse
 
 BASE = "https://itunes.apple.com"
 COMMON = {"country": "JP", "lang": "ja_jp"}
@@ -23,13 +23,26 @@ def _song(r):
         "previewUrl": r.get("previewUrl") or "", "appleUrl": r.get("trackViewUrl") or "",
     }
 
+_KEY_STRIP = re.compile(r"[\s・:：\-－—―~〜!！?？'\"“”‘’「」『』()（）\[\]【】.,、。]")
+
+
+def _norm(v):
+    return _KEY_STRIP.sub("", unicodedata.normalize("NFKC", v or "").lower())
+
+
 def _songs(results):
-    out, seen = [], set()
+    """同じ曲（アーティスト＋曲名が同じ）はシングル・アルバム・ベスト盤のうち一番古い発売のものだけ残す。"""
+    best, order = {}, []
     for r in results:
-        if r.get("wrapperType") == "track" and r.get("kind") == "song" and r.get("trackId") not in seen:
-            seen.add(r.get("trackId"))
-            out.append(_song(r))
-    return out
+        if r.get("wrapperType") != "track" or r.get("kind") != "song" or not r.get("trackId"):
+            continue
+        k = (_norm(r.get("artistName")), _norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
+        if k not in best:
+            order.append(k)
+            best[k] = r
+        elif (r.get("releaseDate") or "9999") < (best[k].get("releaseDate") or "9999"):
+            best[k] = r
+    return [_song(best[k]) for k in order]
 
 def search_songs(q, limit=30):
     return _songs(fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"])

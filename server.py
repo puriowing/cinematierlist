@@ -1176,6 +1176,16 @@ def _ensure_data_dirs():
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 DATA_REPO = os.environ.get("DATA_REPO", "")
 REMOTE_ON = bool(GITHUB_TOKEN and DATA_REPO)
+
+
+def _data_repo_ok(site_id, repo):
+    return site_id == "cinema" or "music" in (repo.rsplit("/", 1)[-1]).lower()
+
+
+if REMOTE_ON and not _data_repo_ok(SITE["id"], DATA_REPO):
+    print(f"!!! 警告: {SITE['id']} 版で DATA_REPO={DATA_REPO} は使えません（映画版のデータ置き場の可能性）。"
+          "GitHub への保存を止め、このサーバー内だけで動かします。", file=sys.stderr)
+    REMOTE_ON = False
 ALLOW_REGISTER = os.environ.get("ALLOW_REGISTER", "1") != "0"
 # 参加者数・評価数などの実数は、ここに書いたユーザー名（カンマ区切り）にだけ返す
 ADMIN_USERS = {x.strip().lower() for x in os.environ.get("ADMIN_USERS", "").split(",") if x.strip()}
@@ -1437,14 +1447,19 @@ _meta_cache = {}      # key -> {title, poster, year, filmarksId}
 _ratings_loaded = False
 
 
+def _key_norm(v):
+    return _KEY_STRIP.sub("", unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower())
+
+
 def _movie_key(m):
     iid = str(m.get("itunesId") or "").strip()
     if iid:
-        return "i:" + iid
+        artist, title = _key_norm(m.get("artist")), _key_norm(m.get("title"))
+        return "s:" + artist + "|" + title if artist and title else "i:" + iid
     fid = str(m.get("filmarksId") or "").strip()
     if fid:
         return "f:" + (fid.split("-")[0] if RE_SERIES_FID.match(fid) else fid)
-    title = _KEY_STRIP.sub("", unicodedata.normalize("NFKC", m.get("title") or "").lower())
+    title = _key_norm(m.get("title"))
     if not title:
         return None
     return "t:" + title + "|" + str(m.get("year") or "").strip()
@@ -1465,11 +1480,26 @@ def _music_fields(m):
     out = {}
     for k in ("itunesId", "artist", "album", "previewUrl", "appleUrl"):
         v = _s(str(m.get(k) or ""), 600)
-        if k in ("previewUrl", "appleUrl") and not v.startswith("https://"):
+        if k in ("previewUrl", "appleUrl") and not _music_url_ok(k, v):
+            v = ""
+        if k == "itunesId" and not v.isdigit():
             v = ""
         if v:
             out[k] = v
     return out
+
+
+def _music_url_ok(kind, url):
+    try:
+        u = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
+    host = (u.hostname or "").lower()
+    if u.scheme != "https" or not host or u.username or u.password:
+        return False
+    if kind == "appleUrl":
+        return host in ("music.apple.com", "itunes.apple.com")
+    return any(host == d or host.endswith("." + d) for d in ("itunes.apple.com", "mzstatic.com"))
 
 
 def _ratings_from_list(obj):
@@ -2794,6 +2824,9 @@ class Handler(SimpleHTTPRequestHandler):
                  "results": []}, 410)
             return
         if parsed.path.startswith("/api/itunes/"):
+            if "itunes" not in SITE.get("features", []):
+                self._send_json({"error": "not found"}, 404)
+                return
             qs = urllib.parse.parse_qs(parsed.query)
             arg = lambda k: (qs.get(k) or [""])[0].strip()
             try:

@@ -35,3 +35,20 @@ class ITunesTest(unittest.TestCase):
         r = itunes.artist_songs("5")
         self.assertEqual(r["artist"], "歌手")
         self.assertIn("id=5", self.calls[0])
+
+
+class DedupeTest(unittest.TestCase):
+    def test_same_song_keeps_earliest(self):
+        rs = [dict(TRACK, trackId=3, collectionName="BEST", releaseDate="2030-01-01T00:00:00Z"),
+              dict(TRACK, trackId=1, collectionName="シングル", releaseDate="2020-01-01T00:00:00Z"),
+              dict(TRACK, trackId=2, trackName="曲Ａ ", artistName="歌手", releaseDate="2021-01-01T00:00:00Z")]
+        out = itunes._songs(rs)
+        self.assertEqual([s["itunesId"] for s in out], ["1"])
+        self.assertEqual(out[0]["album"], "シングル")
+
+    def test_versions_kept_separately(self):
+        rs = [TRACK, dict(TRACK, trackId=2, trackName="曲A (Live)"), dict(TRACK, trackId=3, trackName="曲A - Remix")]
+        self.assertEqual(len(itunes._songs(rs)), 3)
+
+    def test_other_artist_kept(self):
+        self.assertEqual(len(itunes._songs([TRACK, dict(TRACK, trackId=2, artistName="別の歌手")])), 2)

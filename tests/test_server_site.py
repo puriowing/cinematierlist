@@ -39,3 +39,10 @@ class SiteRoutesTest(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as c:
                 self.get(f"/api/itunes/{k}?id=")
             self.assertEqual(c.exception.code, 400)
+
+    def test_itunes_404_without_feature(self):
+        self.addCleanup(server.SITE.__setitem__, "features", server.SITE["features"])
+        server.SITE["features"] = [f for f in server.SITE["features"] if f != "itunes"]
+        with self.assertRaises(urllib.error.HTTPError) as c:
+            self.get("/api/itunes/search?q=X")
+        self.assertEqual(c.exception.code, 404)

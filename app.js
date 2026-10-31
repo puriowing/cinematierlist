@@ -22,6 +22,7 @@
   let wKeep = [];
   let wKeepSet = new Set();
   const wSeen = new Set();
+  const W_SEEN_MAX = 5000;
   const W = (s) => {
     let t = String(s);
     if (!W_ON || !W_RISK.test(t)) return t;
@@ -63,12 +64,15 @@
     "ch-from", "ch-note", "ch-title", "cmt-text", "cmt-av", "tl-title", "tl-note", "tl-when", "tl-tier", "tl-poster-fb",
     "tl-todo-btn", "ta-poster-fb", "ta-badge", "tier-label-text", "to-name", "stat-rank-name", "stat-bar-label",
     "up-title", "nitaku-res-item", "nitaku-res-tier", "mp-hero-name", "person-cardname", "rh-note",
-    "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text"];
+    "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text", "song-artist"];
 
   function wHarvest(v, depth) {
     if (typeof v === "string") {
       const s = v.trim();
-      if (s && s.length <= 300 && W_RISK.test(s)) wSeen.add(s);
+      if (s && s.length <= 300 && W_RISK.test(s) && !wSeen.has(s)) {
+        wSeen.add(s);
+        if (wSeen.size > W_SEEN_MAX) wSeen.delete(wSeen.values().next().value);
+      }
     } else if (v && typeof v === "object" && depth < 8) {
       Object.values(v).forEach((x) => wHarvest(x, depth + 1));
     }
@@ -1037,6 +1041,8 @@
     title.textContent = movie.title;
     title.title = movie.title;
     card.appendChild(title);
+    const artist = songArtistEl(movie, "div");
+    if (artist) card.appendChild(artist);
 
     if (MEDIA_LABEL[movie.media]) {
       const mb = document.createElement("div");
@@ -1083,7 +1089,7 @@
       card.appendChild(nb);
     }
 
-    if (has("preview") && movie.previewUrl) card.appendChild(buildPreviewBtn(movie, "song-play"));
+    if (has("preview") && musicUrlOk("previewUrl", movie.previewUrl)) card.appendChild(buildPreviewBtn(movie, "song-play"));
 
     const remove = document.createElement("button");
     remove.className = "movie-remove";
@@ -1132,8 +1138,18 @@
   function syncPreviewButtons() {
     document.querySelectorAll(".song-play").forEach(paintPreviewBtn);
   }
+  // server.py の _music_url_ok と同じ許可リスト
+  function musicUrlOk(kind, url) {
+    let u;
+    try { u = new URL(String(url || "")); } catch (e) { return false; }
+    const host = u.hostname.toLowerCase();
+    if (u.protocol !== "https:" || !host || u.username || u.password) return false;
+    if (kind === "appleUrl") return host === "music.apple.com" || host === "itunes.apple.com";
+    return ["itunes.apple.com", "mzstatic.com"].some((d) => host === d || host.endsWith("." + d));
+  }
+
   function togglePreview(src) {
-    if (!src) return;
+    if (!musicUrlOk("previewUrl", src)) return;
     if (!previewAudio) {
       previewAudio = new Audio();
       previewAudio.preload = "none";
@@ -1173,6 +1189,15 @@
     return b;
   }
 
+  function songArtistEl(m, tag) {
+    if (!MUSIC || !m.artist) return null;
+    const a = document.createElement(tag);
+    a.className = "song-artist";
+    a.textContent = m.artist;
+    a.title = m.artist;
+    return a;
+  }
+
   function buildFallback(title) {
     const fb = document.createElement("div");
     fb.className = "movie-poster-fallback";
@@ -1208,7 +1233,7 @@
   // 同一作品かどうか。作品IDが両方にあればIDで決め、無ければタイトル＋公開年（±1年）で照合する。
   // 同名の別作品（リメイク等）を「登録済」と誤判定しないため、タイトルだけでは一致させない。
   function sameMovie(m, q, nt) {
-    if (q.itunesId && m.itunesId) return String(m.itunesId) === String(q.itunesId);
+    if (q.itunesId && m.itunesId) return String(m.itunesId) === String(q.itunesId) || movieKey(m) === movieKey(q);
     if (q.filmarksId && m.filmarksId) return fidKey(m.filmarksId) === fidKey(q.filmarksId);
     if (q.eigaId && m.eigaId) return String(m.eigaId) === String(q.eigaId);
     if (q.tmdbId && m.tmdbId) return String(m.tmdbId) === String(q.tmdbId);
@@ -1327,6 +1352,8 @@
     t.textContent = movie.title + (movie.year ? `（${movie.year}）` : "");
     t.title = movie.title;
     card.appendChild(t);
+    const wa = songArtistEl(movie, "div");
+    if (wa) card.appendChild(wa);
 
     const actions = document.createElement("div");
     actions.className = "wl-actions";
@@ -2168,7 +2195,7 @@
     menuActions.className = "move-menu-actions";
     const infoBtn = document.createElement("button");
     infoBtn.className = "btn btn-ghost btn-sm move-info-btn move-full";
-    infoBtn.textContent = "🎬 作品情報";
+    infoBtn.textContent = (MUSIC ? "🎵" : "🎬") + " 作品情報";
     infoBtn.title = "公開年・ジャンル・種別・監督・出演者・ポスターを表示／修正します";
     infoBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2281,11 +2308,18 @@
   const KEY_STRIP = /[\s・:：\-－—―~〜!！?？'"“”‘’「」『』()（）\[\]【】.,、。]/g;
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
+  function keyNorm(v) {
+    return String(v || "").normalize("NFKC").toLowerCase().replace(KEY_STRIP, "");
+  }
+
   function movieKey(m) {
-    if (m.itunesId) return "i:" + m.itunesId;
+    if (m.itunesId) {
+      const a = keyNorm(m.artist), t = keyNorm(m.title);
+      return a && t ? "s:" + a + "|" + t : "i:" + m.itunesId;
+    }
     const fid = fidKey(m.filmarksId);
     if (fid) return "f:" + fid;
-    const t = String(m.title || "").normalize("NFKC").toLowerCase().replace(KEY_STRIP, "");
+    const t = keyNorm(m.title);
     return t ? "t:" + t + "|" + String(m.year || "").trim() : null;
   }
 
@@ -2482,7 +2516,7 @@
         `<span class="comm-dist-pct">${Math.round((c / total) * 100)}%${i === myIdx ? "<em>あなた</em>" : ""}</span></div>`;
     }).join("");
     const also = (d.also || []).map((m, i) => {
-      const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined };
+      const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, artist: m.artist || undefined };
       const act = movieExists(ref) ? `<span class="comm-also-tag">登録済み</span>`
         : watchlistExists(ref) ? `<span class="comm-also-tag">観たいに追加済み</span>`
         : `<button type="button" class="btn btn-ghost btn-sm comm-also-add" data-i="${i}">🔖 観たい</button>`;
@@ -2523,7 +2557,7 @@
   }
 
   function socWatchBtn(m) {
-    const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined };
+    const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, artist: m.artist || undefined };
     if (movieExists(ref)) return `<span class="soc-note">登録済み</span>`;
     if (watchlistExists(ref)) return `<span class="soc-note">✓ 観たいリストにあり</span>`;
     return `<button type="button" class="btn btn-ghost btn-sm soc-watch" data-key="${escapeHtml(m.key)}">🔖 観たい</button>`;
@@ -2967,7 +3001,7 @@
   function challengeMovieOut(m) {
     const o = { title: m.title, year: m.year || "", poster: /^(https?:|\/api\/img\?u=)/.test(m.poster || "") ? m.poster : "" };
     if (m.filmarksId) o.filmarksId = m.filmarksId;
-    return copySongFields(m, o);
+    return m.itunesId ? copySongFields(m, o) : o;
   }
 
   function challengeName() {
@@ -3502,11 +3536,13 @@
     const box = document.getElementById("infoPreview");
     if (!box) return;
     box.innerHTML = "";
-    const show = has("preview") && (movie.previewUrl || movie.appleUrl);
+    const okPreview = musicUrlOk("previewUrl", movie.previewUrl);
+    const okApple = musicUrlOk("appleUrl", movie.appleUrl);
+    const show = has("preview") && (okPreview || okApple);
     box.classList.toggle("hidden", !show);
     if (!show) return;
-    if (movie.previewUrl) box.appendChild(buildPreviewBtn(movie, "song-play-wide"));
-    if (movie.appleUrl) {
+    if (okPreview) box.appendChild(buildPreviewBtn(movie, "song-play-wide"));
+    if (okApple) {
       const a = document.createElement("a");
       a.className = "apple-music-link";
       a.href = movie.appleUrl;
@@ -5480,7 +5516,7 @@
         img.loading = "lazy";
         thumb.appendChild(img);
       } else {
-        thumb.textContent = "🎬";
+        thumb.textContent = MUSIC ? "🎵" : "🎬";
       }
       const t = document.createElement("span");
       t.className = "theme-pick-title";
@@ -5744,7 +5780,7 @@
         const img = document.createElement("img");
         img.decoding = "async"; img.src = m.poster; img.alt = ""; img.loading = "lazy";
         thumb.appendChild(img);
-      } else { thumb.textContent = "🎬"; }
+      } else { thumb.textContent = MUSIC ? "🎵" : "🎬"; }
 
       const info = document.createElement("span");
       info.className = "rank-info";
@@ -5754,6 +5790,8 @@
       const sub = document.createElement("span");
       sub.className = "rank-sub";
       sub.textContent = m.year ? `${m.year}年` : "";
+      const ra = songArtistEl(m, "span");
+      if (ra) sub.prepend(ra, m.year ? " · " : "");
       info.appendChild(t);
       info.appendChild(sub);
 
@@ -6452,13 +6490,14 @@
       ctx.font = `700 ${ROW > 140 ? 38 : 34}px ${FONT}`;
       const tl = wrapLines(ctx, m.title || "", tw, 2);
       const lh = ROW > 140 ? 46 : 40;
-      const blockH = tl.length * lh + (m.year ? 36 : 0);
+      const subText = [MUSIC ? m.artist : "", m.year ? `${m.year}年` : ""].filter(Boolean).join(" · ");
+      const blockH = tl.length * lh + (subText ? 36 : 0);
       let ty = y + (ROW - blockH) / 2 + lh - 8;
       tl.forEach((l) => { ctx.fillText(l, tx, ty); ty += lh; });
-      if (m.year) {
+      if (subText) {
         ctx.fillStyle = C.sub;
         ctx.font = `500 28px ${FONT}`;
-        ctx.fillText(`${m.year}年`, tx, ty + 2);
+        ctx.fillText(wrapLines(ctx, subText, tw, 1)[0], tx, ty + 2);
       }
       y += ROW + GAP;
     });
@@ -6917,7 +6956,7 @@
       : (f.date ? f.date.replace(/-/g, "/") : (f.year || ""));
     card.innerHTML =
       (f.poster
-        ? `<img src="${f.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
+        ? `<img src="${escapeHtml(f.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
         : `<div class="result-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`) +
       `<div class="result-meta">
          <div class="result-title">${escapeHtml(f.title)}</div>
@@ -8172,7 +8211,7 @@
 
     card.innerHTML =
       (f.poster
-        ? `<img class="up-poster" src="${f.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
+        ? `<img class="up-poster" src="${escapeHtml(f.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
         : `<div class="up-poster up-poster-fallback">🎬</div>`) +
       `<div class="up-info">
          <div class="up-title">${escapeHtml(f.title)}</div>
@@ -10463,7 +10502,7 @@
       const g = s.topGenres[0];
       const others = s.topGenres.slice(1, 3).map((x) => x.label).join("・");
       out.push({
-        icon: "🎬",
+        icon: MUSIC ? "🎵" : "🎬",
         text: `最も多いジャンルは「${g.label}」で ${g.count} 本（全体の ${pct(g.count, s.total)}%）。` +
           (others ? `次いで ${others} が続きます。` : ""),
       });
@@ -10537,7 +10576,8 @@
   const MOVIE_ONLY_ACHV = new Set(["genreMaster", "allkinds", "allkinds250", "anime750", "jp1500", "foreign1500", "balance1000",
     "star25", "star50", "actGe3x100", "completionist", "perfectionist"]);
   const MUSIC_ACHV_TITLE = has("itunes")
-    ? { c7500: "ミュージックライブラリ", c10000: "音楽フリーク", pre1950x100: "ルーツ探求者" }
+    ? { c7500: { title: "ミュージックライブラリ" }, c10000: { title: "音楽フリーク" }, pre1950x100: { title: "ルーツ探求者" },
+        first: { icon: "🎵" }, auteur50: { icon: "🎤" } }
     : {};
   const ACHIEVEMENTS = [
     // --- 登録数（ボリューム） ---
@@ -10596,7 +10636,7 @@
     { id: "completionist", icon: "🧩", title: "コンプリート魂", desc: "4種別250本＋15ジャンル＋6年代を達成", check: (a) => a.minKindCount >= 250 && a.genreTotal >= 15 && a.decadeTotal >= 6 },
     { id: "grandmaster", icon: "🏆", title: "グランドマスター", desc: "1万本・未分類ゼロ・25ジャンル・10年代を達成", check: (a) => a.total >= 10000 && a.unranked === 0 && a.genreTotal >= 25 && a.decadeTotal >= 10 },
     { id: "perfectionist", icon: "💠", title: "パーフェクショニスト", desc: "全ジャンル制覇＋4種別500本ずつ＋11年代", check: (a) => a.genreDefTotal > 0 && a.genreTotal >= a.genreDefTotal && a.minKindCount >= 500 && a.decadeTotal >= 11 },
-  ].filter((x) => has("filmarks") || !MOVIE_ONLY_ACHV.has(x.id)).map((x) => (MUSIC_ACHV_TITLE[x.id] ? { ...x, title: MUSIC_ACHV_TITLE[x.id] } : x));
+  ].filter((x) => has("filmarks") || !MOVIE_ONLY_ACHV.has(x.id)).map((x) => (MUSIC_ACHV_TITLE[x.id] ? { ...x, ...MUSIC_ACHV_TITLE[x.id] } : x));
 
   function achvContextFromStats(s) {
     const tierItems = state.tiers.map((t) => t.items.length);
@@ -11051,7 +11091,7 @@
       panel("🏆 ティア分布", statSegBar(s.tierDist), "stat-panel-wide") +
       (has("filmarks") ? panel("🎞️ 種別", statDonut(s.kinds)) : "") +
       panel("🗓️ 年代分布", statDecadeColumns(s.decades, s.total)) +
-      panel("🎬 ジャンル TOP", `<div class="stat-bars">${statBarRows(s.topGenres, s.total)}</div>`, "stat-panel-wide") +
+      panel((MUSIC ? "🎵" : "🎬") + " ジャンル TOP", `<div class="stat-bars">${statBarRows(s.topGenres, s.total)}</div>`, "stat-panel-wide") +
       panel("🎥 よく登録している監督", `<div class="stat-rank-list">${statRankRows(s.topDirectors, s.total)}</div>`) +
       (has("people") ? panel("⭐ よく登録している出演者", `<div class="stat-rank-list">${statRankRows(s.topActors, s.total)}</div>`) : "") +
       `</div>` +
@@ -11393,7 +11433,7 @@
       (has("awards") ? panel("📚 コレクション・映画賞", `<div class="ta-rows">${taShareRows(a.cols.slice(0, 8), tier.color, a.n)}</div>`) : "") +
       panel("🎥 監督 TOP", `<div class="stat-rank-list">${taPersonRows(a.directors.slice(0, 8))}</div>`) +
       (has("people") ? panel("⭐ 出演者 TOP", `<div class="stat-rank-list">${taPersonRows(a.actors.slice(0, 8))}</div>`) : "") +
-      panel("🎬 このティアの作品", taPosterStrip(tier.items), "stat-panel-wide") +
+      panel((MUSIC ? "🎵" : "🎬") + " このティアの作品", taPosterStrip(tier.items), "stat-panel-wide") +
       `</div>` +
       `<p class="stat-note">「全体」はティアに振り分けた全${a.N.toLocaleString()}本です（未分類・観たいは含みません）。` +
       (has("filmarks")
@@ -11946,7 +11986,7 @@
       card.className = "result-card pick-card" + (owned ? " result-added" : wanted ? " result-wl" : "");
       card.innerHTML =
         (r.poster
-          ? `<img src="${r.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
+          ? `<img src="${escapeHtml(r.poster)}" alt="" loading="lazy" crossorigin="anonymous" />`
           : `<div class="result-fallback">${r.itunesId ? "🎵" : "🎬"}</div>`) +
         `<div class="result-meta">
            <div class="result-title">${escapeHtml(r.title)}</div>
