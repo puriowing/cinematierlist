@@ -2308,13 +2308,23 @@
   const KEY_STRIP = /[\s・:：\-－—―~〜!！?？'"“”‘’「」『』()（）\[\]【】.,、。]/g;
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
+  // itunes.py の VERSION_TAG と同じ。リマスター等の表記違いだけを同じ曲として扱う
+  const VERSION_TAG_W = "(?:(?:\\d{4}\\s*)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
+    "|(?:single|album|シングル|アルバム)[\\s・]*(?:version|ver\\.?|バージョン)|mono|stereo|original|オリジナル)";
+  const VERSION_TAG = new RegExp("(?:\\s*\\(\\s*" + VERSION_TAG_W + "\\s*\\)|\\s*\\[\\s*" + VERSION_TAG_W + "\\s*\\]|\\s*【\\s*" +
+    VERSION_TAG_W + "\\s*】|\\s+-\\s+" + VERSION_TAG_W + ")+$");
+
   function keyNorm(v) {
     return String(v || "").normalize("NFKC").toLowerCase().replace(KEY_STRIP, "");
   }
 
+  function songTitleNorm(v) {
+    return keyNorm(String(v || "").normalize("NFKC").toLowerCase().replace(VERSION_TAG, ""));
+  }
+
   function movieKey(m) {
     if (m.itunesId) {
-      const a = keyNorm(m.artist), t = keyNorm(m.title);
+      const a = keyNorm(m.artist), t = songTitleNorm(m.title);
       return a && t ? "s:" + a + "|" + t : "i:" + m.itunesId;
     }
     const fid = fidKey(m.filmarksId);

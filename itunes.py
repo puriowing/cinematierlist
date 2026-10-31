@@ -26,8 +26,18 @@ def _song(r):
 _KEY_STRIP = re.compile(r"[\s・:：\-－—―~〜!！?？'\"“”‘’「」『』()（）\[\]【】.,、。]")
 
 
+# app.js の VERSION_TAG と同じ。リマスター等の表記違いだけを同じ曲として扱う（Live・Remix などは別の曲）
+_TAG = (r"(?:(?:\d{4}\s*)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
+        r"|(?:single|album|シングル|アルバム)[\s・]*(?:version|ver\.?|バージョン)|mono|stereo|original|オリジナル)")
+VERSION_TAG = re.compile(r"(?:\s*\(\s*" + _TAG + r"\s*\)|\s*\[\s*" + _TAG + r"\s*\]|\s*【\s*" + _TAG + r"\s*】|\s+-\s+" + _TAG + r")+$")
+
+
 def _norm(v):
     return _KEY_STRIP.sub("", unicodedata.normalize("NFKC", v or "").lower())
+
+
+def song_title_norm(v):
+    return _KEY_STRIP.sub("", VERSION_TAG.sub("", unicodedata.normalize("NFKC", v or "").lower()))
 
 
 def _songs(results):
@@ -36,7 +46,7 @@ def _songs(results):
     for r in results:
         if r.get("wrapperType") != "track" or r.get("kind") != "song" or not r.get("trackId"):
             continue
-        k = (_norm(r.get("artistName")), _norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
+        k = (_norm(r.get("artistName")), song_title_norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
         if k not in best:
             order.append(k)
             best[k] = r

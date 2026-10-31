@@ -52,3 +52,26 @@ class DedupeTest(unittest.TestCase):
 
     def test_other_artist_kept(self):
         self.assertEqual(len(itunes._songs([TRACK, dict(TRACK, trackId=2, artistName="別の歌手")])), 2)
+
+
+class RemasterTest(unittest.TestCase):
+    SAME = ["曲A", "曲A (2019 Remaster)", "曲A - Remastered 2011", "曲A (リマスター)", "曲A［Remastered］",
+            "曲A【リマスター版】", "曲A - 2011 Remastered Version", "曲A (Single Version)", "曲A (シングル・バージョン)",
+            "曲A (Album ver.)", "曲A (Mono)", "曲A (Remastered) [Stereo]", "曲A (Original)"]
+    OTHER = ["曲A (Live)", "曲A - Remix", "曲A (Acoustic ver.)", "曲A (Instrumental)", "曲A (Cover)", "曲A (TV size)",
+             "曲A - From THE FIRST TAKE", "曲A (Demo)", "曲A (English ver.)", "曲A (Original Mix)"]
+
+    def test_variants_collapse(self):
+        self.assertEqual({itunes.song_title_norm(t) for t in self.SAME}, {"曲a"})
+
+    def test_other_versions_stay(self):
+        keys = [itunes.song_title_norm(t) for t in self.OTHER]
+        self.assertNotIn("曲a", keys)
+        self.assertEqual(len(set(keys)), len(keys))
+
+    def test_dedupe_keeps_original(self):
+        rs = [dict(TRACK, trackId=2, trackName="曲A (2019 Remaster)", releaseDate="2019-01-01T00:00:00Z"),
+              dict(TRACK, trackId=1, releaseDate="1985-01-01T00:00:00Z"),
+              dict(TRACK, trackId=3, trackName="曲A (Live)")]
+        out = itunes._songs(rs)
+        self.assertEqual([(s["itunesId"], s["title"]) for s in out], [("1", "曲A"), ("3", "曲A (Live)")])

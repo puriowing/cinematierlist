@@ -10,6 +10,13 @@ class MusicKeyTest(unittest.TestCase):
         self.assertEqual(server._movie_key({"itunesId": "123", "title": "Ｈｅｌｌｏ！ World", "artist": "Mr.Children"}),
                          "s:mrchildren|helloworld")
 
+    def test_remaster_same_key(self):
+        k = lambda t: server._movie_key({"itunesId": "1", "title": t, "artist": "歌手"})
+        self.assertEqual(k("曲 (2019 Remaster)"), k("曲"))
+        self.assertEqual(k("曲 - Remastered 2011"), "s:歌手|曲")
+        self.assertNotEqual(k("曲 (Live)"), k("曲"))
+        self.assertEqual(server._movie_key({"title": "映画 (Remaster)", "year": "2000"}), "t:映画remaster|2000")
+
     def test_same_song_other_album_same_key(self):
         a = server._movie_key({"itunesId": "1", "title": "曲A", "artist": "歌手"})
         self.assertEqual(a, server._movie_key({"itunesId": "2", "title": "曲Ａ", "artist": "歌手 "}))

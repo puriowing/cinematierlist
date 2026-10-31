@@ -1447,14 +1447,19 @@ _meta_cache = {}      # key -> {title, poster, year, filmarksId}
 _ratings_loaded = False
 
 
+def _key_norm_pre(v):
+    return unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower()
+
+
 def _key_norm(v):
-    return _KEY_STRIP.sub("", unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower())
+    return _KEY_STRIP.sub("", _key_norm_pre(v))
 
 
 def _movie_key(m):
     iid = str(m.get("itunesId") or "").strip()
     if iid:
-        artist, title = _key_norm(m.get("artist")), _key_norm(m.get("title"))
+        t = m.get("title")
+        artist, title = _key_norm(m.get("artist")), _key_norm(itunes.VERSION_TAG.sub("", _key_norm_pre(t)))
         return "s:" + artist + "|" + title if artist and title else "i:" + iid
     fid = str(m.get("filmarksId") or "").strip()
     if fid:
