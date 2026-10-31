@@ -2240,15 +2240,16 @@
     let vs = "";
     if (mine != null) {
       const diff = mine - a.avg;
-      const word = diff > 0 ? "甘口" : "辛口";
-      // 同じティアに置きかわるときは「同じくらい」とする（S と S なのに甘口、とならないように）
+      // 同じティアに置きかわるときは「同じくらい」とする（S と S なのに差がある、とならないように）
       const ad = scoreTier(mine) === scoreTier(a.avg) ? 0 : Math.abs(diff);
       const msg = ad < 0.05 ? "この作品の好き度は、みんなと同じくらいです"
-        : ad < 0.25 ? `この作品、あなたはみんなより少しだけ“${word}”です` : `この作品、あなたはみんなより“${word}”です`;
+        : diff > 0
+          ? `この作品は、あなたのほうがみんなより${ad < 0.25 ? "少しだけ" : ""}上のティアに入れています`
+          : `この作品は、みんなのほうがあなたより${ad < 0.25 ? "少しだけ" : ""}上のティアに入れています`;
       vs = `<div class="comm-vs"><div class="comm-vs-col"><small>あなた</small>${tierBig(mine)}</div>` +
         `<div class="comm-vs-mid ${ad < 0.05 ? "" : diff > 0 ? "is-up" : "is-down"}">` +
         (ad < 0.05 ? `<span class="comm-vs-sym">＝</span><small>同じくらい</small>`
-          : `<span class="comm-vs-sym">${diff > 0 ? "＞" : "＜"}</span><small>${ad < 0.25 ? "少し" : ""}${word}</small>`) +
+          : `<span class="comm-vs-sym">${diff > 0 ? "＞" : "＜"}</span><small>${diff > 0 ? "あなたが上" : "みんなが上"}</small>`) +
         `</div>` +
         `<div class="comm-vs-col"><small>みんな</small>${tierBig(a.avg)}</div></div>` +
         `<p class="comm-vs-msg">${msg}</p>`;
@@ -9979,8 +9980,8 @@
       out.push({
         icon: "🏆",
         text: `最上位「${top.label}」ティアは ${topCount} 本（振り分けた作品の ${share}%）。` +
-          (share >= 40 ? "高評価に寄せる“甘め”の傾向です。"
-            : share <= 15 ? "トップを絞る“辛口”の傾向です。"
+          (share >= 40 ? "最上位に広く入れる傾向です。"
+            : share <= 15 ? "最上位は厳選する傾向です。"
             : "上下バランスよく分類できています。"),
       });
     }
@@ -10394,7 +10395,7 @@
       lv: topGenre ? `${topGenre.label} ${pct(topGenre.share)}` : "", rv: `${gEntries.length}ジャンル` });
     if (auteur != null) axes.push({ key: "auteur", left: "作品で選ぶ", right: "監督で選ぶ", pos: clamp(auteur / 0.5),
       lv: "", rv: `3本以上観た監督の作品 ${pct(auteur)}` });
-    if (topShare != null) axes.push({ key: "strict", left: "甘口", right: "辛口", pos: clamp((0.45 - topShare) / 0.4),
+    if (topShare != null) axes.push({ key: "strict", left: "最上位は広め", right: "最上位は厳選", pos: clamp((0.45 - topShare) / 0.4),
       lv: "", rv: `最上位ティア ${pct(topShare)}` });
 
     const T = [];
@@ -10427,7 +10428,7 @@
     if (topGenre) traits.push(`${topGenre.label} ${pct(topGenre.share)}`);
     if (topShare != null) {
       const sp = clamp((0.45 - topShare) / 0.4);
-      traits.push(sp <= 0.4 ? "評価は甘口" : sp >= 0.6 ? "評価は辛口" : "評価はバランス型");
+      traits.push(sp <= 0.4 ? "最上位は広め" : sp >= 0.6 ? "最上位は厳選" : "ティアはバランス型");
     }
 
     return {
