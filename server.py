@@ -32,6 +32,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+import itunes
 import sites
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else int(os.environ.get("PORT", "8000"))
@@ -2702,6 +2703,23 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_json(
                 {"error": "gone", "detail": "Use /api/filmarks/* instead.",
                  "results": []}, 410)
+            return
+        if parsed.path.startswith("/api/itunes/"):
+            qs = urllib.parse.parse_qs(parsed.query)
+            arg = lambda k: (qs.get(k) or [""])[0].strip()
+            try:
+                kind = parsed.path.rsplit("/", 1)[1]
+                if kind == "search":
+                    fn = {"artist": itunes.search_artists, "album": itunes.search_albums}.get(arg("type"), itunes.search_songs)
+                    self._send_json({"results": fn(arg("q")) if arg("q") else []})
+                elif kind == "artist":
+                    self._send_json(itunes.artist_songs(arg("id")))
+                elif kind == "album":
+                    self._send_json(itunes.album_songs(arg("id")))
+                else:
+                    self._send_json({"error": "not found"}, 404)
+            except Exception as exc:  # noqa: BLE001
+                self._send_json({"error": str(exc)}, 502)
             return
         if parsed.path == "/api/filmarks/search":
             params = urllib.parse.parse_qs(parsed.query)

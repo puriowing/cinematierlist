@@ -26,3 +26,10 @@ class SiteRoutesTest(unittest.TestCase):
 
     def test_data_dir(self):
         self.assertEqual(server.DATA_DIR, os.environ["TIARI_DATA_DIR"])
+
+    def test_itunes_search(self):
+        import itunes
+        self.addCleanup(setattr, itunes, "fetch_json", itunes.fetch_json)
+        itunes.fetch_json = lambda url: {"results": [{"wrapperType": "track", "kind": "song", "trackId": 1, "trackName": "X"}]}
+        r = json.loads(self.get("/api/itunes/search?q=X&type=song"))
+        self.assertEqual(r["results"][0]["itunesId"], "1")
