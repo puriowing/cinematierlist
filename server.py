@@ -1202,8 +1202,10 @@ _remote_sha = {}
 _remote_pending = set()
 _remote_cv = threading.Condition()
 _remote_last_queued = [0.0]
-REMOTE_QUIET = float(os.environ.get("REMOTE_QUIET", "20"))
-REMOTE_MAX_WAIT = float(os.environ.get("REMOTE_MAX_WAIT", "120"))
+REMOTE_QUIET = float(os.environ.get("REMOTE_QUIET", "5"))
+REMOTE_MAX_WAIT = float(os.environ.get("REMOTE_MAX_WAIT", "20"))
+_remote_inflight = set()
+_remote_upload_lock = threading.Lock()
 
 
 def _gh(method, relpath, body=None, raw=False):
@@ -1277,28 +1279,40 @@ def _remote_worker():
         with _remote_cv:
             while not _remote_pending:
                 _remote_cv.wait()
-        # 連続保存をまとめる：保存が REMOTE_QUIET 秒止まるまで待つ（最長 REMOTE_MAX_WAIT 秒）
+        # 連続保存をまとめる。アカウント等はこれまでどおり約5秒後、
+        # リストは保存が REMOTE_QUIET 秒止まるまで待つ（最長 REMOTE_MAX_WAIT 秒）
         start = time.time()
         while True:
             seen = _remote_last_queued[0]
             time.sleep(REMOTE_QUIET)
-            if _remote_last_queued[0] == seen or time.time() - start >= REMOTE_MAX_WAIT:
+            with _remote_cv:
+                urgent = any(not r.startswith("lists/") for r in _remote_pending)
+            if urgent or _remote_last_queued[0] == seen or time.time() - start >= REMOTE_MAX_WAIT:
                 break
         _remote_flush()
 
 
-def _remote_flush():
+def _remote_flush(shutdown=False):
+    """保留中のファイルを GitHub へ送る。終了時は送信途中のものも含めて送り直す。"""
     with _remote_cv:
-        batch = list(_remote_pending)
+        batch = set(_remote_pending)
+        if shutdown:
+            batch |= _remote_inflight
         _remote_pending.clear()
-    for rel in batch:
+        _remote_inflight.update(batch)
+    for rel in sorted(batch):
         try:
-            _remote_upload(rel)
+            with _remote_upload_lock:
+                _remote_upload(rel)
         except Exception as exc:  # noqa: BLE001
             print(f"GitHub への保存に失敗: {rel}: {exc}", file=sys.stderr)
             with _remote_cv:
                 _remote_pending.add(rel)
-            time.sleep(10)
+            if not shutdown:
+                time.sleep(10)
+        finally:
+            with _remote_cv:
+                _remote_inflight.discard(rel)
 
 
 def _get_secret():
@@ -3190,7 +3204,7 @@ class Handler(SimpleHTTPRequestHandler):
         if use_gz:
             etag = etag[:-1] + '-gz"'
         if path.startswith("/icons/") and "v=" in parsed.query:
-            cache = "public, max-age=31536000, immutable"
+            cache = "public, max-age=2592000"
         else:
             cache = "no-cache"
         if self._not_modified(etag):
@@ -3325,7 +3339,7 @@ def _print_startup():
 
 def _on_sigterm(signum, frame):
     if REMOTE_ON:
-        _remote_flush()
+        _remote_flush(shutdown=True)
     sys.exit(0)
 
 

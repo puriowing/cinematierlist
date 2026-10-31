@@ -319,10 +319,11 @@
   function saveState() {
     let serialized = "{}";
     try {
-      // 中身が変わったときだけ更新日時を進める（同期で「変更なし」を見分けるため）
+      // 中身が変わったときだけ更新日時を進める（同期で「変更なし」を見分けるため）。
+      // サーバーとの最初の照合前や裏の自動取得による変更では進めない（サーバーの新しい内容を上書きしないため）
       if (!applyingRemote) {
         const sig = syncSig(state);
-        if (lastLocalSig !== null && sig !== lastLocalSig) state.updatedAt = Date.now();
+        if (syncReady && !bgSaving && lastLocalSig !== null && sig !== lastLocalSig) state.updatedAt = Date.now();
         lastLocalSig = sig;
       }
       serialized = JSON.stringify(state);
@@ -333,6 +334,15 @@
     idbSave(serialized);   // 耐久ストア（IndexedDB）へも常に保存
     pushBackup();          // 余裕があれば復元ポイントを積む
     scheduleServerPush();  // ログイン中はサーバーへも同期（デバウンス）
+  }
+
+  let lastLocalSig = null;   // 前回保存時の中身（更新日時を除く）
+  let lastSyncedSig = null;  // サーバーと一致していると分かっている中身
+  let syncReady = false;     // 起動後の最初の照合が済むまでは自動送信しない
+  let bgSaving = false;
+  function saveStateBg() {
+    bgSaving = true;
+    try { saveState(); } finally { bgSaving = false; }
   }
 
   function loadBackups() {
@@ -447,6 +457,7 @@
     if (!Array.isArray(state.watchlist)) state.watchlist = [];
     zoneLimits.clear();
     lastMovieCount = totalMovies(state);
+    lastLocalSig = syncSig(state);
     render();
     toast(`保存済みデータを復元しました（${lastMovieCount} 本）`);
     return true;
@@ -1411,9 +1422,6 @@
   let currentUser = null;
   let applyingRemote = false; // リモート反映中はサーバーへ即プッシュしない
   let pushTimer = null;
-  let lastLocalSig = null;   // 前回保存時の中身（更新日時を除く）
-  let lastSyncedSig = null;  // サーバーと一致していると分かっている中身
-  let syncReady = false;     // 起動後の最初の照合が済むまでは自動送信しない
 
   function syncSig(obj) {
     const u = obj.updatedAt;
@@ -1709,6 +1717,7 @@
   async function doLogout() {
     try { await apiJSON("/api/auth/logout", { method: "POST" }); } catch (e) {}
     currentUser = null;
+    syncReady = false;
     updateAuthButton();
     renderAuth();
     toast("ログアウトしました（この端末のデータは残ります）");
@@ -6729,7 +6738,7 @@
           if (!m.year && found.year) m.year = found.year;
           if (!m.filmarksId && found.filmarksId) m.filmarksId = found.filmarksId;
           if (legacy) replaced++; else filled++;
-        } else if (!legacy) {
+        } else if (!legacy && results.length) {
           m.posterTriedAt = Date.now();
           legacyTouched = true;
         }
@@ -6739,7 +6748,7 @@
     }
 
     if (filled || replaced || legacyTouched) {
-      saveState();
+      saveStateBg();
       if (filled || replaced) render();
       if (filled) toast(`ポスターを ${filled} 件自動補完しました`);
       else if (replaced) toast(`ポスター ${replaced} 件を Filmarks のものに更新しました`);
@@ -6808,7 +6817,7 @@
             if (m.genreTries >= 3) m.genreCheckedV = GENRE_FIX_VERSION;
           }
         });
-        saveState();
+        saveStateBg();
         updateFilterInfo();
       }
       if (changed) { updateThemeButton(); render(); }
@@ -6874,7 +6883,7 @@
         applyCredit(m, (data.results || {})[idOf(m)]);
         changed++;
       });
-      saveState();
+      saveStateBg();
     }
     return changed;
   }
@@ -6934,7 +6943,7 @@
           changed++;
         }
       }
-      if (resolved) saveState();
+      if (resolved) saveStateBg();
       if (kindEnrichDisabled) return;
 
       // 2) filmarksId 経由で監督・出演・種別・公開年・ジャンルを取得

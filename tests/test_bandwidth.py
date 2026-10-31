@@ -64,7 +64,7 @@ class BandwidthTest(unittest.TestCase):
     def test_versioned_icon_long_cache(self):
         st, h, _ = self.req("/icons/apple-touch-icon.png?v=4")
         self.assertEqual(st, 200)
-        self.assertIn("max-age=31536000", h["Cache-Control"])
+        self.assertEqual(h["Cache-Control"], "public, max-age=2592000")
 
     def test_generated_site_js_etag(self):
         st, h, _ = self.req("/site.js")
@@ -170,6 +170,18 @@ class ServerFetchTest(unittest.TestCase):
         self.assertEqual(sorted(r for r, raw in calls if raw), ["lists/a.json", "users.json"])
         self.assertEqual(len([1 for _, raw in calls if not raw]), 3)
         self.assertEqual(server._remote_sha["lists/a.json"], "a1")
+
+    def test_flush_on_shutdown_includes_inflight(self):
+        sent = []
+        orig = server._remote_upload
+        server._remote_upload = lambda rel: sent.append(rel)
+        self.addCleanup(setattr, server, "_remote_upload", orig)
+        server._remote_pending.add("users.json")
+        server._remote_inflight.add("lists/a.json")
+        server._remote_flush(shutdown=True)
+        self.assertEqual(sorted(sent), ["lists/a.json", "users.json"])
+        self.assertEqual(server._remote_inflight, set())
+        self.assertEqual(server._remote_pending, set())
 
     def test_api_ttl(self):
         self.assertEqual(server._api_ttl("/api/filmarks/search"), 3600)
