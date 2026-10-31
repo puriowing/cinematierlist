@@ -2482,7 +2482,7 @@
         `<span class="comm-dist-pct">${Math.round((c / total) * 100)}%${i === myIdx ? "<em>あなた</em>" : ""}</span></div>`;
     }).join("");
     const also = (d.also || []).map((m, i) => {
-      const ref = { title: m.title, filmarksId: m.filmarksId || undefined };
+      const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined };
       const act = movieExists(ref) ? `<span class="comm-also-tag">登録済み</span>`
         : watchlistExists(ref) ? `<span class="comm-also-tag">観たいに追加済み</span>`
         : `<button type="button" class="btn btn-ghost btn-sm comm-also-add" data-i="${i}">🔖 観たい</button>`;
@@ -2511,6 +2511,7 @@
       const m = d.also[Number(b.dataset.i)];
       const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };
       if (m.filmarksId) mv.filmarksId = m.filmarksId;
+      copySongFields(m, mv);
       if (addToWatchlist(mv)) b.outerHTML = `<span class="comm-also-tag">観たいに追加済み</span>`;
     }));
   }
@@ -2518,11 +2519,11 @@
   function socPoster(m) {
     return m.poster
       ? `<img class="soc-poster" src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
-      : `<div class="soc-poster soc-poster-fallback">🎬</div>`;
+      : `<div class="soc-poster soc-poster-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`;
   }
 
   function socWatchBtn(m) {
-    const ref = { title: m.title, filmarksId: m.filmarksId || undefined };
+    const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined };
     if (movieExists(ref)) return `<span class="soc-note">登録済み</span>`;
     if (watchlistExists(ref)) return `<span class="soc-note">✓ 観たいリストにあり</span>`;
     return `<button type="button" class="btn btn-ghost btn-sm soc-watch" data-key="${escapeHtml(m.key)}">🔖 観たい</button>`;
@@ -2537,6 +2538,7 @@
         if (!m) return;
         const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };
         if (m.filmarksId) mv.filmarksId = m.filmarksId;
+        copySongFields(m, mv);
         if (addToWatchlist(mv)) {
           b.outerHTML = `<span class="soc-note">✓ 観たいリストに追加しました</span>`;
         }
@@ -2549,7 +2551,7 @@
       (rank ? `<span class="soc-rank">${rank}</span>` : "") +
       socPoster(m) +
       `<div class="soc-row-info">` +
-      `<div class="soc-title">${escapeHtml(m.title || "（タイトル不明）")}${m.year ? ` <small>${escapeHtml(m.year)}</small>` : ""}</div>` +
+      `<div class="soc-title">${escapeHtml(m.title || "（タイトル不明）")}${has("itunes") && m.artist ? ` <small>${escapeHtml(m.artist)}</small>` : ""}${m.year ? ` <small>${escapeHtml(m.year)}</small>` : ""}</div>` +
       bodyHtml +
       `</div></div>`;
   }
@@ -2660,7 +2662,7 @@
 
     const gaps = Object.keys(lookMap).map((k) => {
       const m = movieByKey(k);
-      return m ? { key: k, title: m.title, poster: m.poster, year: m.year, filmarksId: m.filmarksId,
+      return m ? { key: k, title: m.title, poster: m.poster, year: m.year, filmarksId: m.filmarksId, artist: m.artist,
         mine: mine[k], c: lookMap[k], diff: mine[k] - lookMap[k].avg } : null;
     }).filter((g) => g && Math.abs(g.diff) >= 0.25);
     const mineHigh = gaps.filter((g) => g.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 8);
@@ -2965,7 +2967,7 @@
   function challengeMovieOut(m) {
     const o = { title: m.title, year: m.year || "", poster: /^(https?:|\/api\/img\?u=)/.test(m.poster || "") ? m.poster : "" };
     if (m.filmarksId) o.filmarksId = m.filmarksId;
-    return o;
+    return copySongFields(m, o);
   }
 
   function challengeName() {
@@ -2978,7 +2980,7 @@
       const img = m.poster
         ? `<img src="${escapeHtml(m.poster)}" alt="" loading="lazy" />`
         : `<div class="ch-fallback">${escapeHtml(m.title)}</div>`;
-      const inner = `${img}<span class="ch-cap">${escapeHtml(m.title)}</span>`;
+      const inner = `${img}<span class="ch-cap">${escapeHtml(m.title)}${has("itunes") && m.artist ? `<small> / ${escapeHtml(m.artist)}</small>` : ""}</span>`;
       if (!opts.pick) return `<div class="ch-cell">${inner}</div>`;
       return `<label class="ch-cell ch-pick"><input type="checkbox" data-i="${i}" checked />` +
         `${inner}${own ? `<span class="ch-own">登録済み</span>` : ""}<span class="ch-check">✓</span></label>`;

@@ -1438,6 +1438,9 @@ _ratings_loaded = False
 
 
 def _movie_key(m):
+    iid = str(m.get("itunesId") or "").strip()
+    if iid:
+        return "i:" + iid
     fid = str(m.get("filmarksId") or "").strip()
     if fid:
         return "f:" + (fid.split("-")[0] if RE_SERIES_FID.match(fid) else fid)
@@ -1451,8 +1454,22 @@ def _movie_meta(m):
     poster = m.get("poster") or ""
     if poster.startswith("data:"):
         poster = ""
-    return {"title": m.get("title") or "", "poster": poster,
-            "year": str(m.get("year") or ""), "filmarksId": str(m.get("filmarksId") or "")}
+    out = {"title": m.get("title") or "", "poster": poster,
+           "year": str(m.get("year") or ""), "filmarksId": str(m.get("filmarksId") or "")}
+    out.update(_music_fields(m))
+    return out
+
+
+def _music_fields(m):
+    """曲（iTunes）だけが持つ項目。映画のデータには何も足さない。"""
+    out = {}
+    for k in ("itunesId", "artist", "album", "previewUrl", "appleUrl"):
+        v = _s(str(m.get(k) or ""), 600)
+        if k in ("previewUrl", "appleUrl") and not v.startswith("https://"):
+            v = ""
+        if v:
+            out[k] = v
+    return out
 
 
 def _ratings_from_list(obj):
@@ -1475,9 +1492,16 @@ def _ratings_from_list(obj):
 
 # デモ用の仮ユーザー（users.json には保存しない。DEMO_SOCIAL=0 で無効）
 DEMO_SOCIAL = os.environ.get("DEMO_SOCIAL", "1") != "0"
+IS_MUSIC = SITE["id"] == "music"
+DEMO_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_songs.json" if IS_MUSIC else "demo_movies.json")
+DEMO_NAMES_MUSIC = ["あおい", "プレイリスト職人", "イヤホン族", "ゆうき", "深夜ラジオ部", "みなと", "はるか", "ライブ遠征組",
+                    "こはる", "けんじ", "カラオケ番長", "そら", "たくみ", "フェス好き", "りん", "サブスク漁り",
+                    "さくら", "平成J-POP育ち", "だいすけ", "ドライブBGM係", "めぐみ", "ロック命", "なつき", "名曲ハンター"]
 DEMO_NAMES = ["あおい", "シネマ太郎", "ポップコーン", "ゆうき", "夜更かし映画部", "みなと", "はるか", "レイトショー",
               "こはる", "けんじ", "映画好きOL", "そら", "たくみ", "ミニシアター通い", "りん", "ゴジラ党",
               "さくら", "ジブリっ子", "だいすけ", "名画座の常連", "めぐみ", "アクション命", "なつき", "旧作ハンター"]
+if IS_MUSIC:
+    DEMO_NAMES = DEMO_NAMES_MUSIC
 DEMO_FRIENDS = 4
 _demo_users_cache = None
 
@@ -1488,10 +1512,13 @@ def _demo_users():
         return _demo_users_cache or []
     import random
     try:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_movies.json"), encoding="utf-8") as f:
+        with open(DEMO_FILE, encoding="utf-8") as f:
             movies = json.load(f)
     except (OSError, ValueError):
         movies = []
+    if IS_MUSIC:
+        _demo_users_cache = _demo_music_users(movies)
+        return _demo_users_cache
     rng = random.Random(20261027)
     base = {m["filmarksId"]: min(0.95, max(0.2, rng.gauss(0.62, 0.17))) for m in movies}
     genres = sorted({g for m in movies for g in m.get("genres") or []})
@@ -1512,6 +1539,31 @@ def _demo_users():
         users.append({"id": "demo:%02d" % i, "display": name, "ratings": ratings,
                       "share": "demo-%02d" % i if i < DEMO_FRIENDS else None})
     _demo_users_cache = users
+    return users
+
+
+def _demo_music_users(songs):
+    """音楽版の仮ユーザー。ジャンルがほぼ J-Pop だけなので、好き嫌いはアーティスト単位でつける。"""
+    import random
+    rng = random.Random(20261031)
+    base = {m["itunesId"]: min(0.95, max(0.2, rng.gauss(0.62, 0.17))) for m in songs}
+    artists = sorted({m.get("artist") or "" for m in songs})
+    users = []
+    for i, name in enumerate(DEMO_NAMES):
+        likes = set(rng.sample(artists, min(3, len(artists))))
+        dislikes = set(rng.sample([a for a in artists if a not in likes], min(2, max(0, len(artists) - len(likes)))))
+        era = rng.uniform(-0.15, 0.15)
+        picked = rng.sample(songs, rng.randint(min(15, len(songs)), len(songs))) if songs else []
+        ratings = {}
+        for m in picked:
+            a = m.get("artist") or ""
+            s = base[m["itunesId"]] + rng.gauss(0, 0.15)
+            s += 0.22 * (a in likes) - 0.22 * (a in dislikes)
+            s += era if (m.get("year") or "9999") < "2010" else -era
+            ratings[_movie_key(m)] = round(min(4, max(0, round(s * 4))) / 4, 4)
+            _meta_cache.setdefault(_movie_key(m), _movie_meta(m))
+        users.append({"id": "demo:%02d" % i, "display": name, "ratings": ratings,
+                      "share": "demo-%02d" % i if i < DEMO_FRIENDS else None})
     return users
 
 
@@ -1662,6 +1714,19 @@ DEMO_COMMENTS = {
 }
 
 
+DEMO_COMMENTS_MUSIC = {
+    "high": ["イントロだけで泣ける。文句なしの一曲です。", "ライブで聴いたときの鳥肌が忘れられない。",
+             "歌詞もメロディも完璧。人生ベスト級。", "何年経っても聴き返してしまう大切な曲。",
+             "リリース当時に毎日聴いていました。今聴いても色あせない。"],
+    "mid": ["サビは最高。Aメロはもう少し好みが分かれそう。", "最初はピンとこなかったけど、聴くほど良くなる。",
+            "期待しすぎたかも。でもボーカルはとても良かった。", "雰囲気は好き。歌詞をじっくり読むと印象が変わりそう。"],
+    "low": ["自分には合わなかったけれど、熱狂的なファンがいるのはわかる。", "流行っていたので聴いたものの、少し単調に感じた。",
+            "アレンジはおしゃれだが、あまり心に残らなかった。"],
+}
+if IS_MUSIC:
+    DEMO_COMMENTS = DEMO_COMMENTS_MUSIC
+
+
 def _demo_comments(key, n_max=5):
     import random
     rng = random.Random(hashlib.sha256(("demo-cmt:" + key).encode("utf-8")).hexdigest())
@@ -1788,6 +1853,10 @@ def _extras_public(x, admin):
 
 DEMO_TAGS = ["泣ける", "人生ベスト", "何度も観たい", "映像美", "音楽が最高", "伏線回収", "元気が出る",
              "考察したくなる", "デート向け", "家族で観たい", "雨の日に観たい", "劇場で観たい", "心に残るセリフ", "ラストが衝撃"]
+
+if IS_MUSIC:
+    DEMO_TAGS = ["泣ける", "人生ベスト", "何度も聴きたい", "歌詞が刺さる", "イントロが最高", "元気が出る", "ドライブ向け",
+                 "カラオケで歌いたい", "夜に聴きたい", "雨の日に聴きたい", "ライブで聴きたい", "青春の曲", "失恋ソング", "作業用BGM"]
 
 
 def _community_tags(key, exclude_uid=None):
@@ -1951,6 +2020,22 @@ DEMO_CHALLENGES = [
       "リメンバー・ミー", "カールじいさんの空飛ぶ家", "おくりびと", "コーダ あいのうた", "グラン・トリノ",
       "ミリオンダラー・ベイビー", "セッション"]),
 ]
+DEMO_CHALLENGES_MUSIC = [
+    ("heisei", "平成のJ-POP名曲", 17, "90年代から2000年代の定番曲。あなたの一番を決めてください。",
+     ["名もなき詩", "ロビンソン", "チェリー", "Automatic", "First Love", "カブトムシ", "ハナミズキ", "HANABI", "キセキ",
+      "ありがとう"]),
+    ("reiwa", "令和のヒット曲ティア", 1, "ストリーミングで何度も聴いたあの曲をティア分けしよう。",
+     ["夜に駆ける", "アイドル", "群青", "ケセラセラ", "ライラック", "Subtitle", "ミックスナッツ", "裸の心", "一途",
+      "SPECIALZ", "感電", "KICK BACK", "怪獣の花唄", "踊り子"]),
+    ("tieup", "アニメ・ドラマ主題歌ベスト", 15, "",
+     ["アイドル", "怪物", "KICK BACK", "SPECIALZ", "一途", "ミックスナッツ", "Subtitle", "Lemon", "宿命", "カメレオン",
+      "馬と鹿", "Pretender"]),
+    ("love", "ラブソングの名曲", 10, "切ない曲から幸せな曲まで集めました。",
+     ["高嶺の花子さん", "クリスマスソング", "ハッピーエンド", "マリーゴールド", "愛を伝えたいだとか", "ハルノヒ", "白日",
+      "Pretender", "First Love", "カブトムシ", "ハナミズキ", "点描の唄"]),
+]
+if IS_MUSIC:
+    DEMO_CHALLENGES = DEMO_CHALLENGES_MUSIC
 _demo_challenges_cache = None
 
 
@@ -1961,7 +2046,7 @@ def _demo_challenges():
         return _demo_challenges_cache or {}
     users = _demo_users()
     try:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_movies.json"), encoding="utf-8") as f:
+        with open(DEMO_FILE, encoding="utf-8") as f:
             pool = json.load(f)
     except (OSError, ValueError):
         pool = []
@@ -2024,6 +2109,7 @@ def _clean_challenge_movies(raw):
               "poster": _s(m.get("poster"), 600), "filmarksId": _s(str(m.get("filmarksId") or ""), 40)}
         if not mv["poster"].startswith(("http://", "https://", "/api/img?u=")):
             mv["poster"] = ""
+        mv.update(_music_fields(m))
         k = _movie_key(mv)
         if not k or k in seen:
             continue

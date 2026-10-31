@@ -1,6 +1,6 @@
 import urllib.error, json, os, threading, unittest, urllib.request, tempfile
-os.environ["TIARI_SITE"] = "music"
-os.environ["TIARI_DATA_DIR"] = tempfile.mkdtemp()
+os.environ.setdefault("TIARI_SITE", "music")
+os.environ.setdefault("TIARI_DATA_DIR", tempfile.mkdtemp())
 import server
 from http.server import ThreadingHTTPServer
 
