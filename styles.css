@@ -2210,6 +2210,11 @@ body.theme-pop .quick-add .btn {
   background: linear-gradient(135deg, #2a3040, #1a1e28);
 }
 
+[data-site="music"] .result-card img,
+[data-site="music"] .result-card .result-fallback {
+  aspect-ratio: 1 / 1;
+}
+
 .result-fallback {
   display: flex;
   align-items: center;

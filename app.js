@@ -1014,6 +1014,7 @@
   // 同一作品かどうか。作品IDが両方にあればIDで決め、無ければタイトル＋公開年（±1年）で照合する。
   // 同名の別作品（リメイク等）を「登録済」と誤判定しないため、タイトルだけでは一致させない。
   function sameMovie(m, q, nt) {
+    if (q.itunesId && m.itunesId) return String(m.itunesId) === String(q.itunesId);
     if (q.filmarksId && m.filmarksId) return fidKey(m.filmarksId) === fidKey(q.filmarksId);
     if (q.eigaId && m.eigaId) return String(m.eigaId) === String(q.eigaId);
     if (q.tmdbId && m.tmdbId) return String(m.tmdbId) === String(q.tmdbId);
@@ -1042,6 +1043,12 @@
     return true;
   }
 
+  const SONG_FIELDS = ["itunesId", "artist", "album", "genres", "previewUrl", "appleUrl"];
+  function copySongFields(from, to) {
+    SONG_FIELDS.forEach((k) => { if (from[k] != null && from[k] !== "") to[k] = from[k]; });
+    return to;
+  }
+
   function addFilmsToWatchlist(films) {
     let count = 0;
     justAddedIds = new Set();
@@ -1053,6 +1060,7 @@
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
       if (f.media) { m.media = f.media; m.genreCheckedV = GENRE_FIX_VERSION; }
+      if (f.itunesId) copySongFields(f, m);
       const id = uid();
       justAddedIds.add(id);
       state.watchlist.push({ id, ...m });
@@ -2079,6 +2087,7 @@
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
   function movieKey(m) {
+    if (m.itunesId) return "i:" + m.itunesId;
     const fid = fidKey(m.filmarksId);
     if (fid) return "f:" + fid;
     const t = String(m.title || "").normalize("NFKC").toLowerCase().replace(KEY_STRIP, "");
@@ -4290,6 +4299,210 @@
   }
 
   // =======================================================================
+  // 音楽版：iTunes から曲を追加（曲検索 / アーティストの曲 / アルバムの収録曲）
+  // =======================================================================
+  const ITUNES_PLACEHOLDER = {
+    song: "曲名・アーティスト名を入力（例: ケセラセラ）",
+    artist: "アーティスト名を入力（例: Mrs. GREEN APPLE）",
+    album: "アルバム名を入力（例: ANTENNA）",
+  };
+  let itunesMode = "song";
+  let itunesSongsList = [];
+  let itunesSongsMode = "artist";
+
+  function songItem(s) {
+    return copySongFields(s, { title: s.title, poster: s.poster || "", year: s.year || "" });
+  }
+
+  async function itunesFetch(path) {
+    let res;
+    try { res = await fetch(path); } catch (e) { throw new Error("NO_SERVER"); }
+    if (!res.ok) throw new Error(res.status === 502 ? "FETCH_FAILED" : "HTTP_" + res.status);
+    return res.json();
+  }
+
+  function itunesErrorText(e) {
+    if (e.message === "NO_SERVER") return "通信に失敗しました。時間をおいてもう一度お試しください。";
+    if (e.message === "FETCH_FAILED") return "音楽データの取得に失敗しました。少し時間をおいてお試しください。";
+    return "検索に失敗しました: " + e.message;
+  }
+
+  function applyItunesMode(mode) {
+    itunesMode = mode;
+    document.querySelectorAll("#itunesModeChips .role-chip").forEach((b) =>
+      b.classList.toggle("active", b.dataset.imode === mode));
+    const input = document.getElementById("movieSearchInput");
+    if (input) input.placeholder = ITUNES_PLACEHOLDER[mode];
+  }
+
+  function setItunesMode(mode) {
+    if (mode === itunesMode) return;
+    applyItunesMode(mode);
+    closeItunesSongs();
+    document.getElementById("searchResults").innerHTML = "";
+    document.getElementById("searchStatus").textContent = "";
+    if (document.getElementById("movieSearchInput").value.trim()) doSearch();
+  }
+
+  function resetItunes() {
+    applyItunesMode("song");
+    closeItunesSongs();
+  }
+
+  async function itunesSearch(q) {
+    const mode = itunesMode;
+    const status = document.getElementById("searchStatus");
+    const box = document.getElementById("searchResults");
+    closeItunesSongs();
+    status.textContent = "";
+    box.innerHTML = "";
+    let data;
+    try {
+      data = await withLoading(box, `「${q}」を検索中…`, () =>
+        itunesFetch(`/api/itunes/search?type=${mode}&q=${encodeURIComponent(q)}`));
+    } catch (e) {
+      status.textContent = itunesErrorText(e);
+      return;
+    }
+    if (mode !== itunesMode) return;
+    const list = data.results || [];
+    if (!list.length) {
+      status.textContent = "見つかりませんでした。";
+      return;
+    }
+    if (mode === "song") {
+      status.textContent = `${list.length}曲見つかりました（タップで追加）`;
+      renderSearchResults(list.map(songItem));
+    } else {
+      status.textContent = `${list.length}件見つかりました（タップで曲の一覧へ）`;
+      renderItunesCandidates(mode, list);
+    }
+  }
+
+  function renderItunesCandidates(mode, list) {
+    const wrap = document.getElementById("searchResults");
+    wrap.innerHTML = "";
+    list.forEach((it) => {
+      const card = document.createElement("div");
+      if (mode === "artist") {
+        card.className = "person-card";
+        card.innerHTML =
+          `<div class="person-photo person-photo-fb">🎤</div>` +
+          `<div class="person-cardname">${escapeHtml(it.name)}</div>` +
+          (it.genre ? `<div class="result-year">${escapeHtml(it.genre)}</div>` : "");
+      } else {
+        card.className = "result-card";
+        card.innerHTML =
+          (it.poster
+            ? `<img src="${it.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
+            : `<div class="result-fallback">💿</div>`) +
+          `<div class="result-meta">
+             <div class="result-title">${escapeHtml(it.title)}</div>
+             <div class="result-year">${escapeHtml([it.artist, it.year].filter(Boolean).join(" ・ "))}</div>
+           </div>`;
+      }
+      card.addEventListener("click", () => loadItunesSongs(mode, it));
+      wrap.appendChild(card);
+    });
+  }
+
+  async function loadItunesSongs(mode, it) {
+    const status = document.getElementById("searchStatus");
+    const box = document.getElementById("searchResults");
+    const label = mode === "artist" ? it.name : it.title;
+    status.textContent = "";
+    let data;
+    try {
+      data = await withLoading(box, `「${label}」の曲を取得中…`, () =>
+        itunesFetch(`/api/itunes/${mode}?id=${encodeURIComponent(it.id)}`));
+    } catch (e) {
+      status.textContent = itunesErrorText(e);
+      return;
+    }
+    if (mode !== itunesMode) return;
+    itunesSongsMode = mode;
+    itunesSongsList = (data.songs || []).map(songItem);
+    box.classList.add("hidden");
+    document.getElementById("itunesListName").textContent =
+      `${label}${mode === "album" && it.artist ? " / " + it.artist : ""}（全${itunesSongsList.length}曲）`;
+    document.getElementById("itunesSongs").classList.remove("hidden");
+    renderItunesGrid();
+  }
+
+  function renderItunesGrid() {
+    const grid = document.getElementById("itunesGrid");
+    grid.innerHTML = "";
+    itunesSongsList.forEach((s) => {
+      grid.appendChild(makePickCard(s, {
+        subtitle: itunesSongsMode === "album"
+          ? s.artist || ""
+          : [s.album, s.year].filter(Boolean).join(" ・ "),
+        onToggle: updateItunesPickUI,
+      }));
+    });
+    syncItunesActions();
+    updateItunesPickUI();
+  }
+
+  function updateItunesPickUI() {
+    setPickBtn("itunesAddBtn", "itunesGrid");
+    const cards = [...document.querySelectorAll("#itunesGrid .pick-card:not(.result-added)")];
+    const allPicked = cards.length > 0 && cards.every((c) => c.classList.contains("picked"));
+    const btn = document.getElementById("itunesSelectAllBtn");
+    btn.textContent = allPicked ? "選択をすべて解除" : `表示中の${cards.length}曲をすべて選ぶ`;
+    btn.disabled = cards.length === 0;
+  }
+
+  function toggleItunesSelectAll() {
+    const cards = [...document.querySelectorAll("#itunesGrid .pick-card:not(.result-added)")];
+    const pick = !cards.every((c) => c.classList.contains("picked"));
+    cards.forEach((c) => {
+      c.classList.toggle("picked", pick);
+      c.querySelector(".pick-badge").textContent = pick ? "✓ 選択中" : "選ぶ";
+    });
+    updateItunesPickUI();
+  }
+
+  function bulkAddItunes() {
+    const picked = collectPicked(document.getElementById("itunesGrid"));
+    const c = addFilms(picked);
+    if (c) {
+      renderItunesGrid();
+      notifyBulkAdded("itunesAddBtn", "itunesGrid", c);
+    }
+  }
+
+  function closeItunesSongs() {
+    const songs = document.getElementById("itunesSongs");
+    if (songs) songs.classList.add("hidden");
+    const grid = document.getElementById("itunesGrid");
+    if (grid) grid.innerHTML = "";
+    itunesSongsList = [];
+    const box = document.getElementById("searchResults");
+    if (box) box.classList.remove("hidden");
+    syncItunesActions();
+  }
+
+  function syncItunesActions() {
+    const bar = document.getElementById("itunesActions");
+    if (!bar) return;
+    const open = currentAddTab === "search" &&
+      !document.getElementById("itunesSongs").classList.contains("hidden") &&
+      !!document.querySelector("#itunesGrid .pick-card");
+    bar.style.display = open ? "flex" : "none";
+  }
+
+  function wireItunes() {
+    document.getElementById("itunesModeChips").classList.remove("hidden");
+    applyItunesMode("song");
+    document.querySelectorAll("#itunesModeChips .role-chip").forEach((b) =>
+      b.addEventListener("click", () => setItunesMode(b.dataset.imode)));
+    document.getElementById("itunesBackBtn").addEventListener("click", closeItunesSongs);
+    document.getElementById("itunesSelectAllBtn").addEventListener("click", toggleItunesSelectAll);
+    document.getElementById("itunesAddBtn").addEventListener("click", bulkAddItunes);
+  }
+
+  // =======================================================================
   // Theme filter (auto-suggested from movies in the list)
   // =======================================================================
   function allMovies() {
@@ -6462,7 +6675,7 @@
     card.innerHTML =
       (f.poster
         ? `<img src="${f.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
-        : `<div class="result-fallback">🎬</div>`) +
+        : `<div class="result-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`) +
       `<div class="result-meta">
          <div class="result-title">${escapeHtml(f.title)}</div>
          <div class="result-year">${escapeHtml(sub)}</div>
@@ -6496,6 +6709,7 @@
       if (f.filmarksId) m.filmarksId = f.filmarksId;
       if (f.collection) m.collection = f.collection;
       if (f.media) { m.media = f.media; m.genreCheckedV = GENRE_FIX_VERSION; }
+      if (f.itunesId) copySongFields(f, m);
       removeFromWatchlistByMatch(m);
       const id = uid();
       justAddedIds.add(id);
@@ -6554,7 +6768,9 @@
     const n = collectPicked(document.getElementById(gridId)).length;
     const btn = document.getElementById(btnId);
     if (btn._doneT) { clearTimeout(btn._doneT); btn._doneT = 0; btn.classList.remove("is-done"); }
-    btn.textContent = n ? `選んだ${n}本を追加` : "観た作品をタップで選択";
+    btn.textContent = has("itunes")
+      ? (n ? `選んだ${n}曲を追加` : "曲をタップで選択")
+      : (n ? `選んだ${n}本を追加` : "観た作品をタップで選択");
     btn.disabled = n === 0;
   }
 
@@ -11406,6 +11622,7 @@
       "seriesActions"]);
     seriesSessions = {};
     personPicked.clear();
+    if (has("itunes")) resetItunes();
     // 一覧の選択（1行にたたんだ状態）と絞り込みの文字も元に戻す
     Object.values(pickers).forEach((p) => p.reset());
     // 人物のフィルモグラフィ表示を閉じる
@@ -11442,6 +11659,7 @@
       const hasCards = grid && grid.querySelector(".pick-card");
       actions.style.display = panel === t && hasCards ? "flex" : "none";
     });
+    if (has("itunes")) syncItunesActions();
     if (series) { openSeriesPanel(name); return; }
     refreshPickers();
     if (name === "recall") initRecallUI();
@@ -11467,10 +11685,12 @@
       card.innerHTML =
         (r.poster
           ? `<img src="${r.poster}" alt="" loading="lazy" crossorigin="anonymous" />`
-          : `<div class="result-fallback">🎬</div>`) +
+          : `<div class="result-fallback">${r.itunesId ? "🎵" : "🎬"}</div>`) +
         `<div class="result-meta">
            <div class="result-title">${escapeHtml(r.title)}</div>
-           <div class="result-year">${escapeHtml([r.year, r.seasons > 1 ? `全${r.seasons}シーズン` : ""].filter(Boolean).join(" ・ "))}</div>
+           <div class="result-year">${escapeHtml(r.itunesId
+             ? [r.artist, r.album].filter(Boolean).join(" ・ ")
+             : [r.year, r.seasons > 1 ? `全${r.seasons}シーズン` : ""].filter(Boolean).join(" ・ "))}</div>
          </div>` +
         (MEDIA_LABEL[r.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[r.media]}</div>` : "") +
         (owned || wanted ? `<div class="pick-badge">${owned ? "✓ 登録済" : "🔖 観たい"}</div>` : "");
@@ -11480,6 +11700,7 @@
         if (r.eigaId) movie.eigaId = r.eigaId;
         if (r.filmarksId) movie.filmarksId = r.filmarksId;
         if (r.media) { movie.media = r.media; movie.genreCheckedV = GENRE_FIX_VERSION; }
+        if (r.itunesId) copySongFields(r, movie);
         const ok = addMovie(movie);
         if (ok) {
           card.classList.remove("result-wl");
@@ -11498,6 +11719,7 @@
     const q = document.getElementById("movieSearchInput").value.trim();
     const status = document.getElementById("searchStatus");
     if (!q) return;
+    if (has("itunes")) return itunesSearch(q);
     status.textContent = "";
     const box = document.getElementById("searchResults");
     box.innerHTML = "";
@@ -11826,6 +12048,7 @@
     );
 
     // search
+    if (has("itunes")) wireItunes();
     document.getElementById("movieSearchBtn").addEventListener("click", doSearch);
     document.getElementById("movieSearchInput").addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();

@@ -199,12 +199,28 @@
 
       <!-- Search tab -->
       <div class="tab-panel active" data-panel="search">
+        <div id="itunesModeChips" class="role-chips hidden">
+          <button class="role-chip active" data-imode="song">🎵 曲</button>
+          <button class="role-chip" data-imode="artist">🎤 アーティスト</button>
+          <button class="role-chip" data-imode="album">💿 アルバム</button>
+        </div>
         <div class="search-row">
           <input id="movieSearchInput" type="text" placeholder="映画のタイトルを入力（例: インセプション）" />
           <button id="movieSearchBtn" class="btn btn-primary">検索</button>
         </div>
         <p id="searchStatus" class="search-status"></p>
         <div id="searchResults" class="search-results"></div>
+        <div id="itunesSongs" class="hidden">
+          <div class="filmo-head">
+            <button id="itunesBackBtn" class="btn btn-ghost btn-sm">← 検索結果へ</button>
+            <span id="itunesListName" class="filmo-name"></span>
+          </div>
+          <div class="filmo-actions">
+            <button id="itunesSelectAllBtn" class="btn btn-ghost btn-sm">表示中をすべて選ぶ</button>
+            <span class="filmo-note">曲をタップ→まとめて追加</span>
+          </div>
+          <div id="itunesGrid" class="search-results"></div>
+        </div>
       </div>
 
       <!-- ドラマシリーズ・アニメシリーズ用（検索・人気・公開年・ジャンル・国で共用） -->
@@ -383,6 +399,10 @@
           <div class="filmo-actions filmo-actions-footer" id="awardActions" style="display:none">
             <button id="awardAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
             <span class="filmo-note">観た作品をタップ→まとめて追加</span>
+          </div>
+          <div class="filmo-actions filmo-actions-footer" id="itunesActions" style="display:none">
+            <button id="itunesAddBtn" class="btn btn-primary btn-sm">曲をタップで選択</button>
+            <span class="filmo-note">曲をタップ→まとめて追加</span>
           </div>
           <div class="filmo-actions filmo-actions-footer" id="personActions" style="display:none">
             <button id="personAddBtn" class="btn btn-primary btn-sm">観た作品をタップで選択</button>
