@@ -8932,3 +8932,15 @@ img.movie-poster.no-fade { transition: none !important; }
 [data-site="music"] .sim-poster { height: 44px; }
 [data-site="music"] .rh-poster { height: 40px; }
 [data-site="music"] .rank-thumb { height: 34px; }
+[data-site="music"] .sc {
+  --sc-accent: #e0457b;
+  background:
+    radial-gradient(420px 260px at 92% -6%, rgba(224, 69, 123, 0.16), rgba(224, 69, 123, 0) 70%),
+    var(--sc-bg);
+}
+[data-site="music"] .sc-dark {
+  --sc-accent: #f0628f;
+  background:
+    radial-gradient(460px 300px at 50% -10%, rgba(240, 98, 143, 0.28), rgba(240, 98, 143, 0) 70%),
+    var(--sc-bg);
+}

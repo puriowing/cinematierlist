@@ -214,7 +214,7 @@
         <div id="itunesSongs" class="hidden">
           <div class="filmo-head">
             <button id="itunesBackBtn" class="btn btn-ghost btn-sm">← 検索結果へ</button>
-            <span id="itunesListName" class="filmo-name"></span>
+            <span data-raw id="itunesListName" class="filmo-name"></span>
           </div>
           <div class="filmo-actions">
             <button id="itunesSelectAllBtn" class="btn btn-ghost btn-sm">表示中をすべて選ぶ</button>
@@ -344,7 +344,7 @@
         <div id="personFilmography" class="hidden">
           <div class="filmo-head">
             <button id="personBackBtn" class="btn btn-ghost btn-sm">← 人物一覧へ</button>
-            <span id="personName" class="filmo-name"></span>
+            <span data-raw id="personName" class="filmo-name"></span>
           </div>
           <div id="roleChips" class="role-chips"></div>
           <div class="filmo-actions">
@@ -632,7 +632,7 @@
         <button class="modal-close" data-close="tagModal">✕</button>
       </div>
       <div class="settings-body">
-        <p id="tagMovieTitle" class="tag-movie-title"></p>
+        <p data-raw id="tagMovieTitle" class="tag-movie-title"></p>
         <p class="hint" style="margin-top:0">押すとタグが付き、もう一度押すと外れます。付けたタグは「🎯 テーマで絞り込み」から選べます。</p>
         <div id="tagChips" class="tag-chips"></div>
         <form id="tagNewForm" class="soc-paste tag-new">
@@ -802,8 +802,8 @@
         <div class="memory-card">
           <img id="memoryPoster" class="memory-poster" alt="ポスター" />
           <div class="memory-head">
-            <div id="memoryTitle" class="memory-title"></div>
-            <div class="memory-sub"><span id="memoryYear"></span><span id="memoryTier" class="memory-tier"></span></div>
+            <div data-raw id="memoryTitle" class="memory-title"></div>
+            <div class="memory-sub"><span data-raw id="memoryYear"></span><span id="memoryTier" class="memory-tier"></span></div>
             <button id="memoryFavBtn" type="button" class="memory-fav"></button>
           </div>
         </div>

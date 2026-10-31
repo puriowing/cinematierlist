@@ -10,21 +10,27 @@
 (function () {
   "use strict";
 
-  const SITE = window.TIARI_SITE || { id: "cinema", fullName: "tiari for Cinema", features: [], words: {} };
+  const SITE = window.TIARI_SITE || { id: "cinema", fullName: "tiari for Cinema", words: {},
+    features: ["filmarks", "watch", "theater", "awards", "series", "coming", "people", "recommend",
+      "diagnosis", "genreTag", "yearAdd", "theaterFreq"] };
   const has = (f) => (SITE.features || []).includes(f);
   const WORDS = Object.entries(SITE.words || {}).sort((a, b) => b[0].length - a[0].length);
   const COUNTER = SITE.counter || "";
   const W_ON = WORDS.length > 0 || !!COUNTER;
+  const WORD_KEYS = new Set(WORDS.map(([k]) => k));
   const W_RISK = new RegExp([...WORDS.map(([k]) => k), COUNTER ? "本" : null].filter(Boolean).join("|") || "$^");
   let wKeep = [];
   let wKeepSet = new Set();
+  const wSeen = new Set();
   const W = (s) => {
     let t = String(s);
     if (!W_ON || !W_RISK.test(t)) return t;
     const kept = [];
+    const hold = (k) => "\u0001" + (kept.push(k) - 1) + "\u0002";
+    t = t.replace(/「([^「」]+)」/g, (m, inner) => (wKeepSet.has(inner.trim()) ? "「" + hold(inner) + "」" : m));
     wKeep.forEach((k) => {
-      if (k.length < 3) return;
-      if (t.includes(k)) { t = t.split(k).join("\u0001" + kept.length + "\u0002"); kept.push(k); }
+      if (k.length < 3 || WORD_KEYS.has(k)) return;
+      if (t.includes(k)) t = t.split(k).join(hold(k));
     });
     t = WORDS.reduce((x, [a, b]) => x.split(a).join(b), t);
     if (COUNTER) t = t.replace(/(\d[\d,]*\s*[万千]?|何|数)\s*本/g, "$1" + COUNTER).split("本数").join(COUNTER + "数");
@@ -49,14 +55,41 @@
   }
   const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appTitle && MUSIC) appTitle.content = SITE.fullName;
+
+  // 曲名・アーティスト名・表示名・コメントなど、ユーザーや外部のデータを表示する要素（文言の差し替え対象外）
+  const RAW_CLASSES = ["movie-title", "movie-poster-fallback", "wl-title", "theme-pick-title", "rank-title",
+    "sc-item-title", "sc-poster-fb", "sc-title", "sc-hero-title", "sc-owner", "sc-tierbadge", "battle-card-title",
+    "result-title", "result-year", "comm-title", "comm-also-title", "soc-title", "soc-tier", "ch-cap", "ch-fallback",
+    "ch-from", "ch-note", "ch-title", "cmt-text", "cmt-av", "tl-title", "tl-note", "tl-when", "tl-tier", "tl-poster-fb",
+    "tl-todo-btn", "ta-poster-fb", "ta-badge", "tier-label-text", "to-name", "stat-rank-name", "stat-bar-label",
+    "up-title", "nitaku-res-item", "nitaku-res-tier", "mp-hero-name", "person-cardname", "rh-note",
+    "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text"];
+
+  function wHarvest(v, depth) {
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (s && s.length <= 300 && W_RISK.test(s)) wSeen.add(s);
+    } else if (v && typeof v === "object" && depth < 8) {
+      Object.values(v).forEach((x) => wHarvest(x, depth + 1));
+    }
+  }
+
   if (W_ON) startWordSwap();
 
   // 音楽版：画面の文言（映画→音楽・作品→曲 など）を、表示される直前に差し替える
   function startWordSwap() {
+    const origJson = Response.prototype.json;
+    Response.prototype.json = async function () {
+      const d = await origJson.call(this);
+      const before = wSeen.size;
+      wHarvest(d, 0);
+      if (wSeen.size !== before) rebuildWordKeep();
+      return d;
+    };
     document.querySelectorAll("[data-music]").forEach((el) => { el.textContent = el.dataset.music; });
     document.querySelectorAll("[data-music-ph]").forEach((el) => { el.placeholder = el.dataset.musicPh; });
     const ATTRS = ["placeholder", "title", "aria-label", "alt"];
-    const SKIP = "script,style,textarea,[data-raw]";
+    const SKIP = "script,style,textarea,[data-raw]," + RAW_CLASSES.map((c) => "." + c).join(",");
     const swapText = (n) => {
       const v = n.nodeValue;
       if (!v || !W_RISK.test(v)) return;
@@ -658,8 +691,15 @@
     });
     state.tiers.forEach((t) => add(t.label));
     add(state.title);
-    wKeepSet = out;
-    wKeep = [...out].sort((a, b) => b.length - a.length);
+    if (currentUser) { add(currentUser.display); add(currentUser.username); }
+    wOwn = out;
+    rebuildWordKeep();
+  }
+
+  let wOwn = new Set();
+  function rebuildWordKeep() {
+    wKeepSet = new Set([...wOwn, ...wSeen]);
+    wKeep = [...wKeepSet].sort((a, b) => b.length - a.length);
   }
 
   function updateCounter(n) {
@@ -775,7 +815,7 @@
       `<span class="to-name">${escapeHtml(t.label)}</span><span class="to-n">${t.n}</span></button>`;
     nav.innerHTML =
       `<div class="to-head"><span class="to-sum">${tiers.length}ティア・${total}本${hasFilter() || searchQuery ? "（絞り込み中）" : ""}</span>` +
-      `<div class="to-chips">${tiers.map((t) => chip(t)).join("")}${chip({ id: "watchlist", label: "🔖 観たい", n: wlN }, " to-chip-wl")}</div></div>` +
+      `<div class="to-chips">${tiers.map((t) => chip(t)).join("")}${chip({ id: "watchlist", label: W("🔖 観たい"), n: wlN }, " to-chip-wl")}</div></div>` +
       `<div class="to-bar">${tiers.map((t) =>
         `<span class="to-seg${t.n ? "" : " is-empty"}" data-target="${escapeHtml(t.id)}" style="background:${t.color};flex-grow:${t.n}" title="${escapeHtml(t.label)}：${t.n}本（${total ? Math.round((t.n / total) * 100) : 0}%）"></span>`
       ).join("")}</div>`;
@@ -849,7 +889,7 @@
     label.className = "tier-label tier-label-watchlist";
     label.innerHTML =
       `<button class="collapse-toggle${collapsed ? " is-collapsed" : ""}" title="折りたたみ / 展開">${COLLAPSE_ICON}</button>` +
-      `<span class="tier-label-text">🔖 観たい</span>` +
+      `<span class="tier-label-text wl-label-text">${W("🔖 観たい")}</span>` +
       `<span class="tier-count">${visibleItems(wl).length}</span>`;
     label.querySelector(".collapse-toggle").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2958,7 +2998,7 @@
   }
 
   function challengeInviteText(ch) {
-    return W(`「${ch.title}」のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ `) + (MUSIC ? "#tiariMusic" : "#Tiari");
+    return `「${ch.title}」` + W(`のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ `) + (MUSIC ? "#tiariMusic" : "#Tiari");
   }
 
   function bindChallengeShare(ch) {
@@ -9875,15 +9915,15 @@
         return m ? `${i < rankedN ? (marks[i] || i + 1 + ".") : "・"} ${m.title}` : "";
       }).filter(Boolean);
       const more = ids.length > 5 ? `\n…ほか${ids.length - 5}本` : "";
-      const head = rankedN >= ids.length ? `わたしのベスト${ids.length}` : `わたしの上位${ids.length}本`;
-      return W(`「${theme}」${head}${em}\n${lines.join("\n")}${more}\n`) + tags;
+      const head = W(rankedN >= ids.length ? `わたしのベスト${ids.length}` : `わたしの上位${ids.length}本`);
+      return `「${theme}」${head}${em}\n${lines.join("\n")}${W(more)}\n${tags}`;
     }
     const top = rows[0];
     const topLine = top
       ? `\n${top.tier.label}：${top.items.slice(0, 3).map((m) => m.title).join("、")}${top.items.length > 3 ? " ほか" : ""}`
       : "";
     const total = rows.reduce((a, r) => a + r.items.length, 0);
-    return W(`「${theme}」${total}本を好きな順に並べました${em}${topLine}\n`) + tags;
+    return `「${theme}」${W(`${total}本を好きな順に並べました`)}${em}${topLine}\n${tags}`;
   }
 
   let shareTextTouched = false;
