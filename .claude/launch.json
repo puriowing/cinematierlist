@@ -27,6 +27,24 @@
         "8781"
       ],
       "port": 8781
+    },
+    {
+      "name": "tiari-cinema-wt",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/haga/Desktop/Cursor Projects/Projects/TierListMaker-music' && TIARI_SITE=cinema TIARI_DATA_DIR=/tmp/tiari-cinema-data python3 server.py 8801"
+      ],
+      "port": 8801
+    },
+    {
+      "name": "tiari-music-wt",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd '/Users/haga/Desktop/Cursor Projects/Projects/TierListMaker-music' && TIARI_SITE=music TIARI_DATA_DIR=/tmp/tiari-music-data python3 server.py 8802"
+      ],
+      "port": 8802
     }
   ]
 }
