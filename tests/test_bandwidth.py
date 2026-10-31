@@ -171,17 +171,42 @@ class ServerFetchTest(unittest.TestCase):
         self.assertEqual(len([1 for _, raw in calls if not raw]), 3)
         self.assertEqual(server._remote_sha["lists/a.json"], "a1")
 
-    def test_flush_on_shutdown_includes_inflight(self):
+    def _patch_upload(self):
         sent = []
         orig = server._remote_upload
         server._remote_upload = lambda rel: sent.append(rel)
         self.addCleanup(setattr, server, "_remote_upload", orig)
-        server._remote_pending.add("users.json")
+        self.addCleanup(server._gh_timeout.__setitem__, 0, server._gh_timeout[0])
+        self.addCleanup(server._remote_seq.clear)
+        self.addCleanup(server._remote_sent_seq.clear)
+        return sent
+
+    def test_flush_on_shutdown_includes_inflight_in_order(self):
+        sent = self._patch_upload()
+        server._remote_pending.update({"lists/b.json", "users.json", "challenges/c.json"})
         server._remote_inflight.add("lists/a.json")
         server._remote_flush(shutdown=True)
-        self.assertEqual(sorted(sent), ["lists/a.json", "users.json"])
+        self.assertEqual(sent, ["users.json", "challenges/c.json", "lists/a.json", "lists/b.json"])
         self.assertEqual(server._remote_inflight, set())
         self.assertEqual(server._remote_pending, set())
+        self.assertEqual(server._gh_timeout[0], 8)
+
+    def test_flush_skips_inflight_already_sent(self):
+        sent = self._patch_upload()
+        orig_q = server.REMOTE_ON
+        server.REMOTE_ON = True
+        self.addCleanup(setattr, server, "REMOTE_ON", orig_q)
+        server._remote_queue(os.path.join(server.DATA_DIR, "lists", "a.json"))
+        server._remote_flush()
+        self.assertEqual(sent, ["lists/a.json"])
+        server._remote_inflight.add("lists/a.json")
+        server._remote_flush(shutdown=True)
+        self.assertEqual(sent, ["lists/a.json"])
+        server._remote_queue(os.path.join(server.DATA_DIR, "lists", "a.json"))
+        server._remote_inflight.add("lists/a.json")
+        server._remote_pending.discard("lists/a.json")
+        server._remote_flush(shutdown=True)
+        self.assertEqual(sent, ["lists/a.json", "lists/a.json"])
 
     def test_api_ttl(self):
         self.assertEqual(server._api_ttl("/api/filmarks/search"), 3600)

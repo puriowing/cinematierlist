@@ -1206,6 +1206,10 @@ REMOTE_QUIET = float(os.environ.get("REMOTE_QUIET", "5"))
 REMOTE_MAX_WAIT = float(os.environ.get("REMOTE_MAX_WAIT", "20"))
 _remote_inflight = set()
 _remote_upload_lock = threading.Lock()
+_remote_seq = {}        # rel -> 保存のたびに増える番号
+_remote_sent_seq = {}   # rel -> GitHub へ送り終えた番号
+_gh_timeout = [30]
+SHUTDOWN_FLUSH_SEC = 25
 
 
 def _gh(method, relpath, body=None, raw=False):
@@ -1219,7 +1223,7 @@ def _gh(method, relpath, body=None, raw=False):
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=_gh_timeout[0]) as resp:
             out = _read_resp(resp)
     except urllib.error.HTTPError as e:
         if e.code == 404:
@@ -1253,6 +1257,7 @@ def _remote_queue(path):
     rel = os.path.relpath(path, DATA_DIR).replace(os.sep, "/")
     with _remote_cv:
         _remote_pending.add(rel)
+        _remote_seq[rel] = _remote_seq.get(rel, 0) + 1
         _remote_last_queued[0] = time.time()
         _remote_cv.notify()
 
@@ -1292,18 +1297,39 @@ def _remote_worker():
         _remote_flush()
 
 
+def _remote_order(rel):
+    return (0 if rel == "users.json" else 1 if rel.startswith("challenges/") else 2, rel)
+
+
 def _remote_flush(shutdown=False):
-    """保留中のファイルを GitHub へ送る。終了時は送信途中のものも含めて送り直す。"""
+    """保留中のファイルを GitHub へ送る（アカウント→チャレンジ→リストの順）。
+    終了時は送信途中のものも対象にし、送り終わっていなかったものだけ送る（全体で約25秒まで）。"""
+    deadline = time.time() + SHUTDOWN_FLUSH_SEC
+    if shutdown:
+        _gh_timeout[0] = 8
     with _remote_cv:
         batch = set(_remote_pending)
         if shutdown:
             batch |= _remote_inflight
         _remote_pending.clear()
         _remote_inflight.update(batch)
-    for rel in sorted(batch):
+    for rel in sorted(batch, key=_remote_order):
         try:
-            with _remote_upload_lock:
+            wait = max(0.0, deadline - time.time()) if shutdown else -1
+            if shutdown and wait <= 0:
+                raise TimeoutError("shutdown deadline")
+            if not _remote_upload_lock.acquire(timeout=wait):
+                raise TimeoutError("upload lock")
+            try:
+                with _remote_cv:
+                    seq = _remote_seq.get(rel, 0)
+                if _remote_sent_seq.get(rel, -1) >= seq and seq:
+                    continue
                 _remote_upload(rel)
+                with _remote_cv:
+                    _remote_sent_seq[rel] = max(seq, _remote_sent_seq.get(rel, 0))
+            finally:
+                _remote_upload_lock.release()
         except Exception as exc:  # noqa: BLE001
             print(f"GitHub への保存に失敗: {rel}: {exc}", file=sys.stderr)
             with _remote_cv:

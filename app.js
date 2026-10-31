@@ -1458,25 +1458,53 @@
   }
 
   // サーバーの保存内容とローカルを比較し、新しい方を採用する
+  // 端末内のリストがどのアカウントのものか（別アカウントへ取り違えて送らないため）
+  const OWNER_KEY = "movieTierList.owner.v1";
+  function localOwner() {
+    try { return localStorage.getItem(OWNER_KEY) || ""; } catch (e) { return ""; }
+  }
+  function setLocalOwner(name) {
+    try { localStorage.setItem(OWNER_KEY, name); } catch (e) {}
+  }
+  function hasListData(st) {
+    return !!st && Array.isArray(st.tiers) && (totalMovies(st) > 0 || (st.watchlist || []).length > 0);
+  }
+
   async function pullFromServer() {
+    const me = String((currentUser && currentUser.username) || "").toLowerCase();
+    const owner = localOwner();
     const since = Number(state.updatedAt || 0);
-    const { ok, data } = await apiJSON("/api/list" + (since ? "?since=" + since : ""));
+    const { ok, data } = await apiJSON("/api/list" + (since && owner === me ? "?since=" + since : ""));
     if (!ok) return false;
     syncReady = true;
     if (data.same) {
-      lastSyncedSig = syncSig(state);
+      lastSyncedSig = lastLocalSig = syncSig(state);
+      setLocalOwner(me);
       return false;
     }
     const remote = data.list;
+    const remoteValid = remote && Array.isArray(remote.tiers);
+    // 別アカウントのリスト（または持ち主不明でサーバーに中身がある）なら、端末の内容は送らない。
+    // 端末の内容は復元ポイントに残し、サーバーの内容（空なら空のリスト）に切り替える
+    if ((owner && owner !== me) || (!owner && hasListData(remote))) {
+      if (hasListData(state)) { skipBackupMerge = true; try { pushBackup(); } finally { skipBackupMerge = false; } }
+      applyRemoteState(remoteValid ? remote : { title: "", tiers: JSON.parse(JSON.stringify(DEFAULT_TIERS)), pool: [], watchlist: [] });
+      lastLocalSig = syncSig(state);
+      lastSyncedSig = remoteValid ? lastLocalSig : null;
+      setLocalOwner(me);
+      render();
+      return true;
+    }
     const localUpdated = Number(state.updatedAt || 0);
     const remoteUpdated = Number((remote && remote.updatedAt) || 0);
-    const remoteValid = remote && Array.isArray(remote.tiers);
+    setLocalOwner(me);
     if (remoteValid && (remoteUpdated >= localUpdated || totalMovies(state) === 0)) {
       applyRemoteState(remote);
       lastSyncedSig = lastLocalSig = syncSig(state);
       return true;
     }
     // サーバーが空、またはローカルの方が新しい → ローカルをアップロード
+    lastLocalSig = syncSig(state);
     await pushToServer(true);
     return false;
   }
