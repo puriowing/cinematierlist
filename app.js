@@ -10,6 +10,17 @@
 (function () {
   "use strict";
 
+  const SITE = window.TIARI_SITE || { id: "cinema", fullName: "tiari for Cinema", features: [], words: {} };
+  const has = (f) => (SITE.features || []).includes(f);
+  const WORDS = Object.entries(SITE.words || {}).sort((a, b) => b[0].length - a[0].length);
+  const W = (s) => WORDS.reduce((t, [a, b]) => t.split(a).join(b), String(s));
+  document.documentElement.dataset.site = SITE.id;
+  document.title = SITE.fullName;
+  const subEl = document.getElementById("siteSub");
+  if (subEl) subEl.textContent = SITE.fullName.replace(/^tiari\s*/i, "");
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta && SITE.themeColor) themeMeta.content = SITE.themeColor;
+
   const COLLAPSE_ICON =
     '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
