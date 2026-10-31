@@ -8897,3 +8897,38 @@ img.movie-poster.no-fade { transition: none !important; }
 }
 
 .site-off { display: none !important; }
+
+/* ---------- tiari for Music：テーマ色（ピンク）と正方形のジャケット ---------- */
+[data-site="music"],
+[data-site="music"] body.theme-studio,
+[data-site="music"] body.theme-pop {
+  --accent: #e0457b;
+  --accent-hover: #c93469;
+}
+[data-site="music"] body.theme-pop {
+  --accent-2: #ff8a5c;
+  --pop-grad: linear-gradient(120deg, #e0457b 0%, #f0627f 50%, #ff8a5c 100%);
+}
+[data-site="music"] .help-hero { background: linear-gradient(135deg, rgba(224, 69, 123, 0.12), rgba(255, 138, 92, 0.12)); }
+[data-site="music"] .help-num { box-shadow: 0 2px 6px rgba(224, 69, 123, 0.35); }
+[data-site="music"] .help-tip { background: rgba(224, 69, 123, 0.09); }
+[data-site="music"] body.theme-studio .pool-items.drag-over { background: rgba(224, 69, 123, 0.08); }
+[data-site="music"] body.theme-studio .theme-cat.active,
+[data-site="music"] body.theme-studio .theme-option.current,
+[data-site="music"] body.theme-pop .theme-cat.active,
+[data-site="music"] body.theme-pop .theme-option.current { background: rgba(224, 69, 123, 0.12); }
+[data-site="music"] body.theme-pop .logo { box-shadow: 0 6px 18px rgba(224, 69, 123, 0.25); }
+
+[data-site="music"] .ta-poster,
+[data-site="music"] .memory-poster,
+[data-site="music"] .soc-poster,
+[data-site="music"] .ch-cell img,
+[data-site="music"] .ch-fallback,
+[data-site="music"] .comm-also-item .soc-poster,
+[data-site="music"] .pp-item img,
+[data-site="music"] .up-poster { aspect-ratio: 1 / 1; }
+[data-site="music"] .tl-poster { height: 52px; }
+[data-site="music"] .comm-head .soc-poster { height: 56px; }
+[data-site="music"] .sim-poster { height: 44px; }
+[data-site="music"] .rh-poster { height: 40px; }
+[data-site="music"] .rank-thumb { height: 34px; }

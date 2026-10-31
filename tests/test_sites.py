@@ -14,6 +14,10 @@ class SitesTest(unittest.TestCase):
 
     def test_cinema_words_identity(self):
         self.assertEqual(sites.get_site("cinema")["words"], {})
+        self.assertNotIn("counter", sites.get_site("cinema"))
+
+    def test_music_counter(self):
+        self.assertEqual(sites.get_site("music")["counter"], "曲")
 
     def test_site_js(self):
         js = sites.site_js(sites.get_site("music"))

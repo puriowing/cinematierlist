@@ -23,6 +23,7 @@
       var t = "studio";
       try { var s = JSON.parse(localStorage.getItem("movieTierList.settings.v1") || "null"); if (s && s.theme) t = s.theme; } catch (e) {}
       document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.setAttribute("data-site", (window.TIARI_SITE && window.TIARI_SITE.id) || "cinema");
       // 絵文字が線画アイコンに置き換わるまで中身を出さない（万一のときは少しで表示）
       var d = document.documentElement;
       d.classList.add("icons-pending");
@@ -37,7 +38,7 @@
   </style>
   <!-- 文字の読み込みを待たずに画面を出す（届いたら差し替わる） -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="styles.css?v=20261031c" />
+  <link rel="stylesheet" href="styles.css?v=20261031d" />
 </head>
 <body>
   <script>
@@ -514,13 +515,13 @@
           <div class="help-card-body">
             <p>画面右下の <b>「＋」ボタン</b> を押すと「作品を追加」ウィンドウが開きます。いろいろな探し方から選べます。</p>
             <div class="help-ways">
-              <div class="help-way"><span class="help-way-ic">🔍</span><div class="help-way-txt"><b>検索</b><span>タイトルで探す</span></div></div>
-              <div class="help-way"><span class="help-way-ic">✨</span><div class="help-way-txt"><b>おすすめ</b><span>好みに近い未登録作</span></div></div>
-              <div class="help-way"><span class="help-way-ic">👤</span><div class="help-way-txt"><b>人物</b><span>監督・出演者の作品</span></div></div>
-              <div class="help-way"><span class="help-way-ic">📅</span><div class="help-way-txt"><b>公開年</b><span>年ごとに振り返る</span></div></div>
-              <div class="help-way"><span class="help-way-ic">🗂</span><div class="help-way-txt"><b>コレクション</b><span>シリーズ・テーマ別</span></div></div>
-              <div class="help-way"><span class="help-way-ic">🏆</span><div class="help-way-txt"><b>映画賞・映画祭</b><span>受賞・出品作</span></div></div>
-              <div class="help-way"><span class="help-way-ic">🎭</span><div class="help-way-txt"><b>ジャンル</b><span>コメディ・ドラマ等</span></div></div>
+              <div class="help-way"><span class="help-way-ic">🔍</span><div class="help-way-txt"><b>検索</b><span data-music="曲名・アーティスト・アルバムで探す">タイトルで探す</span></div></div>
+              <div class="help-way" data-feature="recommend"><span class="help-way-ic">✨</span><div class="help-way-txt"><b>おすすめ</b><span>好みに近い未登録作</span></div></div>
+              <div class="help-way" data-feature="people"><span class="help-way-ic">👤</span><div class="help-way-txt"><b>人物</b><span>監督・出演者の作品</span></div></div>
+              <div class="help-way" data-feature="yearAdd"><span class="help-way-ic">📅</span><div class="help-way-txt"><b>公開年</b><span>年ごとに振り返る</span></div></div>
+              <div class="help-way" data-feature="awards"><span class="help-way-ic">🗂</span><div class="help-way-txt"><b>コレクション</b><span>シリーズ・テーマ別</span></div></div>
+              <div class="help-way" data-feature="awards"><span class="help-way-ic">🏆</span><div class="help-way-txt"><b>映画賞・映画祭</b><span>受賞・出品作</span></div></div>
+              <div class="help-way" data-feature="yearAdd"><span class="help-way-ic">🎭</span><div class="help-way-txt"><b>ジャンル</b><span>コメディ・ドラマ等</span></div></div>
               <div class="help-way"><span class="help-way-ic">✍️</span><div class="help-way-txt"><b>手動で追加</b><span>タイトル・画像を指定</span></div></div>
             </div>
             <p class="help-tip">候補を<b>タップで選択</b>して「選んだ◯本を追加」でまとめて登録。追加した映画はまず <b>「未分類」</b>（ティア一覧のすぐ上）に入ります。追加後に出る <b>「閉じて確認する」</b> を押すと、追加した作品の場所へ移動します。</p>
@@ -561,7 +562,7 @@
           <div class="help-card-head"><span class="help-num">4</span><h4>全体を見渡す・絞り込む</h4></div>
           <div class="help-card-body">
             <p><b>ティア構成バー</b>（ティア一覧の上）で、ティアの数・各ティアの本数・全体に占める割合がひと目でわかります。ティア名を押すとそのティアへ移動し、スクロール中も画面上部に表示されたままです。</p>
-            <p>画面上部の <b>「🎯 テーマで絞り込み」</b> で、公開年・監督・出演者・ジャンル・映画賞・種別（邦画/洋画・実写/アニメ）や、自分で付けた <b>タグ</b> などの切り口だけを表示。右の検索ボックスでは登録作品をタイトルで探せます。</p>
+            <p data-music="画面上部の「🎯 テーマで絞り込み」で、発売年・アーティスト・ジャンルや、自分で付けたタグなどの切り口だけを表示。右の検索ボックスでは登録曲をタイトルで探せます。">画面上部の <b>「🎯 テーマで絞り込み」</b> で、公開年・監督・出演者・ジャンル・映画賞・種別（邦画/洋画・実写/アニメ）や、自分で付けた <b>タグ</b> などの切り口だけを表示。右の検索ボックスでは登録作品をタイトルで探せます。</p>
           </div>
         </section>
 
@@ -573,8 +574,8 @@
               <div class="help-feature"><span class="help-feature-ic">🔖</span><div><b>観たい</b><p>一覧の一番下のゾーン。ティアと同じ操作で「あとで観る」を管理。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🎬</span><div><b>作品情報</b><p>公開年・ジャンル・監督などの確認/修正、コメント（感想）の記入。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🌐</span><div><b>みんな</b><p>ほかの人のティアを見たり、友だちと比べたり、お題に参加したり。</p></div></div>
-              <div class="help-feature"><span class="help-feature-ic">🔮</span><div><b>これから公開</b><p>あなたの好みから、公開予定の作品をおすすめ。</p></div></div>
-              <div class="help-feature"><span class="help-feature-ic">📊</span><div><b>統計</b><p>あなたの「映画タイプ」を診断。年代・ジャンル・監督などの傾向もグラフで。</p></div></div>
+              <div class="help-feature" data-feature="coming"><span class="help-feature-ic">🔮</span><div><b>これから公開</b><p>あなたの好みから、公開予定の作品をおすすめ。</p></div></div>
+              <div class="help-feature"><span class="help-feature-ic">📊</span><div><b>統計</b><p data-music="年代・ジャンル・アーティストなどの傾向をグラフで。">あなたの「映画タイプ」を診断。年代・ジャンル・監督などの傾向もグラフで。</p></div></div>
               <div class="help-feature"><span class="help-feature-ic">🏅</span><div><b>実績</b><p>登録を進めると解除できるチャレンジ集。</p></div></div>
             </div>
           </div>
@@ -884,8 +885,8 @@
           <div id="infoGenres" class="info-genre-list"></div>
         </div>
         <label class="field">
-          <span>監督（カンマ区切り）</span>
-          <input id="infoDirectors" type="text" placeholder="例: クリストファー・ノーラン" />
+          <span data-music="アーティスト">監督（カンマ区切り）</span>
+          <input id="infoDirectors" type="text" placeholder="例: クリストファー・ノーラン" data-music-ph="例: 米津玄師" />
         </label>
         <label class="field" data-feature="people">
           <span>出演者（カンマ区切り）</span>
@@ -895,7 +896,7 @@
           <span>コメント・感想</span>
           <textarea id="infoComment" rows="4" placeholder="この作品の感想やメモを自由に残せます"></textarea>
         </label>
-        <p class="hint" style="margin-top:0">
+        <p class="hint" style="margin-top:0" data-music="タグは、曲をタップしたメニューの「🏷️ タグ」から付けられます。">
           保存するとこの内容が優先され、バックグラウンドの自動補完で上書きされなくなります。タグは、作品をタップしたメニューの「🏷️ タグ」から付けられます。
         </p>
         <div class="settings-actions">
@@ -1100,6 +1101,6 @@
 
   <script src="icons.js?v=20261030a"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" defer></script>
-  <script src="app.js?v=20261031c"></script>
+  <script src="app.js?v=20261031d"></script>
 </body>
 </html>

@@ -13,7 +13,23 @@
   const SITE = window.TIARI_SITE || { id: "cinema", fullName: "tiari for Cinema", features: [], words: {} };
   const has = (f) => (SITE.features || []).includes(f);
   const WORDS = Object.entries(SITE.words || {}).sort((a, b) => b[0].length - a[0].length);
-  const W = (s) => WORDS.reduce((t, [a, b]) => t.split(a).join(b), String(s));
+  const COUNTER = SITE.counter || "";
+  const W_ON = WORDS.length > 0 || !!COUNTER;
+  const W_RISK = new RegExp([...WORDS.map(([k]) => k), COUNTER ? "本" : null].filter(Boolean).join("|") || "$^");
+  let wKeep = [];
+  let wKeepSet = new Set();
+  const W = (s) => {
+    let t = String(s);
+    if (!W_ON || !W_RISK.test(t)) return t;
+    const kept = [];
+    wKeep.forEach((k) => {
+      if (k.length < 3) return;
+      if (t.includes(k)) { t = t.split(k).join("\u0001" + kept.length + "\u0002"); kept.push(k); }
+    });
+    t = WORDS.reduce((x, [a, b]) => x.split(a).join(b), t);
+    if (COUNTER) t = t.replace(/(\d[\d,]*\s*[万千]?|何|数)\s*本/g, "$1" + COUNTER).split("本数").join(COUNTER + "数");
+    return t.replace(/\u0001(\d+)\u0002/g, (_, i) => kept[i]);
+  };
   document.documentElement.dataset.site = SITE.id;
   document.title = SITE.fullName;
   const subEl = document.getElementById("siteSub");
@@ -24,8 +40,64 @@
     if (!el.dataset.feature.split(" ").some(has)) el.classList.add("site-off");
   });
   const MUSIC = SITE.id === "music";
+  const POSTER_RATIO = MUSIC ? 1 : 1.5;
   const creditEl = document.getElementById("footerCredit");
   if (creditEl && MUSIC) creditEl.textContent = "曲情報：Apple Music（iTunes）";
+  if (SITE.description) {
+    const d = document.querySelector('meta[name="description"]');
+    if (d) d.content = SITE.description;
+  }
+  const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appTitle && MUSIC) appTitle.content = SITE.fullName;
+  if (W_ON) startWordSwap();
+
+  // 音楽版：画面の文言（映画→音楽・作品→曲 など）を、表示される直前に差し替える
+  function startWordSwap() {
+    document.querySelectorAll("[data-music]").forEach((el) => { el.textContent = el.dataset.music; });
+    document.querySelectorAll("[data-music-ph]").forEach((el) => { el.placeholder = el.dataset.musicPh; });
+    const ATTRS = ["placeholder", "title", "aria-label", "alt"];
+    const SKIP = "script,style,textarea,[data-raw]";
+    const swapText = (n) => {
+      const v = n.nodeValue;
+      if (!v || !W_RISK.test(v)) return;
+      const p = n.parentElement;
+      if (!p || p.closest(SKIP) || wKeepSet.has(v.trim())) return;
+      let nv = W(v);
+      if (COUNTER && /^\s*本/.test(nv)) {
+        const prev = n.previousSibling || (p.firstChild === n && p.previousSibling);
+        if (prev && /\d\s*$/.test(prev.textContent || "")) nv = nv.replace("本", COUNTER);
+      }
+      if (nv !== v) n.nodeValue = nv;
+    };
+    const swapAttrs = (el) => ATTRS.forEach((a) => {
+      const v = el.getAttribute(a);
+      if (v && W_RISK.test(v)) { const nv = W(v); if (nv !== v) el.setAttribute(a, nv); }
+    });
+    const swapTree = (root) => {
+      if (root.nodeType === 3) { swapText(root); return; }
+      if (root.nodeType !== 1 || root.closest(SKIP)) return;
+      swapAttrs(root);
+      const it = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+      for (let n = it.nextNode(); n; n = it.nextNode()) {
+        if (n.nodeType === 3) swapText(n); else swapAttrs(n);
+      }
+    };
+    swapTree(document.body);
+    new MutationObserver((muts) => muts.forEach((m) => {
+      if (m.type === "childList") m.addedNodes.forEach(swapTree);
+      else if (m.type === "characterData") swapText(m.target);
+      else if (m.type === "attributes") swapAttrs(m.target);
+    })).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+    ["alert", "confirm", "prompt"].forEach((k) => {
+      const orig = window[k].bind(window);
+      window[k] = (msg, ...rest) => orig(W(msg == null ? "" : msg), ...rest);
+    });
+    const C = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+    if (C) ["fillText", "strokeText", "measureText"].forEach((k) => {
+      const orig = C[k];
+      C[k] = function (text, ...rest) { return orig.call(this, W(text), ...rest); };
+    });
+  }
 
   const COLLAPSE_ICON =
     '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -558,6 +630,7 @@
   function render() {
     saveViewState();
     ensureAddedStamps();
+    refreshWordKeep();
     updateTitleDisplay();
     renderTiers();
     renderPool();
@@ -572,6 +645,21 @@
     scheduleAutoFill();
     scheduleGenreFix();
     scheduleKindEnrich();
+  }
+
+  function refreshWordKeep() {
+    if (!W_ON) return;
+    const out = new Set();
+    const add = (v) => { if (v && typeof v === "string" && W_RISK.test(v)) out.add(v.trim()); };
+    [...allMovies(), ...(state.watchlist || [])].forEach((m) => {
+      add(m.title); add(m.artist); add(m.album); add(m.comment);
+      if (m.memory) ["when", "where", "with", "note"].forEach((k) => add(m.memory[k]));
+      (m.userThemes || []).forEach(add);
+    });
+    state.tiers.forEach((t) => add(t.label));
+    add(state.title);
+    wKeepSet = out;
+    wKeep = [...out].sort((a, b) => b.length - a.length);
   }
 
   function updateCounter(n) {
@@ -1665,7 +1753,7 @@
     const nameGroup = currentUser
       ? `<div class="pv-group pf-name"><p class="pv-title">表示名<small>ほかの人に表示されます</small></p>` +
         `<p class="pv-note">みんなのティア・友だち比較・お題・公開した年表・シェア画像に出る名前です。</p>` +
-        `<div class="soc-paste"><input id="pfDisplay" type="text" maxlength="24" placeholder="例: えいがずき" value="${escapeHtml(currentUser.display || "")}" />` +
+        `<div class="soc-paste"><input id="pfDisplay" type="text" maxlength="24" placeholder="例: ${MUSIC ? "おんがくずき" : "えいがずき"}" value="${escapeHtml(currentUser.display || "")}" />` +
         `<button type="button" id="pfDisplaySave" class="btn btn-primary btn-sm">保存</button></div></div>`
       : `<div class="pv-group pf-name"><p class="pv-title">表示名<small>ほかの人に表示されます</small></p>` +
         `<p class="pv-note">ログインすると、みんなのティアやシェア画像に出る名前を設定できます。</p></div>`;
@@ -2870,7 +2958,7 @@
   }
 
   function challengeInviteText(ch) {
-    return `「${ch.title}」のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ #Tiari`;
+    return W(`「${ch.title}」のティアリストを作ってみて！全${ch.movies.length}本、あなたならどう並べる？ `) + (MUSIC ? "#tiariMusic" : "#Tiari");
   }
 
   function bindChallengeShare(ch) {
@@ -9425,7 +9513,7 @@
     const theme = themeFilterName();
     if (theme) return theme;
     const name = shareOwnerName();
-    return name ? `${name}の映画` : "わたしの映画";
+    return name ? `${name}の${W("映画")}` : W("わたしの映画");
   }
 
   // ベスト用の並び：保存済みランキング → ティア上位順（未分類は除く）
@@ -9538,7 +9626,7 @@
     for (let p = 20; p <= 400; p++) {
       const cols = Math.max(1, Math.floor((w + gap) / (p + gap)));
       const lines = Math.ceil(n / cols);
-      if (lines * (p * 1.5 + extraH + gap) - gap > h) break;
+      if (lines * (p * POSTER_RATIO + extraH + gap) - gap > h) break;
       best = { p, cols };
     }
     return best;
@@ -9573,7 +9661,7 @@
         it.className = "sc-item";
         const ps = sharePoster(m);
         ps.style.width = p + "px";
-        ps.style.height = Math.round(p * 1.5) + "px";
+        ps.style.height = Math.round(p * POSTER_RATIO) + "px";
         const t0 = tierOf(m);
         if (t0) {
           const badge = document.createElement("span");
@@ -9606,7 +9694,7 @@
     if (wide) {
       heroW = rest.length ? Math.round(W * 0.42) : W;
       heroH = H;
-      posterW = Math.min(Math.round(H / 1.5), Math.round(heroW * 0.55));
+      posterW = Math.min(Math.round(H / POSTER_RATIO), Math.round(heroW * 0.55));
       restW = W - heroW - 18; restH = H;
       body.style.flexDirection = "row";
     } else {
@@ -9615,12 +9703,12 @@
       restW = W;
       posterW = Math.round(W * 0.56);
       for (; posterW > 80; posterW -= 4) {
-        if (!rest.length) { if (posterW * 1.5 <= H) break; continue; }
-        const rh = H - posterW * 1.5 - 18;
+        if (!rest.length) { if (posterW * POSTER_RATIO <= H) break; continue; }
+        const rh = H - posterW * POSTER_RATIO - 18;
         if (rh > 0 && fitGrid(restW, rh, rest.length, gap, titleH).p >= minP) break;
       }
       heroW = W;
-      heroH = Math.round(posterW * 1.5);
+      heroH = Math.round(posterW * POSTER_RATIO);
       restH = rest.length ? H - heroH - 18 : 0;
       body.style.justifyContent = "center";
     }
@@ -9628,7 +9716,7 @@
     hero.style.height = heroH + "px";
     const hp = sharePoster(first, "sc-hero-poster");
     hp.style.width = posterW + "px";
-    hp.style.height = Math.round(posterW * 1.5) + "px";
+    hp.style.height = Math.round(posterW * POSTER_RATIO) + "px";
     hero.appendChild(hp);
     const info = document.createElement("div");
     info.className = "sc-hero-info";
@@ -9645,7 +9733,7 @@
     restArea.style.width = restW + "px";
     restArea.style.height = restH + "px";
     const { p, cols } = fitGrid(restW, restH, rest.length, gap, titleH);
-    if (!wide) restArea.style.height = Math.ceil(rest.length / cols) * (p * 1.5 + titleH + gap) - gap + "px";
+    if (!wide) restArea.style.height = Math.ceil(rest.length / cols) * (p * POSTER_RATIO + titleH + gap) - gap + "px";
     restArea.style.gridTemplateColumns = `repeat(${cols}, ${p}px)`;
     restArea.style.gap = gap + "px";
     rest.forEach((m, i) => {
@@ -9653,7 +9741,7 @@
       it.className = "sc-item";
       const ps = sharePoster(m);
       ps.style.width = p + "px";
-      ps.style.height = Math.round(p * 1.5) + "px";
+      ps.style.height = Math.round(p * POSTER_RATIO) + "px";
       if (i + 2 <= rankedN) {
         const badge = document.createElement("span");
         badge.className = "sc-rank" + (i < 2 ? " sc-rank-top" : "");
@@ -9684,7 +9772,7 @@
     const colW = (W - rowGap * (rows.length - 1)) / rows.length;
     const areaW = cols ? colW - pad * 2 - 2 : W - labelW - pad * 2 - 2;
     const perLine = (p) => Math.max(1, Math.floor((areaW + gap) / (p + gap)));
-    const blockH = (p, c) => Math.max(1, Math.ceil(c / perLine(p))) * (p * 1.5 + gap) - gap + pad * 2 + 2;
+    const blockH = (p, c) => Math.max(1, Math.ceil(c / perLine(p))) * (p * POSTER_RATIO + gap) - gap + pad * 2 + 2;
     const heightFor = (p, counts) => cols
       ? Math.max(...counts.map((c) => blockH(p, c) + labelH))
       : counts.reduce((a, c) => a + Math.max(blockH(p, c), 40), 0) + rowGap * (counts.length - 1);
@@ -9725,14 +9813,14 @@
       visible.forEach((m) => {
         const ps = sharePoster(m);
         ps.style.width = p + "px";
-        ps.style.height = Math.round(p * 1.5) + "px";
+        ps.style.height = Math.round(p * POSTER_RATIO) + "px";
         zone.appendChild(ps);
       });
       if (cut) {
         const more = document.createElement("div");
         more.className = "sc-poster sc-more";
         more.style.width = p + "px";
-        more.style.height = Math.round(p * 1.5) + "px";
+        more.style.height = Math.round(p * POSTER_RATIO) + "px";
         more.textContent = `+${r.items.length - visible.length}`;
         zone.appendChild(more);
       }
@@ -9777,7 +9865,8 @@
 
   function defaultShareText(ids, rows) {
     const theme = share.title || shareThemeName();
-    const tags = "#Tiari #映画好きと繋がりたい";
+    const tags = MUSIC ? "#tiariMusic #音楽好きと繋がりたい" : "#Tiari #映画好きと繋がりたい";
+    const em = MUSIC ? "🎵" : "🎬";
     if (share.mode === "best") {
       const marks = ["🥇", "🥈", "🥉"];
       const rankedN = share.rankedCount || 0;
@@ -9787,14 +9876,14 @@
       }).filter(Boolean);
       const more = ids.length > 5 ? `\n…ほか${ids.length - 5}本` : "";
       const head = rankedN >= ids.length ? `わたしのベスト${ids.length}` : `わたしの上位${ids.length}本`;
-      return `「${theme}」${head}🎬\n${lines.join("\n")}${more}\n${tags}`;
+      return W(`「${theme}」${head}${em}\n${lines.join("\n")}${more}\n`) + tags;
     }
     const top = rows[0];
     const topLine = top
       ? `\n${top.tier.label}：${top.items.slice(0, 3).map((m) => m.title).join("、")}${top.items.length > 3 ? " ほか" : ""}`
       : "";
     const total = rows.reduce((a, r) => a + r.items.length, 0);
-    return `「${theme}」${total}本を好きな順に並べました🎬${topLine}\n${tags}`;
+    return W(`「${theme}」${total}本を好きな順に並べました${em}${topLine}\n`) + tags;
   }
 
   let shareTextTouched = false;
@@ -11044,7 +11133,7 @@
     const pct = (v) => Math.round(v * 100) + "%";
     const minC = Math.max(a.n >= 20 ? 3 : 2, Math.ceil(a.n * 0.04));
     const kindTop = [...a.kinds].filter((k) => k.count).sort((x, y) => y.share - x.share)[0];
-    if (kindTop) {
+    if (has("filmarks") && kindTop) {
       const diff = Math.round((kindTop.share - kindTop.allShare) * 100);
       out.push({ icon: "🎞️", text: `${pct(kindTop.share)}が${kindTop.label}。` +
         (Math.abs(diff) >= 5 ? `全体（${pct(kindTop.allShare)}）より${diff > 0 ? "多め" : "少なめ"}です。` : "全体とほぼ同じ割合です。") });
@@ -11218,7 +11307,7 @@
     const minC = Math.max(a.n >= 20 ? 3 : 2, Math.ceil(a.n * 0.04));
     const tags = [];
     const kindTop = [...a.kinds].sort((x, y) => y.share - x.share)[0];
-    if (kindTop && kindTop.count) tags.push({ label: kindTop.label, note: pct(kindTop.share) });
+    if (has("filmarks") && kindTop && kindTop.count) tags.push({ label: kindTop.label, note: pct(kindTop.share) });
     const peak = [...a.decades].sort((x, y) => y.count - x.count)[0];
     if (peak && peak.count) tags.push({ label: peak.label, note: pct(peak.share) });
     const featured = a.genres.filter((g) => g.count >= minC).sort((x, y) => y.lift - x.lift || y.count - x.count);
