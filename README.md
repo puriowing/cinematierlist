@@ -20,6 +20,15 @@ python3 server.py
 
 サーバーは既定で**同じネットワーク内の他端末からも到達可能**（`0.0.0.0` で待受け）です。起動すると、このMacのURL・自宅Wi-Fi内URL・（Tailscale導入時は）外出先用の案内が表示されます。ローカル専用に戻したい場合は `HOST=127.0.0.1 python3 server.py` としてください。
 
+### 音楽版を起動する（ローカル）
+
+同じサーバーを `TIARI_SITE=music` で起動すると音楽版になります。データは `data-music/` に分けて保存されます（`.gitignore` 登録済み）。
+
+```bash
+TIARI_SITE=music TIARI_DATA_DIR=./data-music python3 server.py 8001
+# ブラウザで http://localhost:8001 を開く
+```
+
 ### スマホで使う（自宅Wi-Fi内 / 外出先）
 
 映画の検索・ポスター取得はMac上の `server.py` が担うため、スマホからはその**サーバーに届く経路**が必要です。
