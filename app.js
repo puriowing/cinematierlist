@@ -319,6 +319,12 @@
   function saveState() {
     let serialized = "{}";
     try {
+      // 中身が変わったときだけ更新日時を進める（同期で「変更なし」を見分けるため）
+      if (!applyingRemote) {
+        const sig = syncSig(state);
+        if (lastLocalSig !== null && sig !== lastLocalSig) state.updatedAt = Date.now();
+        lastLocalSig = sig;
+      }
       serialized = JSON.stringify(state);
       saveMain(serialized);
     } catch (e) {
@@ -954,7 +960,7 @@
     const started = Date.now();
     try {
       const cur = ([...document.scripts].map((x) => x.src).find((u) => /app\.js\?v=/.test(u)) || "").split("v=")[1];
-      const html = await (await fetch("./?check=" + Date.now(), { cache: "no-store" })).text();
+      const html = await (await fetch("./", { cache: "no-cache" })).text();
       const m = html.match(/app\.js\?v=([^"']+)/);
       if (cur && m && m[1] !== cur) {
         try { sessionStorage.setItem("tiari-fadein", "1"); } catch (e) {}
@@ -1405,6 +1411,15 @@
   let currentUser = null;
   let applyingRemote = false; // リモート反映中はサーバーへ即プッシュしない
   let pushTimer = null;
+  let lastLocalSig = null;   // 前回保存時の中身（更新日時を除く）
+  let lastSyncedSig = null;  // サーバーと一致していると分かっている中身
+  let syncReady = false;     // 起動後の最初の照合が済むまでは自動送信しない
+
+  function syncSig(obj) {
+    const u = obj.updatedAt;
+    obj.updatedAt = 0;
+    try { return JSON.stringify(obj); } finally { obj.updatedAt = u; }
+  }
 
   async function apiJSON(path, opts) {
     const res = await fetch(path, Object.assign(
@@ -1436,18 +1451,25 @@
 
   // サーバーの保存内容とローカルを比較し、新しい方を採用する
   async function pullFromServer() {
-    const { ok, data } = await apiJSON("/api/list");
+    const since = Number(state.updatedAt || 0);
+    const { ok, data } = await apiJSON("/api/list" + (since ? "?since=" + since : ""));
     if (!ok) return false;
+    syncReady = true;
+    if (data.same) {
+      lastSyncedSig = syncSig(state);
+      return false;
+    }
     const remote = data.list;
     const localUpdated = Number(state.updatedAt || 0);
     const remoteUpdated = Number((remote && remote.updatedAt) || 0);
     const remoteValid = remote && Array.isArray(remote.tiers);
     if (remoteValid && (remoteUpdated >= localUpdated || totalMovies(state) === 0)) {
       applyRemoteState(remote);
+      lastSyncedSig = lastLocalSig = syncSig(state);
       return true;
     }
     // サーバーが空、またはローカルの方が新しい → ローカルをアップロード
-    await pushToServer();
+    await pushToServer(true);
     return false;
   }
 
@@ -1482,9 +1504,11 @@
     pushTimer = setTimeout(() => { pushToServer(); }, 1500);
   }
 
-  async function pushToServer() {
-    if (!currentUser) return;
-    state.updatedAt = Date.now();
+  async function pushToServer(force) {
+    if (!currentUser || (!syncReady && !force)) return;
+    const sig = syncSig(state);
+    if (sig === lastSyncedSig) { setAuthSyncStatus("synced"); return; }
+    if (!state.updatedAt) state.updatedAt = Date.now();
     try {
       const res = await fetch("/api/list", {
         method: "POST",
@@ -1492,6 +1516,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state),
       });
+      if (res.ok) lastSyncedSig = sig;
       setAuthSyncStatus(res.ok ? "synced" : "error");
     } catch (e) {
       setAuthSyncStatus("offline");
@@ -6659,6 +6684,8 @@
 
   // ポスターが無い作品を、追加・読み込みのたびに自動でバックグラウンド補完する。
   const posterAttempted = new Set(); // 一度試した作品は再試行しない（無限ループ防止）
+  const POSTER_RETRY_MS = 30 * 24 * 3600 * 1000; // 見つからなかった作品は30日は探し直さない
+  const bgFailed = new Set(); // 裏の自動取得でサーバーが失敗した作品（この起動中は再要求しない）
   let autoFillRunning = false;
   let autoFillDisabled = false;    // サーバー無しなど、補完不能なら停止
   let autoFillTimer = null;
@@ -6672,7 +6699,8 @@
   async function autoFillPosters() {
     if (autoFillRunning || autoFillDisabled) return;
     const targets = enrichPool().filter(
-      (m) => !m.media && ((!m.poster || !String(m.poster).trim()) || hasLegacyPoster(m)) && !posterAttempted.has(m.id)
+      (m) => !m.media && ((!m.poster || !String(m.poster).trim()) || hasLegacyPoster(m)) && !posterAttempted.has(m.id) &&
+        !(m.posterTriedAt && Date.now() - m.posterTriedAt < POSTER_RETRY_MS && !hasLegacyPoster(m))
     );
     if (!targets.length) return;
 
@@ -6701,6 +6729,9 @@
           if (!m.year && found.year) m.year = found.year;
           if (!m.filmarksId && found.filmarksId) m.filmarksId = found.filmarksId;
           if (legacy) replaced++; else filled++;
+        } else if (!legacy) {
+          m.posterTriedAt = Date.now();
+          legacyTouched = true;
         }
       }
     } finally {
@@ -6742,7 +6773,7 @@
 
   async function enrichGenres() {
     if (genreFixRunning || genreFixDisabled) return;
-    const targets = enrichPool().filter((m) => m.genreCheckedV !== GENRE_FIX_VERSION && !m.media);
+    const targets = enrichPool().filter((m) => m.genreCheckedV !== GENRE_FIX_VERSION && !m.media && !bgFailed.has("g" + m.id));
     if (!targets.length) return;
 
     genreFixRunning = true;
@@ -6760,8 +6791,8 @@
           genreFixDisabled = true; // サーバー未起動：このセッションは停止（次回再試行）
           break;
         }
-        // サーバーの一時エラー(5xx等)はこのチャンクを確定させず、次回に再試行させる
-        if (!res.ok) continue;
+        // サーバーの一時エラー(5xx等)はこのチャンクを確定させず、次回の起動時に再試行させる
+        if (!res.ok) { chunk.forEach((m) => bgFailed.add("g" + m.id)); continue; }
         const data = await res.json();
         const map = data.results || {};
         chunk.forEach((m) => {
@@ -6837,7 +6868,7 @@
         if (onDown) onDown();
         break;
       }
-      if (!res.ok) continue; // 一時エラーは確定させず次回再試行
+      if (!res.ok) { chunk.forEach((m) => bgFailed.add("k" + m.id)); continue; } // 一時エラーは確定させず次回の起動時に再試行
       const data = await res.json();
       chunk.forEach((m) => {
         applyCredit(m, (data.results || {})[idOf(m)]);
@@ -6873,8 +6904,8 @@
     const pool = enrichPool();
     // ID を一切持たない旧データ（公開年・コレクション・賞などから追加）は、
     // Filmarks タイトル検索で filmarksId を解決してから詳細を取得する。
-    const noId = pool.filter((m) => needs(m) && !m.filmarksId && !m.kindIdTried);
-    const hasId = pool.filter((m) => needs(m) && m.filmarksId);
+    const noId = pool.filter((m) => needs(m) && !m.filmarksId && !m.kindIdTried && !bgFailed.has("k" + m.id));
+    const hasId = pool.filter((m) => needs(m) && m.filmarksId && !bgFailed.has("k" + m.id));
     if (!noId.length && !hasId.length) return;
 
     kindEnrichRunning = true;
@@ -6888,6 +6919,7 @@
           results = await searchFilmarks(m.title);
         } catch (e) {
           if (e.message === "NO_SERVER") { kindEnrichDisabled = true; break; }
+          bgFailed.add("k" + m.id);
           continue;
         }
         const hit = pickFilmarksIdMatch(results, m.title, m.year);
@@ -6906,7 +6938,7 @@
       if (kindEnrichDisabled) return;
 
       // 2) filmarksId 経由で監督・出演・種別・公開年・ジャンルを取得
-      const fmTargets = enrichPool().filter((m) => needs(m) && m.filmarksId);
+      const fmTargets = enrichPool().filter((m) => needs(m) && m.filmarksId && !bgFailed.has("k" + m.id));
       changed += await fetchCreditsBatch(
         fmTargets, (m) => m.filmarksId, "/api/filmarks/details",
         () => { kindEnrichDisabled = true; });

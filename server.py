@@ -143,6 +143,14 @@ def _throttle(host):
         _last_req[host] = time.time()
 
 
+def _read_resp(resp):
+    """gzip で返ってきた本文も展開して返す（取得時の通信量を約1/6にするため gzip を要求している）。"""
+    data = resp.read()
+    if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
+        data = gzip.decompress(data)
+    return data
+
+
 def _fetch(url, use_cache=True):
     cached = _cache_read(url) if use_cache else None
     if cached is not None:
@@ -150,9 +158,9 @@ def _fetch(url, use_cache=True):
     host = urllib.parse.urlparse(url).netloc
     with _fetch_sem:                 # 同時実行数を制限
         _throttle(host)             # 最小間隔を確保
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Encoding": "gzip"})
         with urllib.request.urlopen(req, timeout=10) as resp:
-            text = resp.read().decode("utf-8", errors="replace")
+            text = _read_resp(resp).decode("utf-8", errors="replace")
     if use_cache:
         _cache_write(url, text)
     return text
@@ -973,9 +981,9 @@ def justwatch_watch(title, year=""):
         _throttle("apis.justwatch.com")
         req = urllib.request.Request(
             JW_GQL, data=body,
-            headers={"User-Agent": UA, "Content-Type": "application/json"})
+            headers={"User-Agent": UA, "Content-Type": "application/json", "Accept-Encoding": "gzip"})
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8", "replace"))
+            data = json.loads(_read_resp(resp).decode("utf-8", "replace"))
     edges = ((((data or {}).get("data") or {}).get("popularTitles") or {})
              .get("edges") or [])
     # タイトル（＋製作年）で最有力候補を選ぶ（誤マッチ防止に閾値を設ける）
@@ -1193,13 +1201,16 @@ ADMIN_USERS = {x.strip().lower() for x in os.environ.get("ADMIN_USERS", "").spli
 _remote_sha = {}
 _remote_pending = set()
 _remote_cv = threading.Condition()
+_remote_last_queued = [0.0]
+REMOTE_QUIET = float(os.environ.get("REMOTE_QUIET", "20"))
+REMOTE_MAX_WAIT = float(os.environ.get("REMOTE_MAX_WAIT", "120"))
 
 
 def _gh(method, relpath, body=None, raw=False):
     url = f"{os.environ.get('GITHUB_API', 'https://api.github.com')}/repos/{DATA_REPO}/contents/{urllib.parse.quote(relpath)}"
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}",
                "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json",
-               "User-Agent": "cinema-tier-list"}
+               "User-Agent": "cinema-tier-list", "Accept-Encoding": "gzip"}
     data = None
     if body is not None:
         data = json.dumps(body).encode("utf-8")
@@ -1207,7 +1218,7 @@ def _gh(method, relpath, body=None, raw=False):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            out = resp.read()
+            out = _read_resp(resp)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
@@ -1218,15 +1229,15 @@ def _gh(method, relpath, body=None, raw=False):
 def _remote_restore():
     """起動時に GitHub から users.json と lists/*.json を取り込む。"""
     _ensure_data_dirs()
-    targets = ["users.json"]
-    for d in ("lists", "challenges"):
-        listing = _gh("GET", d) or []
-        targets += [f"{d}/{x['name']}" for x in listing if x.get("name", "").endswith(".json")]
-    for rel in targets:
-        meta = _gh("GET", rel)
-        if not meta:
-            continue
-        _remote_sha[rel] = meta.get("sha")
+    # 一覧に sha が含まれるので、各ファイルは本文を1回だけ取得する
+    targets = {}
+    for d in ("", "lists", "challenges"):
+        for x in (_gh("GET", d) or []):
+            rel = f"{d}/{x.get('name', '')}" if d else x.get("name", "")
+            if x.get("type") == "file" and rel.endswith(".json") and (d or rel == "users.json"):
+                targets[rel] = x.get("sha")
+    for rel, sha in targets.items():
+        _remote_sha[rel] = sha
         raw = _gh("GET", rel, raw=True)
         if raw is not None:
             with open(os.path.join(DATA_DIR, rel), "wb") as f:
@@ -1240,6 +1251,7 @@ def _remote_queue(path):
     rel = os.path.relpath(path, DATA_DIR).replace(os.sep, "/")
     with _remote_cv:
         _remote_pending.add(rel)
+        _remote_last_queued[0] = time.time()
         _remote_cv.notify()
 
 
@@ -1265,18 +1277,28 @@ def _remote_worker():
         with _remote_cv:
             while not _remote_pending:
                 _remote_cv.wait()
-        time.sleep(5)  # 連続保存をまとめる
-        with _remote_cv:
-            batch = list(_remote_pending)
-            _remote_pending.clear()
-        for rel in batch:
-            try:
-                _remote_upload(rel)
-            except Exception as exc:  # noqa: BLE001
-                print(f"GitHub への保存に失敗: {rel}: {exc}", file=sys.stderr)
-                with _remote_cv:
-                    _remote_pending.add(rel)
-                time.sleep(10)
+        # 連続保存をまとめる：保存が REMOTE_QUIET 秒止まるまで待つ（最長 REMOTE_MAX_WAIT 秒）
+        start = time.time()
+        while True:
+            seen = _remote_last_queued[0]
+            time.sleep(REMOTE_QUIET)
+            if _remote_last_queued[0] == seen or time.time() - start >= REMOTE_MAX_WAIT:
+                break
+        _remote_flush()
+
+
+def _remote_flush():
+    with _remote_cv:
+        batch = list(_remote_pending)
+        _remote_pending.clear()
+    for rel in batch:
+        try:
+            _remote_upload(rel)
+        except Exception as exc:  # noqa: BLE001
+            print(f"GitHub への保存に失敗: {rel}: {exc}", file=sys.stderr)
+            with _remote_cv:
+                _remote_pending.add(rel)
+            time.sleep(10)
 
 
 def _get_secret():
@@ -1426,13 +1448,22 @@ def _load_list(uid):
         return None
 
 
+def _same_list(a, b):
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return False
+    return {k: v for k, v in a.items() if k != "updatedAt"} == {k: v for k, v in b.items() if k != "updatedAt"}
+
+
 def _save_list(uid, obj):
     _ensure_data_dirs()
+    unchanged = _same_list(_load_list(uid), obj)
     tmp = _list_path(uid) + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False)
     os.replace(tmp, _list_path(uid))
-    _remote_queue(_list_path(uid))
+    # 中身が同じ（更新日時だけ違う）なら GitHub へは送らない
+    if not unchanged:
+        _remote_queue(_list_path(uid))
 
 
 # -----------------------------------------------------------------------
@@ -2188,6 +2219,21 @@ def _entry_ratings(raw, keys):
     return {k: round(v, 4) for k, v in r.items() if k in keys}
 
 
+def _api_ttl(path):
+    """外部サイトから集めた公開データの API は、ブラウザに再利用させる（秒）。"""
+    if path.startswith("/api/itunes/"):
+        return 24 * 3600
+    if path in ("/api/watch", "/api/filmarks/coming", "/api/filmarks/series_coming"):
+        return 3 * 3600
+    if not path.startswith("/api/filmarks/"):
+        return 0
+    if path.endswith("/search"):
+        return 3600
+    if path in ("/api/filmarks/details", "/api/filmarks/movie_genres", "/api/filmarks/person/movies"):
+        return 7 * 24 * 3600
+    return 24 * 3600
+
+
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         # 検索リクエストのみ簡潔にログ出力
@@ -2214,6 +2260,9 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
+        ttl = _api_ttl(urllib.parse.urlparse(self.path).path) if status == 200 and self.command == "GET" else 0
+        if ttl:
+            self.send_header("Cache-Control", f"public, max-age={ttl}")
         self._write_body(body)
 
     def _send_private_json(self, obj, status=200, cookies=None):
@@ -2395,6 +2444,10 @@ class Handler(SimpleHTTPRequestHandler):
             return
         with _data_lock:
             obj = _load_list(uid)
+        since = (urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("since") or [""])[0]
+        if since and isinstance(obj, dict) and str(obj.get("updatedAt") or "") == since:
+            self._send_private_json({"same": True})
+            return
         self._send_private_json({"list": obj})
 
     def _h_save_list(self):
@@ -3270,10 +3323,18 @@ def _print_startup():
     sys.stdout.flush()
 
 
+def _on_sigterm(signum, frame):
+    if REMOTE_ON:
+        _remote_flush()
+    sys.exit(0)
+
+
 def main():
     if REMOTE_ON:
         _remote_restore()
         threading.Thread(target=_remote_worker, daemon=True).start()
+    import signal
+    signal.signal(signal.SIGTERM, _on_sigterm)
     try:
         server = ThreadingHTTPServer((HOST, PORT), Handler)
     except OSError as e:

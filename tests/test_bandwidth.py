@@ -83,6 +83,32 @@ class BandwidthTest(unittest.TestCase):
         self.assertIsNone(h["Content-Encoding"])
         self.assertEqual(json.loads(body), big)
 
+    def test_public_api_cache_header(self):
+        orig = server.filmarks_search
+        self.addCleanup(setattr, server, "filmarks_search", orig)
+        server.filmarks_search = lambda q: [{"id": "1", "title": q}]
+        st, h, _ = self.req("/api/filmarks/search?q=x")
+        self.assertEqual(st, 200)
+        self.assertEqual(h["Cache-Control"], "public, max-age=3600")
+        st, h, _ = self.req("/api/filmarks/search?q=")
+        self.assertEqual(st, 400)
+        self.assertIsNone(h["Cache-Control"])
+
+    def test_list_since_same(self):
+        r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/auth/register", method="POST",
+                                   data=json.dumps({"username": "bwsince", "password": os.urandom(8).hex()}).encode(),
+                                   headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(r) as res:
+            cookie = res.headers["Set-Cookie"].split(";", 1)[0]
+        body = json.dumps({"tiers": [], "updatedAt": 123}).encode()
+        r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/list", method="POST", data=body,
+                                   headers={"Content-Type": "application/json", "Cookie": cookie})
+        urllib.request.urlopen(r).read()
+        _, _, b = self.req("/api/list?since=123", {"Cookie": cookie})
+        self.assertEqual(json.loads(b), {"same": True})
+        _, _, b = self.req("/api/list?since=100", {"Cookie": cookie})
+        self.assertEqual(json.loads(b)["list"]["updatedAt"], 123)
+
     def test_api_img_proxy(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(setattr, server, "CACHE_DIR", server.CACHE_DIR)
@@ -109,6 +135,62 @@ class BandwidthTest(unittest.TestCase):
         self.assertEqual(h["Access-Control-Allow-Origin"], "*")
         self.assertEqual(calls, [u])
         self.assertEqual(self.req("/api/img?u=ftp%3A%2F%2Fx")[0], 400)
+
+
+class ServerFetchTest(unittest.TestCase):
+    def test_fetch_requests_and_decodes_gzip(self):
+        seen = {}
+
+        class Res(io.BytesIO):
+            headers = {"Content-Encoding": "gzip"}
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        def fake(req, timeout=None):
+            seen["ae"] = req.get_header("Accept-encoding")
+            return Res(gzip.compress("<html>映画</html>".encode()))
+        orig = urllib.request.urlopen
+        urllib.request.urlopen = fake
+        self.addCleanup(setattr, urllib.request, "urlopen", orig)
+        self.assertEqual(server._fetch("https://filmarks.com/x", use_cache=False), "<html>映画</html>")
+        self.assertEqual(seen["ae"], "gzip")
+
+    def test_remote_restore_downloads_each_file_once(self):
+        calls = []
+        listings = {"": [{"type": "file", "name": "users.json", "sha": "u1"}, {"type": "dir", "name": "lists"},
+                         {"type": "file", "name": "README.md", "sha": "r"}],
+                    "lists": [{"type": "file", "name": "a.json", "sha": "a1"}], "challenges": []}
+        def fake_gh(method, rel, body=None, raw=False):
+            calls.append((rel, raw))
+            return b"{}" if raw else listings.get(rel)
+        orig = server._gh
+        server._gh = fake_gh
+        self.addCleanup(setattr, server, "_gh", orig)
+        server._remote_restore()
+        self.assertEqual(sorted(r for r, raw in calls if raw), ["lists/a.json", "users.json"])
+        self.assertEqual(len([1 for _, raw in calls if not raw]), 3)
+        self.assertEqual(server._remote_sha["lists/a.json"], "a1")
+
+    def test_api_ttl(self):
+        self.assertEqual(server._api_ttl("/api/filmarks/search"), 3600)
+        self.assertEqual(server._api_ttl("/api/filmarks/details"), 7 * 24 * 3600)
+        self.assertEqual(server._api_ttl("/api/filmarks/release_year"), 24 * 3600)
+        self.assertEqual(server._api_ttl("/api/watch"), 3 * 3600)
+        self.assertEqual(server._api_ttl("/api/list"), 0)
+        self.assertEqual(server._api_ttl("/api/community/top"), 0)
+
+    def test_save_list_skips_remote_when_only_updated_changes(self):
+        queued = []
+        orig = server._remote_queue
+        server._remote_queue = lambda path: queued.append(path)
+        self.addCleanup(setattr, server, "_remote_queue", orig)
+        uid = "bwtest-skip"
+        server._save_list(uid, {"tiers": [{"id": "s", "items": [1]}], "updatedAt": 1})
+        server._save_list(uid, {"tiers": [{"id": "s", "items": [1]}], "updatedAt": 2})
+        self.assertEqual(len(queued), 1)
+        server._save_list(uid, {"tiers": [{"id": "s", "items": [1, 2]}], "updatedAt": 3})
+        self.assertEqual(len(queued), 2)
+        self.assertEqual(server._load_list(uid)["updatedAt"], 3)
 
 
 if __name__ == "__main__":
