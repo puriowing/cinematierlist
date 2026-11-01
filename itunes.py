@@ -80,15 +80,31 @@ def _edition_level(t):
     return 1 if not _EDITION.search(re.sub(r"\bremaster(?:ed)?\b(?:\s*\d{4})?", "", t)) else 2
 
 
-def _album_rank(r):
+def span_compilations(results):
+    """手元の曲データで、同じアルバムの曲の発売日が大きく離れていればベスト盤とみなす（「アンコール」「1」など名前で分からないもの）。
+    3年超の開きで3曲以上、または6年超の開きで2曲以上。"""
+    dates = {}
+    for r in results:
+        cid, d = r.get("collectionId"), (r.get("releaseDate") or "")[:10]
+        if cid and len(d) == 10 and d[:4].isdigit() and r.get("wrapperType") == "track":
+            dates.setdefault(cid, []).append(d)
+    return {cid for cid, ds in dates.items() if _span_over(min(ds), max(ds), len(ds))}
+
+
+def _span_over(lo, hi, n):
+    y, md = int(hi[:4]) - int(lo[:4]), hi[5:] > lo[5:]
+    return (n >= 3 and (y > 3 or (y == 3 and md))) or (n >= 2 and (y > 6 or (y == 6 and md)))
+
+
+def _album_rank(r, comps=()):
     t = _album_text(r.get("collectionName"))
-    return (is_compilation(r), bool(_SECONDARY.search(t)), _edition_level(t))
+    return (is_compilation(r) or r.get("collectionId") in comps, bool(_SECONDARY.search(t)), _edition_level(t))
 
 
-def _pick_rank(r):
+def _pick_rank(r, comps=()):
     """同じ曲が複数あるとき：オリジナルアルバム → エディション違いでない → 発売が早い → 曲数が少ない → 曲名に表記違いがない → ID が小さい。"""
     name = r.get("trackName") or ""
-    return _album_rank(r) + ((r.get("releaseDate") or "9999"), r.get("trackCount") or 9999,
+    return _album_rank(r, comps) + ((r.get("releaseDate") or "9999"), r.get("trackCount") or 9999,
                              song_title_norm(name) != _norm(name), r.get("collectionId") or 0)
 
 
@@ -100,7 +116,7 @@ def _song_artist(r):
 
 def _songs(results):
     """同じ曲（アーティスト＋曲名が同じ）は、ベスト盤より元のアルバムを優先して1つだけ残す。"""
-    best, order = {}, []
+    best, order, comps = {}, [], span_compilations(results)
     for r in results:
         if r.get("wrapperType") != "track" or r.get("kind") != "song" or not r.get("trackId"):
             continue
@@ -108,7 +124,7 @@ def _songs(results):
         if k not in best:
             order.append(k)
             best[k] = r
-        elif _pick_rank(r) < _pick_rank(best[k]):
+        elif _pick_rank(r, comps) < _pick_rank(best[k], comps):
             best[k] = r
     return [_song(best[k]) for k in order]
 
@@ -117,11 +133,11 @@ def search_songs(q, limit=30):
     return _songs(fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"])
 
 
-def _albums(rows, cap):
+def _albums(rows, cap, comps=()):
     """ベスト盤・コンピは除き、エディション違いは1つ（無印を優先）にまとめる。rows は表示順。"""
     groups, order = {}, []
     for r in rows:
-        if not r.get("collectionId") or is_compilation(r):
+        if not r.get("collectionId") or is_compilation(r) or r["collectionId"] in comps:
             continue
         k = (_norm(r.get("collectionArtistName") or r.get("artistName")), album_base(r.get("collectionName")))
         if k not in groups:
@@ -160,7 +176,7 @@ def _derive(results):
         if i and len(names) < 2:  # 1曲だけ出てきたアーティスト（カバー等）は2番手以降に出さない
             break
         artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n)))})
-    albums = _albums([albs[c][0] for c in _rank(albs, b_order)], 8)
+    albums = _albums([albs[c][0] for c in _rank(albs, b_order)], 8, span_compilations(tracks))
     return artists, albums
 
 

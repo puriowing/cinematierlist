@@ -237,3 +237,42 @@ class OriginalAlbumTest(unittest.TestCase):
             {"collectionId": 3, "collectionName": "Abbey Road (2019 Mix)", "artistName": "ビートルズ", "trackCount": 17},
             {"collectionId": 2, "collectionName": "Abbey Road (Remastered)", "artistName": "ビートルズ", "trackCount": 19}]}
         self.assertEqual([a["title"] for a in itunes.search_albums("x")], ["Abbey Road (Remastered)"])
+
+
+def _d(tid, title, album, cid, date, count=12):
+    return dict(TRACK, trackId=tid, trackName=title, artistName="バンド", collectionName=album, collectionId=cid,
+                trackCount=count, releaseDate=date + "T00:00:00Z")
+
+
+class SpanCompilationTest(unittest.TestCase):
+    ENCORE = [_d(1, "花束", "アンコール", 9, "2011-04-06", 31), _d(2, "高嶺の花子さん", "アンコール", 9, "2013-06-26", 31),
+              _d(3, "クリスマスソング", "アンコール", 9, "2015-11-18", 31), _d(4, "ハッピーエンド", "アンコール", 9, "2016-11-16", 31)]
+
+    def test_wide_span_is_compilation(self):
+        self.assertEqual(itunes.span_compilations(self.ENCORE), {9})
+
+    def test_normal_album_not_compilation(self):
+        rows = [_d(1, "a", "盤", 5, "2019-02-01"), _d(2, "b", "盤", 5, "2019-12-01"), _d(3, "c", "盤", 5, "2020-01-20")]
+        self.assertEqual(itunes.span_compilations(rows), set())
+
+    def test_thresholds(self):
+        two_wide = [_d(1, "a", "X", 5, "2010-01-01"), _d(2, "b", "X", 5, "2016-06-01")]
+        two_mid = [_d(1, "a", "X", 5, "2010-01-01"), _d(2, "b", "X", 5, "2015-01-01")]
+        three_3y = [_d(1, "a", "X", 5, "2010-01-01"), _d(2, "b", "X", 5, "2011-01-01"), _d(3, "c", "X", 5, "2013-01-01")]
+        self.assertEqual(itunes.span_compilations(two_wide), {5})
+        self.assertEqual(itunes.span_compilations(two_mid), set())
+        self.assertEqual(itunes.span_compilations(three_3y), set())
+
+    def test_dedupe_prefers_original_over_span_best(self):
+        rows = self.ENCORE + [_d(10, "花束", "blues", 20, "2012-03-14", 11), _d(11, "高嶺の花子さん - Single", "高嶺の花子さん - Single", 21, "2013-06-26", 2)]
+        rows[-1]["trackName"] = "高嶺の花子さん"
+        got = {s["title"]: s["album"] for s in itunes._songs(rows)}
+        self.assertEqual(got["花束"], "blues")
+        self.assertEqual(got["高嶺の花子さん"], "高嶺の花子さん - Single")
+        self.assertEqual(got["クリスマスソング"], "アンコール")
+
+    def test_album_section_drops_span_best(self):
+        orig = itunes.fetch_json
+        self.addCleanup(setattr, itunes, "fetch_json", orig)
+        itunes.fetch_json = lambda u: {"results": self.ENCORE + [_d(10, "花束2", "blues", 20, "2012-03-14", 11)]}
+        self.assertEqual([a["title"] for a in itunes.search_all("x")["albums"]], ["blues"])
