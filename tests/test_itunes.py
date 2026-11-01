@@ -276,3 +276,17 @@ class SpanCompilationTest(unittest.TestCase):
         self.addCleanup(setattr, itunes, "fetch_json", orig)
         itunes.fetch_json = lambda u: {"results": self.ENCORE + [_d(10, "花束2", "blues", 20, "2012-03-14", 11)]}
         self.assertEqual([a["title"] for a in itunes.search_all("x")["albums"]], ["blues"])
+
+    def test_span_ignored_for_past_masters_and_editions(self):
+        rows = [_d(1, "Hey Jude", "Past Masters, Vols. 1 & 2", 7, "1968-08-26", 33), _d(2, "Love Me Do", "Past Masters, Vols. 1 & 2", 7, "1962-10-05", 33),
+                _d(3, "Hey Jude", "The Beatles 1967-1970", 8, "1968-08-26", 14),
+                _d(4, "Come Together (2019 Mix)", "Abbey Road (2019 Mix)", 9, "1969-09-26", 17),
+                _d(5, "Something (Demo)", "Abbey Road (2019 Mix)", 9, "2019-09-27", 17)]
+        got = {s["title"]: s["album"] for s in itunes._songs(rows)}
+        self.assertEqual(got["Hey Jude"], "Past Masters, Vols. 1 & 2")
+        self.assertEqual(itunes._album_rank(rows[3], itunes.span_compilations(rows))[0], False)
+
+    def test_original_album_with_old_singles_not_compilation(self):
+        rows = [_d(i, f"新曲{i}", "SOFTLY", 5, "2022-06-22", 15) for i in range(1, 6)] + \
+               [_d(10 + i, f"シングル{i}", "SOFTLY", 5, d, 15) for i, d in enumerate(["2008-03-12", "2013-10-09", "2016-09-14", "2019-11-27"])]
+        self.assertEqual(itunes.span_compilations(rows), set())

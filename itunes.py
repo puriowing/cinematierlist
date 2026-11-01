@@ -88,7 +88,9 @@ def span_compilations(results):
         cid, d = r.get("collectionId"), (r.get("releaseDate") or "")[:10]
         if cid and len(d) == 10 and d[:4].isdigit() and r.get("wrapperType") == "track":
             dates.setdefault(cid, []).append(d)
-    return {cid for cid, ds in dates.items() if _span_over(min(ds), max(ds), len(ds))}
+    # 元のアルバムは新曲が同じ発売日に並ぶ（山下達郎「SOFTLY」）。同じ日付の曲が4割以上ならベスト盤とみなさない
+    return {cid for cid, ds in dates.items()
+            if _span_over(min(ds), max(ds), len(ds)) and (len(ds) < 3 or max(map(ds.count, ds)) < 0.4 * len(ds))}
 
 
 def _span_over(lo, hi, n):
@@ -98,7 +100,10 @@ def _span_over(lo, hi, n):
 
 def _album_rank(r, comps=()):
     t = _album_text(r.get("collectionName"))
-    return (is_compilation(r) or r.get("collectionId") in comps, bool(_SECONDARY.search(t)), _edition_level(t))
+    second, level = bool(_SECONDARY.search(t)), _edition_level(t)
+    # 発売日の開きによる判定は、Past Masters やデラックス盤（ボーナストラックで日付が開く）には使わない
+    spread = r.get("collectionId") in comps and not second and not level
+    return (is_compilation(r) or spread, second, level)
 
 
 def _pick_rank(r, comps=()):
@@ -137,7 +142,7 @@ def _albums(rows, cap, comps=()):
     """ベスト盤・コンピは除き、エディション違いは1つ（無印を優先）にまとめる。rows は表示順。"""
     groups, order = {}, []
     for r in rows:
-        if not r.get("collectionId") or is_compilation(r) or r["collectionId"] in comps:
+        if not r.get("collectionId") or _album_rank(r, comps)[0]:
             continue
         k = (_norm(r.get("collectionArtistName") or r.get("artistName")), album_base(r.get("collectionName")))
         if k not in groups:
