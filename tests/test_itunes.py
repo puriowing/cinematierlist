@@ -47,7 +47,7 @@ class DedupeTest(unittest.TestCase):
         self.assertEqual(out[0]["album"], "シングル")
 
     def test_versions_kept_separately(self):
-        rs = [TRACK, dict(TRACK, trackId=2, trackName="曲A (Live)"), dict(TRACK, trackId=3, trackName="曲A - Remix")]
+        rs = [TRACK, dict(TRACK, trackId=2, trackName="曲A (Cover)"), dict(TRACK, trackId=3, trackName="曲A (Karaoke)")]
         self.assertEqual(len(itunes._songs(rs)), 3)
 
     def test_other_artist_kept(self):
@@ -58,8 +58,7 @@ class RemasterTest(unittest.TestCase):
     SAME = ["曲A", "曲A (2019 Remaster)", "曲A - Remastered 2011", "曲A (リマスター)", "曲A［Remastered］",
             "曲A【リマスター版】", "曲A - 2011 Remastered Version", "曲A (Single Version)", "曲A (シングル・バージョン)",
             "曲A (Album ver.)", "曲A (Mono)", "曲A (Remastered) [Stereo]", "曲A (Original)"]
-    OTHER = ["曲A (Live)", "曲A - Remix", "曲A (Acoustic ver.)", "曲A (Instrumental)", "曲A (Cover)", "曲A (TV size)",
-             "曲A - From THE FIRST TAKE", "曲A (Demo)", "曲A (English ver.)", "曲A (Original Mix)"]
+    OTHER = ["曲A (Cover)", "曲A (カバー)", "曲A (Karaoke)", "曲A (オリジナル・カラオケ)", "曲A (Forever)", "曲A (Alive)", "曲A (Delivery)"]
 
     def test_variants_collapse(self):
         self.assertEqual({itunes.song_title_norm(t) for t in self.SAME}, {"曲a"})
@@ -74,7 +73,7 @@ class RemasterTest(unittest.TestCase):
               dict(TRACK, trackId=1, releaseDate="1985-01-01T00:00:00Z"),
               dict(TRACK, trackId=3, trackName="曲A (Live)")]
         out = itunes._songs(rs)
-        self.assertEqual([(s["itunesId"], s["title"]) for s in out], [("1", "曲A"), ("3", "曲A (Live)")])
+        self.assertEqual([(s["itunesId"], s["title"]) for s in out], [("1", "曲A")])
 
     def test_long_title_fast(self):
         import time
@@ -152,8 +151,39 @@ class VersionTagParityTest(unittest.TestCase):
         for t in ["曲A (2019 Mix)", "曲A - 2021 Mix", "曲A (Mono Mix)", "曲A (Stereo Mix)", "曲A (2009 - Remaster)",
                   "曲A (2009 Digital Remaster)", "曲A (Mono;2009 Digital Remaster)", "曲A (2018ステレオ・ミックス)"]:
             self.assertEqual(itunes.song_title_norm(t), "曲a", t)
-        for t in ["曲A (2019 Remix)", "曲A (Original Mix)", "曲A (Live)"]:
+        for t in ["曲A (Cover)", "曲A (Karaoke)"]:
             self.assertNotEqual(itunes.song_title_norm(t), "曲a", t)
+
+    def test_live_acoustic_etc_collapse(self):
+        for t in ["曲A (Live)", "曲A - Live at Budokan 2019", "曲A (Live at 日本武道館)", "曲A (ライブ)", "曲A (Acoustic ver.)",
+                  "曲A (アコースティック・ライブ・バージョン)", "曲A (Instrumental)", "曲A (Inst.)", "曲A (インストゥルメンタル)",
+                  "曲A (TV size)", "曲A (TVサイズ)", "曲A - From THE FIRST TAKE", "曲A (Demo)", "曲A (デモ)",
+                  "曲A (English ver.)", "曲A (イングリッシュ・バージョン)", "曲A (英語版)", "曲A (Live Remix)"]:
+            self.assertEqual(itunes.song_title_norm(t), "曲a", t)
+            self.assertTrue(itunes.is_variant(t), t)
+
+    def test_cover_by_other_artist_stays_separate(self):
+        rows = [TRACK, dict(TRACK, trackId=2, artistName="別の歌手", trackName="曲A"), dict(TRACK, trackId=3, trackName="曲A - From THE FIRST TAKE")]
+        self.assertEqual([(s["artist"], s["title"]) for s in itunes._songs(rows)], [("歌手", "曲A"), ("別の歌手", "曲A")])
+
+    def test_remix_edit_version_collapse(self):
+        for t in ["曲A (Tofubeats Remix)", "曲A - 2015 Remix", "曲A (Remixed)", "曲A (リミックス)", "曲A (Extended Mix)",
+                  "曲A - Club Mix", "曲A (Radio Mix)", "曲A (Original Mix)", "曲A (Radio Edit)", "曲A (Single Edit)",
+                  "曲A (Edit)", "曲A (Taylor's Version)", "曲A (Re-Recorded)", "曲A (2019 Remix)"]:
+            self.assertEqual(itunes.song_title_norm(t), "曲a", t)
+            self.assertTrue(itunes.is_variant(t), t)
+        self.assertFalse(itunes.is_variant("曲A (2009 - Remaster)"))
+        self.assertFalse(itunes.is_variant("曲A"))
+
+    def test_plain_preferred_over_remix_then_album_rules(self):
+        rows = [dict(TRACK, trackId=1, trackName="曲A (Tofubeats Remix)", collectionName="曲A (Remixes) - EP", releaseDate="2010-01-01T00:00:00Z"),
+                dict(TRACK, trackId=2, trackName="曲A", collectionName="BEST", releaseDate="2012-01-01T00:00:00Z"),
+                dict(TRACK, trackId=3, trackName="曲A", collectionName="アルバム", releaseDate="2011-01-01T00:00:00Z")]
+        self.assertEqual([(s["title"], s["album"]) for s in itunes._songs(rows)], [("曲A", "アルバム")])
+
+    def test_remix_only_shown_as_is(self):
+        rows = [dict(TRACK, trackId=1, trackName="曲B (Club Mix)")]
+        self.assertEqual([s["title"] for s in itunes._songs(rows)], ["曲B (Club Mix)"])
 
 
 def _b(tid, title, album, cid, count, comp_artist=None, date="1965-08-06T07:00:00Z"):

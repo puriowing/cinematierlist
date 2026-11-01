@@ -2366,9 +2366,9 @@
   const KEY_STRIP = /[\s・:：\-－—―~〜!！?？'"“”‘’「」『』()（）\[\]【】.,、。]/g;
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
-  // itunes.py の _TAG と同じ（tests で一致を確認）。リマスター・ミックス違いだけを同じ曲として扱う
+  // itunes.py の _TAG と同じ（tests で一致を確認）。リマスター・リミックス・Live・〜Version 等の違いは同じ曲（Cover・カラオケは別）
   const VERSION_TAG_W = "(?:(?:(?:mono|stereo)\\s*[;/]\\s*)?(?:\\d{4}\\s*(?:-\\s*)?)?(?:digital\\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
-    "|(?:single|album|シングル|アルバム)[\\s・]*(?:version|ver\\.?|バージョン)|(?:\\d{4}\\s*)?(?:mono|stereo|ステレオ|モノラル|モノ)[\\s・]*(?:mix|ミックス)|\\d{4}\\s*(?:mix|ミックス)|mono|stereo|original|オリジナル)";
+    "|mono|stereo|original|オリジナル|(?![^()\\[\\]【】]*(?:cover|カバー|karaoke|カラオケ))(?:[^()\\[\\]【】]*(?:remix(?:ed)?|リミックス|ミックス|バージョン)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:mix|edit|version|ver\\.?)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:live|acoustic|instrumental|inst\\.?|demo|first\\s*take|tv\\s*size)(?![a-z])[^()\\[\\]【】]*|[^()\\[\\]【】]*(?:ライブ|ライヴ|アコースティック|インスト|デモ|tv\\s*サイズ|テレビサイズ|英語)[^()\\[\\]【】]*|re-?recorded))";
   const VERSION_TAG = new RegExp("(?:\\s*\\(\\s*" + VERSION_TAG_W + "\\s*\\)|\\s*\\[\\s*" + VERSION_TAG_W + "\\s*\\]|\\s*【\\s*" +
     VERSION_TAG_W + "\\s*】|\\s+-\\s+" + VERSION_TAG_W + ")+$");
 

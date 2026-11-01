@@ -26,11 +26,26 @@ def _song(r):
 _KEY_STRIP = re.compile(r"[\s・:：\-－—―~〜!！?？'\"“”‘’「」『』()（）\[\]【】.,、。]")
 
 
-# app.js の VERSION_TAG_W と同じ（tests で一致を確認）。リマスター・ミックス違いだけを同じ曲として扱う（Live・Remix などは別の曲）
-_TAG = (r"(?:(?:(?:mono|stereo)\s*[;/]\s*)?(?:\d{4}\s*(?:-\s*)?)?(?:digital\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
-        r"|(?:single|album|シングル|アルバム)[\s・]*(?:version|ver\.?|バージョン)"
-        r"|(?:\d{4}\s*)?(?:mono|stereo|ステレオ|モノラル|モノ)[\s・]*(?:mix|ミックス)|\d{4}\s*(?:mix|ミックス)|mono|stereo|original|オリジナル)")
-VERSION_TAG = re.compile(r"(?:\s*\(\s*" + _TAG + r"\s*\)|\s*\[\s*" + _TAG + r"\s*\]|\s*【\s*" + _TAG + r"\s*】|\s+-\s+" + _TAG + r")+$")
+# app.js の VERSION_TAG_W と同じ（tests で一致を確認）。リマスター・リミックス・Edit・〜Version・Live・Acoustic・
+# Instrumental・TV size・FIRST TAKE・Demo・English ver. などの違いは同じ曲として扱う。Cover・カラオケは別の曲のまま
+_C = r"[^()\[\]【】]"
+_TAG_BASE = (r"(?:(?:mono|stereo)\s*[;/]\s*)?(?:\d{4}\s*(?:-\s*)?)?(?:digital\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
+             r"|mono|stereo|original|オリジナル")
+_TAG_VARIANT = (r"(?!" + _C + r"*(?:cover|カバー|karaoke|カラオケ))"
+                r"(?:" + _C + r"*(?:remix(?:ed)?|リミックス|ミックス|バージョン)"
+                r"|(?:" + _C + r"*[^a-z()\[\]【】])?(?:mix|edit|version|ver\.?)"
+                r"|(?:" + _C + r"*[^a-z()\[\]【】])?(?:live|acoustic|instrumental|inst\.?|demo|first\s*take|tv\s*size)(?![a-z])" + _C + r"*"
+                r"|" + _C + r"*(?:ライブ|ライヴ|アコースティック|インスト|デモ|tv\s*サイズ|テレビサイズ|英語)" + _C + r"*"
+                r"|re-?recorded)")
+_TAG = "(?:" + _TAG_BASE + "|" + _TAG_VARIANT + ")"
+
+
+def _tag_re(tag):
+    return re.compile(r"(?:\s*\(\s*" + tag + r"\s*\)|\s*\[\s*" + tag + r"\s*\]|\s*【\s*" + tag + r"\s*】|\s+-\s+" + tag + r")+$")
+
+
+VERSION_TAG = _tag_re(_TAG)
+_BASE_TAG = _tag_re("(?:" + _TAG_BASE + ")")
 
 
 def _norm(v):
@@ -40,6 +55,12 @@ def _norm(v):
 def song_title_norm(v):
     t = unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower()[:200].strip()
     return _KEY_STRIP.sub("", VERSION_TAG.sub("", t))
+
+
+def is_variant(v):
+    """リミックス・Live・〜Version など、元の曲とは別の仕上げの曲名か（リマスターだけの違いは含めない）。"""
+    t = unicodedata.normalize("NFKC", v if isinstance(v, str) else "").lower()[:200].strip()
+    return VERSION_TAG.sub("", t) != _BASE_TAG.sub("", t)
 
 
 _VARIOUS = {"variousartists", "various", "va", "ヴァリアスアーティスト", "オムニバス"}
@@ -107,9 +128,9 @@ def _album_rank(r, comps=()):
 
 
 def _pick_rank(r, comps=()):
-    """同じ曲が複数あるとき：オリジナルアルバム → エディション違いでない → 発売が早い → 曲数が少ない → 曲名に表記違いがない → ID が小さい。"""
+    """同じ曲が複数あるとき：リミックス等でない → オリジナルアルバム → エディション違いでない → 発売が早い → 曲数が少ない → 曲名に表記違いがない → ID が小さい。"""
     name = r.get("trackName") or ""
-    return _album_rank(r, comps) + ((r.get("releaseDate") or "9999"), r.get("trackCount") or 9999,
+    return (is_variant(name),) + _album_rank(r, comps) + ((r.get("releaseDate") or "9999"), r.get("trackCount") or 9999,
                              song_title_norm(name) != _norm(name), r.get("collectionId") or 0)
 
 
