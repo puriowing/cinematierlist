@@ -116,7 +116,7 @@ class SearchAllTest(unittest.TestCase):
         r = itunes.search_all("q")
         self.assertEqual(len(self.calls), 1)
         self.assertIn("entity=song", self.calls[0])
-        self.assertEqual(r["artists"], [{"id": "10", "name": "歌手A"}, {"id": "20", "name": "歌手B"}])
+        self.assertEqual(r["artists"], [{"id": "20", "name": "歌手B"}, {"id": "10", "name": "歌手A"}])  # 一番上の曲のアーティストが先
         self.assertEqual([a["id"] for a in r["albums"]], ["200", "100", "300", "500"])
         self.assertEqual(r["albums"][0]["title"], "アルバムY")
         self.assertEqual(r["albums"][0]["poster"], "https://x/600x600bb.jpg")
@@ -240,10 +240,10 @@ class OriginalAlbumTest(unittest.TestCase):
 
     def test_compilation_detection(self):
         comp = ["1", "The Beatles 1967-1970 (The Blue Album)", "Greatest Hits", "The Very Best of X", "ベスト・オブ・X",
-                "Anthology 3", "Essentials", "Gold", "シングルズ", "オールタイム・ベスト", "Mr.Children 1992-1995"]
+                "Anthology 3", "Essentials", "シングルズ", "オールタイム・ベスト", "Mr.Children 1992-1995"]
         for t in comp:
             self.assertTrue(itunes.is_compilation({"collectionName": t, "trackCount": 27}), t)
-        for t in ["Rubber Soul", "Help!", "Past Masters, Vols. 1 & 2", "Abbey Road (Remastered)", "Golden Hour", "Single Man"]:
+        for t in ["Rubber Soul", "Help!", "Past Masters, Vols. 1 & 2", "Abbey Road (Remastered)", "Golden Hour", "Single Man", "Gold"]:
             self.assertFalse(itunes.is_compilation({"collectionName": t, "trackCount": 12}), t)
         self.assertFalse(itunes.is_compilation({"collectionName": "25", "trackCount": 11}))
         self.assertTrue(itunes.is_compilation({"collectionName": "X", "artistName": "a", "collectionArtistName": "Various Artists"}))
@@ -333,10 +333,10 @@ class ReviewFixTest(unittest.TestCase):
         self.assertEqual(itunes._song_artist({"artistName": "歌手", "collectionArtistName": "V.A."}), "歌手")
 
     def test_row_falls_back_when_all_filtered(self):
-        rows = [{"collectionId": 1, "collectionName": "Gold", "artistName": "Ryan Adams", "trackCount": 16}]
+        rows = [{"collectionId": 1, "collectionName": "Greatest Hits", "artistName": "Ryan Adams", "trackCount": 16}]
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Greatest Hits"])
+        rows.append({"collectionId": 2, "collectionName": "Gold", "artistName": "Ryan Adams", "trackCount": 15})
         self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Gold"])
-        rows.append({"collectionId": 2, "collectionName": "Heartbreaker", "artistName": "Ryan Adams", "trackCount": 15})
-        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Heartbreaker"])
 
     def test_plain_not_dropped_while_deluxe_remains(self):
         rows = [{"collectionId": 2, "collectionName": "Album (Deluxe Edition)", "artistName": "A", "trackCount": 20},
@@ -361,3 +361,21 @@ class ReviewFixTest(unittest.TestCase):
         rows = [dict(TRACK, trackId=1, artistId=9, artistName="ab"), dict(TRACK, trackId=2, artistId=9, artistName="aa", trackName="x")]
         self.assertEqual(itunes._derive(rows)[0][0]["name"], "aa")
         self.assertEqual(itunes._derive(list(reversed(rows)))[0][0]["name"], "aa")
+
+
+class ArtistRowTest(unittest.TestCase):
+    def test_top_song_artist_beats_cover_artists(self):
+        rows = [_t(1, "優里", 1, "ドライフラワー - Single", 100, name="ドライフラワー")] + \
+               [_t(10 + i, "BGM LAB", 2, f"カバー集{i}", 200 + i, name=f"ドライフラワー ({i})") for i in range(4)] + \
+               [_t(20 + i, "オルゴール", 3, f"箱{i}", 300 + i, name=f"ドライフラワー [{i}]") for i in range(3)]
+        names = [a["name"] for a in itunes._derive(rows, "ドライフラワー")[0]]
+        self.assertEqual(names[0], "優里")
+
+    def test_query_match_first(self):
+        rows = [_t(1, "Other", 2, "盤", 100, name="a"), _t(2, "Other", 2, "盤", 100, name="b"),
+                _t(3, "back number", 1, "盤2", 101, name="c")]
+        self.assertEqual([a["name"] for a in itunes._derive(rows, "back number")[0]][:2], ["back number", "Other"])
+
+    def test_various_still_excluded(self):
+        rows = [_t(1, "Various Artists", 9, "盤", 100, name="a"), _t(2, "歌手", 1, "盤2", 101, name="b")]
+        self.assertEqual([a["name"] for a in itunes._derive(rows, "various")[0]], ["歌手"])

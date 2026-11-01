@@ -67,7 +67,7 @@ _VARIOUS = {"variousartists", "various", "va", "ヴァリアスアーティス�
 
 
 _COMPILATION = re.compile(
-    r"\b(?:best|greatest\s+hits|hits|collection|singles|anthology|essentials?|gold)\b"
+    r"\b(?:best|greatest\s+hits|hits|collection|singles|anthology|essentials?)\b"
     r"|ベスト|傑作|全集|作品集|名曲集|コンプリート|シングルズ|オールタイム|\d{4}\s*[-–—~〜]\s*\d{4}")
 _SECONDARY = re.compile(r"\bpast\s+masters\b|\brarities\b|\bb[\s-]?sides\b|カップリング")
 _EDITION_WORD = r"(?:super\s+)?deluxe|edition|anniversary|expanded|remaster(?:ed)?|\d{4}\s*(?:re)?mix"
@@ -183,7 +183,7 @@ def _rank(groups, order):
     return sorted(order, key=lambda k: (-len(groups[k]), order.index(k)))
 
 
-def _derive(results):
+def _derive(results, q=""):
     tracks = [r for r in results if r.get("wrapperType") == "track" and r.get("kind") == "song"]
     arts, a_order, albs, b_order = {}, [], {}, []
     for r in tracks:
@@ -196,12 +196,17 @@ def _derive(results):
             if cid not in albs:
                 b_order.append(cid)
             albs.setdefault(cid, []).append(r)
+    name_of = {aid: min(set(ns), key=lambda n: (-ns.count(n), len(n), n)) for aid, ns in arts.items()}
+    qn = _norm(q)
+    match = {aid for aid, n in name_of.items() if qn and _norm(n) and (qn in _norm(n) or _norm(n) in qn)}
+    top = a_order[0] if a_order else None  # 一番上の曲のアーティスト
+    # 検索語と名前が一致するアーティスト → 一番上の曲のアーティスト → 曲数の多い順
+    ranked = sorted(a_order, key=lambda a: (a not in match, a != top, -len(arts[a]), a_order.index(a)))
     artists = []
-    for i, aid in enumerate(_rank(arts, a_order)[:3]):
-        names = arts[aid]
-        if i and len(names) < 2:  # 1曲だけ出てきたアーティスト（カバー等）は2番手以降に出さない
+    for aid in ranked[:3]:
+        if artists and aid not in match and aid != top and len(arts[aid]) < 2:  # 1曲だけのアーティスト（カバー等）は2番手以降に出さない
             break
-        artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n), n))})
+        artists.append({"id": str(aid), "name": name_of[aid]})
     # アルバムの年は、手元にある収録曲のうち一番新しい発売日（アルバムはシングルより後に出る）
     rows = [dict(albs[c][0], releaseDate=max(x.get("releaseDate") or "" for x in albs[c])) for c in _rank(albs, b_order)]
     albums = _albums(rows, 8, span_compilations(tracks, min_tracks=3))
@@ -212,7 +217,7 @@ def search_all(q, limit=50):
     """曲検索1回で、曲・アーティスト・アルバムをまとめて返す。何も出ないときだけアルバム検索を1回足す。"""
     rs = fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"]
     songs = _songs(rs)
-    artists, albums = _derive(rs)
+    artists, albums = _derive(rs, q)
     if not songs or (not artists and not albums):
         albums = albums or search_albums(q, limit=8)
     return {"songs": songs, "artists": artists, "albums": albums}
