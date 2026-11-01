@@ -9119,3 +9119,13 @@ img.movie-poster.no-fade { transition: none !important; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ティアを編集：削除は一番下に離して、目立たない文字ボタンに */
+.tier-editor .tier-editor-actions { align-items: center; gap: 8px; }
+.te-move-label { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+.te-danger-zone { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); text-align: center; }
+.te-danger-zone .te-delete {
+  border: none; background: transparent; color: #c0392b; font: inherit; font-size: 13px; font-weight: 700;
+  padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+.te-danger-zone .te-delete:hover { background: color-mix(in srgb, #c0392b 10%, transparent); }

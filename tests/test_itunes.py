@@ -118,7 +118,7 @@ class SearchAllTest(unittest.TestCase):
         self.assertEqual(len(self.calls), 1)
         self.assertIn("entity=song", self.calls[0])
         self.assertEqual(r["artists"], [{"id": "10", "name": "歌手A"}, {"id": "20", "name": "歌手B"}])
-        self.assertEqual([a["id"] for a in r["albums"]], ["200", "100", "300", "400", "500"])
+        self.assertEqual([a["id"] for a in r["albums"]], ["200", "100", "300", "500"])
         self.assertEqual(r["albums"][0]["title"], "アルバムY")
         self.assertEqual(r["albums"][0]["poster"], "https://x/600x600bb.jpg")
         self.assertEqual(len(r["songs"]), 7)
@@ -138,3 +138,98 @@ class SearchAllTest(unittest.TestCase):
         self.assertIn("entity=album", self.calls[1])
         self.assertEqual(r["albums"][0]["id"], "7")
         self.assertEqual(r["artists"], [])
+
+
+class VersionTagParityTest(unittest.TestCase):
+    def test_js_matches_python(self):
+        import json, os, re
+        src = open(os.path.join(os.path.dirname(__file__), "..", "app.js"), encoding="utf-8").read()
+        m = re.search(r'const VERSION_TAG_W = ((?:"(?:[^"\\]|\\.)*"\s*\+?\s*)+);', src)
+        js = "".join(json.loads(p) for p in re.findall(r'"(?:[^"\\]|\\.)*"', m.group(1)))
+        self.assertEqual(js, itunes._TAG)
+
+    def test_mix_tags(self):
+        for t in ["曲A (2019 Mix)", "曲A - 2021 Mix", "曲A (Mono Mix)", "曲A (Stereo Mix)", "曲A (2009 - Remaster)",
+                  "曲A (2009 Digital Remaster)", "曲A (Mono;2009 Digital Remaster)", "曲A (2018ステレオ・ミックス)"]:
+            self.assertEqual(itunes.song_title_norm(t), "曲a", t)
+        for t in ["曲A (2019 Remix)", "曲A (Original Mix)", "曲A (Live)"]:
+            self.assertNotEqual(itunes.song_title_norm(t), "曲a", t)
+
+
+def _b(tid, title, album, cid, count, comp_artist=None, date="1965-08-06T07:00:00Z"):
+    r = dict(TRACK, trackId=tid, trackName=title, artistName="ビートルズ", artistId=1, collectionName=album,
+             collectionId=cid, trackCount=count, releaseDate=date)
+    if comp_artist:
+        r["collectionArtistName"] = comp_artist
+    return r
+
+
+class OriginalAlbumTest(unittest.TestCase):
+    """ベスト盤・エディション違いより元のアルバムを選ぶ（ビートルズの実データに近い形）。"""
+
+    def pick(self, rows):
+        return {s["title"]: s["album"] for s in itunes._songs(rows)}
+
+    def test_help_prefers_original_over_1(self):
+        rows = [_b(1, "Help!", "1", 900, 27), _b(2, "Help! (2009 - Remaster)", "Help!", 500, 14),
+                _b(3, "Help!", "The Beatles 1962-1966 (The Red Album)", 400, 26)]
+        self.assertEqual(list(self.pick(rows).values()), ["Help!"])
+
+    def test_in_my_life_rubber_soul(self):
+        rows = [_b(1, "In My Life", "The Beatles 1962-1966", 400, 26), _b(2, "In My Life", "Rubber Soul", 600, 14),
+                _b(3, "In My Life", "Love Songs (Best)", 300, 25), _b(4, "In My Life", "Now Hits", 200, 40, "Various Artists")]
+        self.assertEqual(self.pick(rows), {"In My Life": "Rubber Soul"})
+
+    def test_hey_jude_past_masters_only_without_original(self):
+        rows = [_b(1, "Hey Jude", "1", 900, 27), _b(2, "Hey Jude (2009 - Remaster)", "The Beatles 1967-1970 (The Blue Album)", 800, 14),
+                _b(3, "Hey Jude (2009 - Remaster)", "Past Masters, Vols. 1 & 2", 700, 15)]
+        self.assertEqual(list(self.pick(rows).values()), ["Past Masters, Vols. 1 & 2"])
+        rows.append(_b(4, "Hey Jude", "Hey Jude", 999, 10))
+        self.assertEqual(list(self.pick(rows).values()), ["Hey Jude"])
+
+    def test_original_beats_past_masters(self):
+        rows = [_b(1, "Let It Be (Remastered 2009)", "Past Masters", 100, 15), _b(2, "Let It Be", "Let It Be", 900, 12)]
+        self.assertEqual(list(self.pick(rows).values()), ["Let It Be"])
+
+    def test_here_comes_the_sun_mix_merges_into_plain(self):
+        rows = [_b(1, "Here Comes the Sun (2019 Mix)", "Abbey Road (Super Deluxe Edition) [2019 Remix & Remaster]", 300, 17),
+                _b(2, "Here Comes the Sun (2019 Mix)", "Abbey Road (2019 Mix)", 200, 17),
+                _b(3, "Here Comes the Sun", "Abbey Road", 900, 17)]
+        self.assertEqual(self.pick(rows), {"Here Comes the Sun": "Abbey Road"})
+
+    def test_guest_credit_merges_with_album_artist(self):
+        rows = [dict(_b(1, "Get Back", "1", 900, 27), artistName="ビートルズ & ビリー・プレストン", collectionArtistName="ビートルズ"),
+                _b(2, "Get Back (2009 Digital Remaster)", "Let It Be", 500, 12)]
+        self.assertEqual(self.pick(rows), {"Get Back (2009 Digital Remaster)": "Let It Be"})
+
+    def test_deterministic_regardless_of_order(self):
+        rows = [_b(1, "Yesterday", "Help!", 500, 14), _b(2, "Yesterday", "1", 900, 27),
+                _b(3, "Yesterday (2009 - Remaster)", "Help!", 501, 14)]
+        self.assertEqual(itunes._songs(rows), itunes._songs(list(reversed(rows))))
+        self.assertEqual(itunes._songs(rows)[0]["itunesId"], "1")
+
+    def test_compilation_detection(self):
+        comp = ["1", "The Beatles 1967-1970 (The Blue Album)", "Greatest Hits", "The Very Best of X", "ベスト・オブ・X",
+                "Anthology 3", "Essentials", "Gold", "シングルズ", "オールタイム・ベスト", "Mr.Children 1992-1995"]
+        for t in comp:
+            self.assertTrue(itunes.is_compilation({"collectionName": t, "trackCount": 27}), t)
+        for t in ["Rubber Soul", "Help!", "Past Masters, Vols. 1 & 2", "Abbey Road (Remastered)", "Golden Hour", "Single Man"]:
+            self.assertFalse(itunes.is_compilation({"collectionName": t, "trackCount": 12}), t)
+        self.assertFalse(itunes.is_compilation({"collectionName": "25", "trackCount": 11}))
+        self.assertTrue(itunes.is_compilation({"collectionName": "X", "artistName": "a", "collectionArtistName": "Various Artists"}))
+        self.assertFalse(itunes.is_compilation({"collectionName": "X", "artistName": "A feat. B", "collectionArtistName": "A"}))
+
+    def test_album_section_drops_best_and_merges_editions(self):
+        rows = [_b(1, "a", "1", 900, 27), _b(2, "b", "Abbey Road (Super Deluxe Edition) [2019 Remix & Remaster]", 300, 17),
+                _b(3, "c", "Abbey Road (2019 Mix)", 200, 17), _b(4, "d", "Abbey Road", 950, 17),
+                _b(5, "e", "Rubber Soul", 600, 14), _b(6, "f", "Now Hits", 10, 40, "Various Artists")]
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Abbey Road", "Rubber Soul"])
+
+    def test_album_search_filtered(self):
+        orig = itunes.fetch_json
+        self.addCleanup(setattr, itunes, "fetch_json", orig)
+        itunes.fetch_json = lambda u: {"results": [
+            {"wrapperType": "collection", "collectionId": 1, "collectionName": "1", "artistName": "ビートルズ", "trackCount": 27},
+            {"wrapperType": "collection", "collectionId": 2, "collectionName": "Abbey Road (Remastered)", "artistName": "ビートルズ", "trackCount": 17},
+            {"wrapperType": "collection", "collectionId": 3, "collectionName": "Abbey Road (2019 Mix)", "artistName": "ビートルズ", "trackCount": 17}]}
+        self.assertEqual([a["id"] for a in itunes.search_albums("beatles")], ["2"])

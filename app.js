@@ -2366,9 +2366,9 @@
   const KEY_STRIP = /[\s・:：\-－—―~〜!！?？'"“”‘’「」『』()（）\[\]【】.,、。]/g;
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
-  // itunes.py の VERSION_TAG と同じ。リマスター等の表記違いだけを同じ曲として扱う
-  const VERSION_TAG_W = "(?:(?:\\d{4}\\s*)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
-    "|(?:single|album|シングル|アルバム)[\\s・]*(?:version|ver\\.?|バージョン)|mono|stereo|original|オリジナル)";
+  // itunes.py の _TAG と同じ（tests で一致を確認）。リマスター・ミックス違いだけを同じ曲として扱う
+  const VERSION_TAG_W = "(?:(?:(?:mono|stereo)\\s*[;/]\\s*)?(?:\\d{4}\\s*(?:-\\s*)?)?(?:digital\\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
+    "|(?:single|album|シングル|アルバム)[\\s・]*(?:version|ver\\.?|バージョン)|(?:\\d{4}\\s*)?(?:mono|stereo|ステレオ|モノラル|モノ)[\\s・]*(?:mix|ミックス)|\\d{4}\\s*(?:mix|ミックス)|mono|stereo|original|オリジナル)";
   const VERSION_TAG = new RegExp("(?:\\s*\\(\\s*" + VERSION_TAG_W + "\\s*\\)|\\s*\\[\\s*" + VERSION_TAG_W + "\\s*\\]|\\s*【\\s*" +
     VERSION_TAG_W + "\\s*】|\\s+-\\s+" + VERSION_TAG_W + ")+$");
 
@@ -4251,13 +4251,16 @@
         <div class="color-swatches"></div>
       </label>
       <div class="tier-editor-actions">
+        <span class="te-move-label">並び順</span>
         <div class="move-group">
-          <button class="btn btn-ghost btn-sm te-up" title="上へ" ${idx === 0 ? "disabled" : ""}>▲</button>
-          <button class="btn btn-ghost btn-sm te-down" title="下へ" ${idx === state.tiers.length - 1 ? "disabled" : ""}>▼</button>
+          <button class="btn btn-ghost btn-sm te-up" title="上へ" ${idx === 0 ? "disabled" : ""}>▲ 上へ</button>
+          <button class="btn btn-ghost btn-sm te-down" title="下へ" ${idx === state.tiers.length - 1 ? "disabled" : ""}>▼ 下へ</button>
         </div>
-        <button class="btn btn-danger btn-sm te-delete">削除</button>
       </div>
       <button class="btn btn-ghost btn-sm te-analyze">📊 このティアを分析</button>
+      <div class="te-danger-zone">
+        <button type="button" class="te-delete">このティアを削除</button>
+      </div>
     `;
 
     const swatchWrap = pop.querySelector(".color-swatches");
@@ -4305,6 +4308,8 @@
         toast("最後のティアは削除できません");
         return;
       }
+      const n = (tier.items || []).length;
+      if (!confirm(`ティア「${tier.label}」を削除しますか？` + (n ? `\n入っている${n}本は「未分類」に戻ります。` : ""))) return;
       state.pool.push(...tier.items);
       state.tiers.splice(state.tiers.indexOf(tier), 1);
       render();

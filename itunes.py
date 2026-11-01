@@ -26,9 +26,10 @@ def _song(r):
 _KEY_STRIP = re.compile(r"[\s・:：\-－—―~〜!！?？'\"“”‘’「」『』()（）\[\]【】.,、。]")
 
 
-# app.js の VERSION_TAG と同じ。リマスター等の表記違いだけを同じ曲として扱う（Live・Remix などは別の曲）
-_TAG = (r"(?:(?:\d{4}\s*)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
-        r"|(?:single|album|シングル|アルバム)[\s・]*(?:version|ver\.?|バージョン)|mono|stereo|original|オリジナル)")
+# app.js の VERSION_TAG_W と同じ（tests で一致を確認）。リマスター・ミックス違いだけを同じ曲として扱う（Live・Remix などは別の曲）
+_TAG = (r"(?:(?:(?:mono|stereo)\s*[;/]\s*)?(?:\d{4}\s*(?:-\s*)?)?(?:digital\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
+        r"|(?:single|album|シングル|アルバム)[\s・]*(?:version|ver\.?|バージョン)"
+        r"|(?:\d{4}\s*)?(?:mono|stereo|ステレオ|モノラル|モノ)[\s・]*(?:mix|ミックス)|\d{4}\s*(?:mix|ミックス)|mono|stereo|original|オリジナル)")
 VERSION_TAG = re.compile(r"(?:\s*\(\s*" + _TAG + r"\s*\)|\s*\[\s*" + _TAG + r"\s*\]|\s*【\s*" + _TAG + r"\s*】|\s+-\s+" + _TAG + r")+$")
 
 
@@ -41,24 +42,92 @@ def song_title_norm(v):
     return _KEY_STRIP.sub("", VERSION_TAG.sub("", t))
 
 
+_VARIOUS = {"variousartists", "ヴァリアスアーティスト", "オムニバス", "various"}
+
+
+_COMPILATION = re.compile(
+    r"\b(?:best|greatest\s+hits|hits|collection|singles|anthology|essentials?|gold)\b"
+    r"|ベスト|傑作|全集|作品集|名曲集|コンプリート|シングルズ|オールタイム|\d{4}\s*[-–—~〜]\s*\d{4}")
+_SECONDARY = re.compile(r"\bpast\s+masters\b|\brarities\b|\bb[\s-]?sides\b|カップリング")
+_EDITION_WORD = r"(?:super\s+)?deluxe|edition|anniversary|expanded|remaster(?:ed)?|\d{4}\s*(?:re)?mix"
+_EDITION = re.compile(r"\b(?:" + _EDITION_WORD + r")\b")
+_EDITION_GROUP = re.compile(r"\s*[(\[（【][^()\[\]（）【】]*(?:" + _EDITION_WORD + r")[^()\[\]（）【】]*[)\]）】]")
+
+
+def _album_text(name):
+    return unicodedata.normalize("NFKC", name or "").lower()
+
+
+def is_compilation(r):
+    ca, a = _norm(r.get("collectionArtistName")), _norm(r.get("artistName"))
+    if ca and ca != a and (ca in _VARIOUS or ca not in a):  # 「A feat. B」の曲が入った A のアルバムは除外しない
+        return True
+    t = _album_text(r.get("collectionName")).strip()
+    if t.isdigit():  # 「1」のような数字だけのベスト盤。Adele「25」のような元のアルバムは曲数で見分ける
+        return (r.get("trackCount") or 0) >= 20
+    return bool(_COMPILATION.search(t))
+
+
+def album_base(name):
+    """エディション違い（Deluxe・Remastered・2019 Mix など）を除いたアルバム名。"""
+    return _norm(_EDITION_GROUP.sub("", _album_text(name)))
+
+
+def _album_rank(r):
+    t = _album_text(r.get("collectionName"))
+    return (is_compilation(r), bool(_SECONDARY.search(t)), bool(_EDITION.search(t)))
+
+
+def _pick_rank(r):
+    """同じ曲が複数あるとき：オリジナルアルバム → エディション違いでない → 発売が早い → 曲数が少ない → 曲名に表記違いがない → ID が小さい。"""
+    name = r.get("trackName") or ""
+    return _album_rank(r) + ((r.get("releaseDate") or "9999"), r.get("trackCount") or 9999,
+                             song_title_norm(name) != _norm(name), r.get("collectionId") or 0)
+
+
+def _song_artist(r):
+    """「ビートルズ & ビリー・プレストン」名義の曲もアルバム側の名義（ビートルズ）でまとめる。コンピは曲の名義のまま。"""
+    ca = _norm(r.get("collectionArtistName"))
+    return ca if ca and ca not in _VARIOUS else _norm(r.get("artistName"))
+
+
 def _songs(results):
-    """同じ曲（アーティスト＋曲名が同じ）はシングル・アルバム・ベスト盤のうち一番古い発売のものだけ残す。"""
+    """同じ曲（アーティスト＋曲名が同じ）は、ベスト盤より元のアルバムを優先して1つだけ残す。"""
     best, order = {}, []
     for r in results:
         if r.get("wrapperType") != "track" or r.get("kind") != "song" or not r.get("trackId"):
             continue
-        k = (_norm(r.get("artistName")), song_title_norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
+        k = (_song_artist(r), song_title_norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
         if k not in best:
             order.append(k)
             best[k] = r
-        elif (r.get("releaseDate") or "9999") < (best[k].get("releaseDate") or "9999"):
+        elif _pick_rank(r) < _pick_rank(best[k]):
             best[k] = r
     return [_song(best[k]) for k in order]
+
 
 def search_songs(q, limit=30):
     return _songs(fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"])
 
-_VARIOUS = {"variousartists", "ヴァリアスアーティスト", "オムニバス", "various"}
+
+def _albums(rows, cap):
+    """ベスト盤・コンピは除き、エディション違いは1つ（無印を優先）にまとめる。rows は表示順。"""
+    groups, order = {}, []
+    for r in rows:
+        if not r.get("collectionId") or is_compilation(r):
+            continue
+        k = (_norm(r.get("collectionArtistName") or r.get("artistName")), album_base(r.get("collectionName")))
+        if k not in groups:
+            order.append(k)
+            groups[k] = []
+        groups[k].append(r)
+    out = []
+    for k in order[:cap]:
+        r = min(groups[k], key=lambda x: (_album_rank(x)[2], x.get("trackCount") or 9999, x.get("collectionId") or 0))
+        out.append({"id": str(r["collectionId"]), "title": r.get("collectionName") or "",
+                    "artist": r.get("collectionArtistName") or r.get("artistName") or "",
+                    "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]})
+    return out
 
 
 def _rank(groups, order):
@@ -84,12 +153,7 @@ def _derive(results):
         if i and len(names) < 2:  # 1曲だけ出てきたアーティスト（カバー等）は2番手以降に出さない
             break
         artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n)))})
-    albums = []
-    for cid in _rank(albs, b_order)[:8]:
-        r = albs[cid][0]
-        albums.append({"id": str(cid), "title": r.get("collectionName") or "",
-                       "artist": r.get("collectionArtistName") or r.get("artistName") or "",
-                       "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]})
+    albums = _albums([albs[c][0] for c in _rank(albs, b_order)], 8)
     return artists, albums
 
 
@@ -110,8 +174,7 @@ def search_artists(q, limit=10):
 
 def search_albums(q, limit=20):
     rs = fetch_json(_url("search", term=q, media="music", entity="album", limit=limit))["results"]
-    return [{"id": str(r["collectionId"]), "title": r.get("collectionName") or "", "artist": r.get("artistName") or "",
-             "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]} for r in rs if r.get("collectionId")]
+    return _albums(rs, limit)
 
 def artist_songs(artist_id, limit=200):
     rs = fetch_json(_url("lookup", id=artist_id, entity="song", limit=limit))["results"]
