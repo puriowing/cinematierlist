@@ -3217,7 +3217,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path != "/index.html" and path not in STATIC_FILES:
             self.send_error(404)
             return
-        fpath = os.path.join(APP_DIR, path.lstrip("/"))
+        fpath = os.path.join(APP_DIR, _site_asset(path).lstrip("/"))
         try:
             st = os.stat(fpath)
         except OSError:
@@ -3289,6 +3289,21 @@ def _static_bytes(fpath, st, use_gz):
             del _static_cache[k]
         _static_cache[key] = data
     return data
+
+
+# 音楽版はアプリアイコンだけ別デザイン（music/ 以下）を配る
+MUSIC_ASSETS = {
+    "/icon.svg": "/music/icon.svg", "/icon-pop.svg": "/music/icon.svg",
+    "/icons/icon-app.svg": "/music/icon-app.svg",
+    "/icons/apple-touch-icon.png": "/music/icons/apple-touch-icon.png",
+    "/icons/icon-192.png": "/music/icons/icon-192.png",
+    "/icons/icon-512.png": "/music/icons/icon-512.png",
+    "/icons/icon-maskable-512.png": "/music/icons/icon-maskable-512.png",
+}
+
+
+def _site_asset(path):
+    return MUSIC_ASSETS.get(path, path) if SITE["id"] == "music" else path
 
 
 STATIC_FILES = {

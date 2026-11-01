@@ -42,12 +42,12 @@ def manifest(site):
         "orientation": "portrait", "background_color": site["bgColor"],
         "theme_color": site["themeColor"], "categories": ["entertainment", "lifestyle"],
         "icons": [
-            {"src": "icons/icon-192.png?v=4", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-            {"src": "icons/icon-512.png?v=4", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-            {"src": "icons/icon-maskable-512.png?v=4", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": "icons/icon-192.png?v=5", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "icons/icon-512.png?v=5", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "icons/icon-maskable-512.png?v=5", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
         "shortcuts": [
             {"name": "統計を見る", "short_name": "統計", "url": "./?open=stats",
-             "icons": [{"src": "icons/icon-192.png?v=4", "sizes": "192x192"}]},
+             "icons": [{"src": "icons/icon-192.png?v=5", "sizes": "192x192"}]},
         ],
     }
