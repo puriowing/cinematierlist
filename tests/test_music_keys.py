@@ -24,6 +24,21 @@ class MusicKeyTest(unittest.TestCase):
         self.assertEqual(a, server._movie_key({"itunesId": "3", "title": "曲A (Live)", "artist": "歌手"}))
         self.assertNotEqual(a, server._movie_key({"itunesId": "4", "title": "曲A", "artist": "別の歌手"}))
 
+    def test_key_title_used_for_key(self):
+        a = server._movie_key({"itunesId": "1", "title": "レット・イット・ビー", "keyTitle": "Let It Be", "artist": "ビートルズ"})
+        self.assertEqual(a, "s:ビートルズ|letitbe")
+        self.assertEqual(a, server._movie_key({"itunesId": "2", "title": "Let It Be", "keyTitle": "Let It Be (2009 Remaster)", "artist": "ビートルズ"}))
+        self.assertEqual(server._movie_key({"itunesId": "3", "title": "曲", "keyTitle": " ", "artist": "A"}), "s:a|曲")
+        self.assertEqual(server._movie_key({"itunesId": "3", "title": "曲", "keyTitle": ["x"], "artist": "A"}), "s:a|曲")
+
+    def test_challenge_keeps_key_title(self):
+        out = server._clean_challenge_movies([{"title": "レット・イット・ビー", "itunesId": "9", "artist": "B", "keyTitle": "Let It Be"},
+                                              {"title": "曲", "itunesId": "8", "artist": "B", "keyTitle": {"x": 1}},
+                                              {"title": "曲2", "itunesId": "7", "artist": "B", "keyTitle": "x" * 500}])
+        self.assertEqual((out[0]["keyTitle"], out[0]["key"]), ("Let It Be", "s:b|letitbe"))
+        self.assertNotIn("keyTitle", out[1])
+        self.assertEqual(len(out[2]["keyTitle"]), 200)
+
     def test_challenge_keeps_music_fields(self):
         out = server._clean_challenge_movies([{"title": "曲", "itunesId": "9", "artist": "A",
                                                "poster": "https://is1-ssl.mzstatic.com/a.jpg", "previewUrl": "https://audio-ssl.itunes.apple.com/a.m4a"}])

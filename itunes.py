@@ -14,9 +14,11 @@ def _url(path, **params):
 def _art(r):
     return (r.get("artworkUrl100") or "").replace("100x100bb", "600x600bb")
 
-def _song(r):
+def _song(r, en=None):
+    title = clean_title(r.get("trackName"))
     return {
-        "itunesId": str(r.get("trackId") or ""), "title": r.get("trackName") or "",
+        "itunesId": str(r.get("trackId") or ""), "title": title,
+        "keyTitle": clean_title((en or {}).get(r.get("trackId"))) or title,
         "artist": r.get("artistName") or "", "album": r.get("collectionName") or "",
         "poster": _art(r), "year": (r.get("releaseDate") or "")[:4],
         "genres": [g for g in [r.get("primaryGenreName")] if g],
@@ -29,13 +31,14 @@ _KEY_STRIP = re.compile(r"[\s・:：\-－—―~〜!！?？'\"“”‘’「」
 # app.js の VERSION_TAG_W と同じ（tests で一致を確認）。リマスター・リミックス・Edit・〜Version・Live・Acoustic・
 # Instrumental・TV size・FIRST TAKE・Demo・English ver. などの違いは同じ曲として扱う。Cover・カラオケは別の曲のまま
 _C = r"[^()\[\]【】]"
-_TAG_BASE = (r"(?:(?:mono|stereo)\s*[;/]\s*)?(?:\d{4}\s*(?:-\s*)?)?(?:digital\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
+_TAG_BASE = (r"(?:(?:mono|stereo)\s*[;/]\s*)?(?:'?(?:\d{4}|\d{2})\s*(?:-\s*)?)?(?:digital\s+|new\s+)?(?:remaster(?:ed|ing)?|リマスター|リマスタリング)(?:\s*\d{4})?(?:\s*(?:version|ver\.?|バージョン|版))?"
              r"|mono|stereo|original|オリジナル")
 _TAG_VARIANT = (r"(?!" + _C + r"*(?:cover|カバー|karaoke|カラオケ))"
                 r"(?:" + _C + r"*(?:remix(?:ed)?|リミックス|ミックス|バージョン)"
                 r"|(?:" + _C + r"*[^a-z()\[\]【】])?(?:mix|edit|version|ver\.?)"
                 r"|(?:" + _C + r"*[^a-z()\[\]【】])?(?:live|acoustic|instrumental|inst\.?|demo|first\s*take|tv\s*size)(?![a-z])" + _C + r"*"
                 r"|" + _C + r"*(?:ライブ|ライヴ|アコースティック|インスト|デモ|tv\s*サイズ|テレビサイズ|英語)" + _C + r"*"
+                r"|" + _C + r"*\s-\s*remaster(?:ed)?(?:\s*\d{4})?"
                 r"|re-?recorded)")
 _TAG = "(?:" + _TAG_BASE + "|" + _TAG_VARIANT + ")"
 
@@ -46,6 +49,13 @@ def _tag_re(tag):
 
 VERSION_TAG = _tag_re(_TAG)
 _BASE_TAG = _tag_re("(?:" + _TAG_BASE + ")")
+_VERSION_TAG_I = re.compile(VERSION_TAG.pattern, re.I)
+
+
+def clean_title(v):
+    """表示用の曲名：末尾の (2009 - Remaster)・(2019 Mix) などを外す。外すと空になるときは元のまま。"""
+    t = v if isinstance(v, str) else ""
+    return _VERSION_TAG_I.sub("", t).strip() or t
 
 
 def _norm(v):
@@ -140,19 +150,59 @@ def _song_artist(r):
     return ca if ca and ca not in _VARIOUS else _norm(r.get("artistName"))
 
 
+US_CHUNK = 150
+_en_titles = {}  # trackId -> 米国ストアの曲名（無ければ ""）
+
+
+def english_titles(ids):
+    """日本のストアは同じ曲でもカタカナ名・英語名が混ざるので、米国ストアの曲名を1回のまとめ取得で引く。失敗しても止めない。"""
+    want = [i for i in dict.fromkeys(ids) if i and i not in _en_titles]
+    for n in range(0, len(want), US_CHUNK):
+        part = want[n:n + US_CHUNK]
+        try:
+            rs = fetch_json(f"{BASE}/lookup?" + urllib.parse.urlencode(
+                {"id": ",".join(map(str, part)), "country": "US"}))["results"]
+        except Exception:  # noqa: BLE001
+            break
+        if len(_en_titles) > 50000:
+            _en_titles.clear()
+        got = {r.get("trackId"): r.get("trackName") or "" for r in rs if r.get("wrapperType") == "track"}
+        for i in part:
+            _en_titles[i] = got.get(i, "")
+    return {i: _en_titles[i] for i in ids if _en_titles.get(i)}
+
+
 def _songs(results):
-    """同じ曲（アーティスト＋曲名が同じ）は、ベスト盤より元のアルバムを優先して1つだけ残す。"""
-    best, order, comps = {}, [], span_compilations(results)
-    for r in results:
-        if r.get("wrapperType") != "track" or r.get("kind") != "song" or not r.get("trackId"):
-            continue
-        k = (_song_artist(r), song_title_norm(r.get("trackName"))) if r.get("trackName") else ("#", str(r["trackId"]))
+    """同じ曲は、ベスト盤より元のアルバムを優先して1つだけ残す。日本のストアの曲名か米国ストアの曲名の
+    どちらかが同じ（アーティストも同じ）なら同じ曲（米国ストアはローマ字・漢字の表記が版ごとに揺れるため両方で見る）。"""
+    comps = span_compilations(results)
+    tracks = [r for r in results if r.get("wrapperType") == "track" and r.get("kind") == "song" and r.get("trackId")]
+    en = english_titles([r["trackId"] for r in tracks]) if tracks else {}
+    parent = {}
+
+    def root(k):
+        while parent.setdefault(k, k) != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+
+    keys = []
+    for r in tracks:
+        a = _song_artist(r)
+        ks = [(a, t) for t in dict.fromkeys(song_title_norm(n) for n in (r.get("trackName"), en.get(r["trackId"])) if n) if t]
+        ks = ks or [("#", str(r["trackId"]))]
+        for k in ks[1:]:
+            parent[root(k)] = root(ks[0])
+        keys.append(ks[0])
+    best, order = {}, []
+    for r, k in zip(tracks, keys):
+        k = root(k)
         if k not in best:
             order.append(k)
             best[k] = r
         elif _pick_rank(r, comps) < _pick_rank(best[k], comps):
             best[k] = r
-    return [_song(best[k]) for k in order]
+    return [_song(best[k], en) for k in order]
 
 
 def search_songs(q, limit=30):

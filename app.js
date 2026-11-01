@@ -1276,7 +1276,7 @@
     return true;
   }
 
-  const SONG_FIELDS = ["itunesId", "artist", "album", "genres", "previewUrl", "appleUrl"];
+  const SONG_FIELDS = ["itunesId", "keyTitle", "artist", "album", "genres", "previewUrl", "appleUrl"];
   function copySongFields(from, to) {
     SONG_FIELDS.forEach((k) => { if (from[k] != null && from[k] !== "") to[k] = from[k]; });
     return to;
@@ -2367,8 +2367,8 @@
   const HIST_COLORS = ["#ff7f7f", "#ffbf7f", "#ffdf7f", "#bfff7f", "#7fbfff"];
 
   // itunes.py の _TAG と同じ（tests で一致を確認）。リマスター・リミックス・Live・〜Version 等の違いは同じ曲（Cover・カラオケは別）
-  const VERSION_TAG_W = "(?:(?:(?:mono|stereo)\\s*[;/]\\s*)?(?:\\d{4}\\s*(?:-\\s*)?)?(?:digital\\s+)?(?:remaster(?:ed)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
-    "|mono|stereo|original|オリジナル|(?![^()\\[\\]【】]*(?:cover|カバー|karaoke|カラオケ))(?:[^()\\[\\]【】]*(?:remix(?:ed)?|リミックス|ミックス|バージョン)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:mix|edit|version|ver\\.?)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:live|acoustic|instrumental|inst\\.?|demo|first\\s*take|tv\\s*size)(?![a-z])[^()\\[\\]【】]*|[^()\\[\\]【】]*(?:ライブ|ライヴ|アコースティック|インスト|デモ|tv\\s*サイズ|テレビサイズ|英語)[^()\\[\\]【】]*|re-?recorded))";
+  const VERSION_TAG_W = "(?:(?:(?:mono|stereo)\\s*[;/]\\s*)?(?:'?(?:\\d{4}|\\d{2})\\s*(?:-\\s*)?)?(?:digital\\s+|new\\s+)?(?:remaster(?:ed|ing)?|リマスター|リマスタリング)(?:\\s*\\d{4})?(?:\\s*(?:version|ver\\.?|バージョン|版))?" +
+    "|mono|stereo|original|オリジナル|(?![^()\\[\\]【】]*(?:cover|カバー|karaoke|カラオケ))(?:[^()\\[\\]【】]*(?:remix(?:ed)?|リミックス|ミックス|バージョン)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:mix|edit|version|ver\\.?)|(?:[^()\\[\\]【】]*[^a-z()\\[\\]【】])?(?:live|acoustic|instrumental|inst\\.?|demo|first\\s*take|tv\\s*size)(?![a-z])[^()\\[\\]【】]*|[^()\\[\\]【】]*(?:ライブ|ライヴ|アコースティック|インスト|デモ|tv\\s*サイズ|テレビサイズ|英語)[^()\\[\\]【】]*|[^()\\[\\]【】]*\\s-\\s*remaster(?:ed)?(?:\\s*\\d{4})?|re-?recorded))";
   const VERSION_TAG = new RegExp("(?:\\s*\\(\\s*" + VERSION_TAG_W + "\\s*\\)|\\s*\\[\\s*" + VERSION_TAG_W + "\\s*\\]|\\s*【\\s*" +
     VERSION_TAG_W + "\\s*】|\\s+-\\s+" + VERSION_TAG_W + ")+$");
 
@@ -2383,7 +2383,8 @@
 
   function movieKey(m) {
     if (m.itunesId) {
-      const a = keyNorm(m.artist), t = songTitleNorm(m.title);
+      const kt = typeof m.keyTitle === "string" && m.keyTitle.trim() ? m.keyTitle : m.title;
+      const a = keyNorm(m.artist), t = songTitleNorm(kt);
       return a && t ? "s:" + a + "|" + t : "i:" + m.itunesId;
     }
     const fid = fidKey(m.filmarksId);
@@ -2585,7 +2586,7 @@
         `<span class="comm-dist-pct">${Math.round((c / total) * 100)}%${i === myIdx ? "<em>あなた</em>" : ""}</span></div>`;
     }).join("");
     const also = (d.also || []).map((m, i) => {
-      const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, artist: m.artist || undefined };
+      const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, keyTitle: m.keyTitle || undefined, artist: m.artist || undefined };
       const act = movieExists(ref) ? `<span class="comm-also-tag">登録済み</span>`
         : watchlistExists(ref) ? `<span class="comm-also-tag">観たいに追加済み</span>`
         : `<button type="button" class="btn btn-ghost btn-sm comm-also-add" data-i="${i}">🔖 観たい</button>`;
@@ -2626,7 +2627,7 @@
   }
 
   function socWatchBtn(m) {
-    const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, artist: m.artist || undefined };
+    const ref = { title: m.title, filmarksId: m.filmarksId || undefined, itunesId: m.itunesId || undefined, keyTitle: m.keyTitle || undefined, artist: m.artist || undefined };
     if (movieExists(ref)) return `<span class="soc-note">登録済み</span>`;
     if (watchlistExists(ref)) return `<span class="soc-note">✓ 観たいリストにあり</span>`;
     return `<button type="button" class="btn btn-ghost btn-sm soc-watch" data-key="${escapeHtml(m.key)}">🔖 観たい</button>`;
@@ -2765,7 +2766,7 @@
 
     const gaps = Object.keys(lookMap).map((k) => {
       const m = movieByKey(k);
-      return m ? { key: k, title: m.title, poster: m.poster, year: m.year, filmarksId: m.filmarksId, artist: m.artist,
+      return m ? { key: k, title: m.title, poster: m.poster, year: m.year, filmarksId: m.filmarksId, artist: m.artist, keyTitle: m.keyTitle,
         mine: mine[k], c: lookMap[k], diff: mine[k] - lookMap[k].avg } : null;
     }).filter((g) => g && Math.abs(g.diff) >= 0.25);
     const mineHigh = gaps.filter((g) => g.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 8);

@@ -1,4 +1,4 @@
-import unittest
+import unittest, urllib.parse
 import itunes
 
 TRACK = {"wrapperType": "track", "kind": "song", "trackId": 111, "trackName": "曲A",
@@ -6,8 +6,14 @@ TRACK = {"wrapperType": "track", "kind": "song", "trackId": 111, "trackName": "�
          "releaseDate": "2024-05-01T07:00:00Z", "primaryGenreName": "J-Pop",
          "previewUrl": "https://p/a.m4a", "trackViewUrl": "https://music.apple.com/jp/album/1?i=111"}
 
+class _Fresh(unittest.TestCase):
+    def setUp(self):
+        itunes._en_titles.clear()
+
+
 class ITunesTest(unittest.TestCase):
     def setUp(self):
+        itunes._en_titles.clear()
         self.calls = []
         orig = itunes.fetch_json
         self.addCleanup(setattr, itunes, "fetch_json", orig)
@@ -37,7 +43,7 @@ class ITunesTest(unittest.TestCase):
         self.assertIn("id=5", self.calls[0])
 
 
-class DedupeTest(unittest.TestCase):
+class DedupeTest(_Fresh):
     def test_same_song_keeps_earliest(self):
         rs = [dict(TRACK, trackId=3, collectionName="BEST", releaseDate="2030-01-01T00:00:00Z"),
               dict(TRACK, trackId=1, collectionName="シングル", releaseDate="2020-01-01T00:00:00Z"),
@@ -54,7 +60,7 @@ class DedupeTest(unittest.TestCase):
         self.assertEqual(len(itunes._songs([TRACK, dict(TRACK, trackId=2, artistName="別の歌手")])), 2)
 
 
-class RemasterTest(unittest.TestCase):
+class RemasterTest(_Fresh):
     SAME = ["曲A", "曲A (2019 Remaster)", "曲A - Remastered 2011", "曲A (リマスター)", "曲A［Remastered］",
             "曲A【リマスター版】", "曲A - 2011 Remastered Version", "曲A (Single Version)", "曲A (シングル・バージョン)",
             "曲A (Album ver.)", "曲A (Mono)", "曲A (Remastered) [Stereo]", "曲A (Original)"]
@@ -94,6 +100,7 @@ def _t(tid, artist, aid, album, cid, name=None):
 
 class SearchAllTest(unittest.TestCase):
     def setUp(self):
+        itunes._en_titles.clear()
         self.calls = []
         orig = itunes.fetch_json
         self.addCleanup(setattr, itunes, "fetch_json", orig)
@@ -114,8 +121,9 @@ class SearchAllTest(unittest.TestCase):
             _t(5, "Various Artists", 99, "ベスト", 400), _t(6, "歌手B", 20, "アルバムY", 200),
             _t(7, "カバー歌手", 30, "カバー集", 500)]
         r = itunes.search_all("q")
-        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(len(self.calls), 2)
         self.assertIn("entity=song", self.calls[0])
+        self.assertIn("country=US", self.calls[1])
         self.assertEqual(r["artists"], [{"id": "20", "name": "歌手B"}, {"id": "10", "name": "歌手A"}])  # 一番上の曲のアーティストが先
         self.assertEqual([a["id"] for a in r["albums"]], ["200", "100", "300", "500"])
         self.assertEqual(r["albums"][0]["title"], "アルバムY")
@@ -128,7 +136,7 @@ class SearchAllTest(unittest.TestCase):
                                          for i in range(1, 15) for k in (0, 1)]
         r = itunes.search_all("q")
         self.assertEqual((len(r["artists"]), len(r["albums"])), (3, 8))
-        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(len(self.calls), 2)
 
     def test_fallback_album_search_when_no_songs(self):
         self.responses["entity=album"] = [{"collectionId": 7, "collectionName": "盤", "artistName": "歌手"}]
@@ -139,7 +147,7 @@ class SearchAllTest(unittest.TestCase):
         self.assertEqual(r["artists"], [])
 
 
-class VersionTagParityTest(unittest.TestCase):
+class VersionTagParityTest(_Fresh):
     def test_js_matches_python(self):
         import json, os, re
         src = open(os.path.join(os.path.dirname(__file__), "..", "app.js"), encoding="utf-8").read()
@@ -181,9 +189,9 @@ class VersionTagParityTest(unittest.TestCase):
                 dict(TRACK, trackId=3, trackName="曲A", collectionName="アルバム", releaseDate="2011-01-01T00:00:00Z")]
         self.assertEqual([(s["title"], s["album"]) for s in itunes._songs(rows)], [("曲A", "アルバム")])
 
-    def test_remix_only_shown_as_is(self):
+    def test_remix_only_shown_without_tag(self):
         rows = [dict(TRACK, trackId=1, trackName="曲B (Club Mix)")]
-        self.assertEqual([s["title"] for s in itunes._songs(rows)], ["曲B (Club Mix)"])
+        self.assertEqual([s["title"] for s in itunes._songs(rows)], ["曲B"])
 
 
 def _b(tid, title, album, cid, count, comp_artist=None, date="1965-08-06T07:00:00Z"):
@@ -194,7 +202,7 @@ def _b(tid, title, album, cid, count, comp_artist=None, date="1965-08-06T07:00:0
     return r
 
 
-class OriginalAlbumTest(unittest.TestCase):
+class OriginalAlbumTest(_Fresh):
     """ベスト盤・エディション違いより元のアルバムを選ぶ（ビートルズの実データに近い形）。"""
 
     def pick(self, rows):
@@ -230,7 +238,7 @@ class OriginalAlbumTest(unittest.TestCase):
     def test_guest_credit_merges_with_album_artist(self):
         rows = [dict(_b(1, "Get Back", "1", 900, 27), artistName="ビートルズ & ビリー・プレストン", collectionArtistName="ビートルズ"),
                 _b(2, "Get Back (2009 Digital Remaster)", "Let It Be", 500, 12)]
-        self.assertEqual(self.pick(rows), {"Get Back (2009 Digital Remaster)": "Let It Be"})
+        self.assertEqual(self.pick(rows), {"Get Back": "Let It Be"})
 
     def test_deterministic_regardless_of_order(self):
         rows = [_b(1, "Yesterday", "Help!", 500, 14), _b(2, "Yesterday", "1", 900, 27),
@@ -274,7 +282,7 @@ def _d(tid, title, album, cid, date, count=12):
                 trackCount=count, releaseDate=date + "T00:00:00Z")
 
 
-class SpanCompilationTest(unittest.TestCase):
+class SpanCompilationTest(_Fresh):
     ENCORE = [_d(1, "花束", "アンコール", 9, "2011-04-06", 31), _d(2, "高嶺の花子さん", "アンコール", 9, "2013-06-26", 31),
               _d(3, "クリスマスソング", "アンコール", 9, "2015-11-18", 31), _d(4, "ハッピーエンド", "アンコール", 9, "2016-11-16", 31)]
 
@@ -322,7 +330,7 @@ class SpanCompilationTest(unittest.TestCase):
         self.assertEqual(itunes.span_compilations(rows), set())
 
 
-class ReviewFixTest(unittest.TestCase):
+class ReviewFixTest(_Fresh):
     def test_collection_artist_only_explicit_various(self):
         self.assertFalse(itunes.is_compilation({"collectionName": "X", "artistName": "A", "collectionArtistName": "A & B"}))
         self.assertFalse(itunes.is_compilation({"collectionName": "X", "artistName": "ヨルシカ", "collectionArtistName": "Yorushika"}))
@@ -363,7 +371,7 @@ class ReviewFixTest(unittest.TestCase):
         self.assertEqual(itunes._derive(list(reversed(rows)))[0][0]["name"], "aa")
 
 
-class ArtistRowTest(unittest.TestCase):
+class ArtistRowTest(_Fresh):
     def test_top_song_artist_beats_cover_artists(self):
         rows = [_t(1, "優里", 1, "ドライフラワー - Single", 100, name="ドライフラワー")] + \
                [_t(10 + i, "BGM LAB", 2, f"カバー集{i}", 200 + i, name=f"ドライフラワー ({i})") for i in range(4)] + \
@@ -379,3 +387,71 @@ class ArtistRowTest(unittest.TestCase):
     def test_various_still_excluded(self):
         rows = [_t(1, "Various Artists", 9, "盤", 100, name="a"), _t(2, "歌手", 1, "盤2", 101, name="b")]
         self.assertEqual([a["name"] for a in itunes._derive(rows, "various")[0]], ["歌手"])
+
+
+class EnglishKeyTest(unittest.TestCase):
+    """日本のストアのカタカナ名・英語名の混在は、米国ストアの曲名でまとめる。"""
+
+    def setUp(self):
+        itunes._en_titles.clear()
+        self.calls, self.us = [], {}
+        orig = itunes.fetch_json
+        self.addCleanup(setattr, itunes, "fetch_json", orig)
+
+        def fake(url):
+            self.calls.append(url)
+            if "country=US" not in url:
+                raise AssertionError(url)
+            ids = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["id"][0].split(",")
+            return {"results": [{"wrapperType": "track", "trackId": int(i), "trackName": self.us[int(i)]}
+                                for i in ids if int(i) in self.us]}
+        itunes.fetch_json = fake
+
+    def test_katakana_and_english_merge(self):
+        self.us = {1: "Here Comes the Sun", 2: "Here Comes the Sun (2019 Mix)"}
+        rows = [_b(1, "ヒア・カムズ・ザ・サン (2009 Digital Remaster)", "Abbey Road", 500, 17),
+                _b(2, "Here Comes the Sun (2019 Mix)", "Abbey Road (Super Deluxe Edition)", 501, 40)]
+        out = itunes._songs(rows)
+        self.assertEqual([(s["title"], s["album"], s["keyTitle"]) for s in out],
+                         [("ヒア・カムズ・ザ・サン", "Abbey Road", "Here Comes the Sun")])
+
+    def test_not_in_us_store_keeps_jp_key(self):
+        self.us = {1: "Let It Be"}
+        rows = [_b(1, "レット・イット・ビー", "Let It Be", 500, 12), _b(2, "愛こそはすべて", "Magical Mystery Tour", 600, 11)]
+        out = itunes._songs(rows)
+        self.assertEqual([s["keyTitle"] for s in out], ["Let It Be", "愛こそはすべて"])
+
+    def test_one_batched_lookup_and_memory_cache(self):
+        rows = [_b(i, f"曲{i}", "盤", 500, 200) for i in range(1, 201)]
+        itunes._songs(rows)
+        self.assertEqual(len(self.calls), 2)
+        itunes._songs(rows)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_lookup_failure_falls_back(self):
+        def boom(url):
+            raise OSError("down")
+        itunes.fetch_json = boom
+        out = itunes._songs([_b(1, "レット・イット・ビー", "Let It Be", 500, 12)])
+        self.assertEqual(out[0]["keyTitle"], "レット・イット・ビー")
+        self.assertEqual(itunes._en_titles, {})
+
+    def test_clean_title(self):
+        self.assertEqual(itunes.clean_title("All You Need Is Love (2009 - Remaster)"), "All You Need Is Love")
+        self.assertEqual(itunes.clean_title("Ｈｅｌｌｏ (Remastered)"), "Ｈｅｌｌｏ")
+        self.assertEqual(itunes.clean_title("夜に駆ける"), "夜に駆ける")
+        self.assertEqual(itunes.clean_title("曲A (Cover)"), "曲A (Cover)")
+
+    def test_us_romaji_split_still_merged_by_jp_title(self):
+        self.us = {1: "Yoru ni Kakeru", 2: "夜に駆ける"}
+        rows = [dict(TRACK, trackId=1, trackName="夜に駆ける", collectionName="THE BOOK", collectionId=10),
+                dict(TRACK, trackId=2, trackName="夜に駆ける", collectionName="夜に駆ける - Single", collectionId=11)]
+        self.assertEqual(len(itunes._songs(rows)), 1)
+
+    def test_more_remaster_tags(self):
+        for t in ["曲A (Remastering 2022)", "曲A ('09 New Remaster)", "曲A (2023 NEW REMASTER)"]:
+            self.assertEqual(itunes.song_title_norm(t), "曲a", t)
+            self.assertFalse(itunes.is_variant(t), t)
+        self.assertEqual(itunes.song_title_norm("Let It Be (Apple Studio - Remastered)"), "letitbe")
+        self.assertTrue(itunes.is_variant("Let It Be (Apple Studio - Remastered)"))
+        self.assertNotEqual(itunes.song_title_norm("曲A (Cover - Remastered)"), "曲a")

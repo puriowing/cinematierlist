@@ -1552,7 +1552,8 @@ def _key_norm(v):
 def _movie_key(m):
     iid = str(m.get("itunesId") or "").strip()
     if iid:
-        artist, title = _key_norm(m.get("artist")), itunes.song_title_norm(m.get("title"))
+        kt = m.get("keyTitle")
+        artist, title = _key_norm(m.get("artist")), itunes.song_title_norm(kt if isinstance(kt, str) and kt.strip() else m.get("title"))
         return "s:" + artist + "|" + title if artist and title else "i:" + iid
     fid = str(m.get("filmarksId") or "").strip()
     if fid:
@@ -1576,8 +1577,11 @@ def _movie_meta(m):
 def _music_fields(m):
     """曲（iTunes）だけが持つ項目。映画のデータには何も足さない。"""
     out = {}
-    for k in ("itunesId", "artist", "album", "previewUrl", "appleUrl"):
-        v = _s(str(m.get(k) or ""), 600)
+    for k in ("itunesId", "artist", "album", "previewUrl", "appleUrl", "keyTitle"):
+        if k == "keyTitle":
+            v = _s(m.get(k), 200) if isinstance(m.get(k), str) else ""
+        else:
+            v = _s(str(m.get(k) or ""), 600)
         if k in ("previewUrl", "appleUrl") and not _music_url_ok(k, v):
             v = ""
         if k == "itunesId" and not v.isdigit():
