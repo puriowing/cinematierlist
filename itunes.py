@@ -18,7 +18,7 @@ def _song(r, en=None):
     title = clean_title(r.get("trackName"))
     return {
         "itunesId": str(r.get("trackId") or ""), "title": title,
-        "keyTitle": clean_title((en or {}).get(r.get("trackId"))) or title,
+        "keyTitle": clean_title((en or {}).get(str(r.get("trackId")))) or title,
         "artist": r.get("artistName") or "", "album": r.get("collectionName") or "",
         "poster": _art(r), "year": (r.get("releaseDate") or "")[:4],
         "genres": [g for g in [r.get("primaryGenreName")] if g],
@@ -154,22 +154,35 @@ US_CHUNK = 150
 _en_titles = {}  # trackId -> 米国ストアの曲名（無ければ ""）
 
 
+def us_lookup_urls(ids):
+    """米国ストアの曲名をまとめて引く URL（app.js の usLookupUrls と同じ並び・区切り）。"""
+    ids = [str(i) for i in dict.fromkeys(ids) if str(i).isdigit()]
+    return [(part, f"{BASE}/lookup?" + urllib.parse.urlencode({"id": ",".join(part), "country": "US"}))
+            for part in (ids[n:n + US_CHUNK] for n in range(0, len(ids), US_CHUNK))]
+
+
 def english_titles(ids):
-    """日本のストアは同じ曲でもカタカナ名・英語名が混ざるので、米国ストアの曲名を1回のまとめ取得で引く。失敗しても止めない。"""
-    want = [i for i in dict.fromkeys(ids) if i and i not in _en_titles]
-    for n in range(0, len(want), US_CHUNK):
-        part = want[n:n + US_CHUNK]
+    """日本のストアは同じ曲でもカタカナ名・英語名が混ざるので、米国ストアの曲名を1回のまとめ取得で引く。失敗しても止めない。
+    端末が取得した結果（_from_device）はこの1回だけ使い、他の人にも効くメモリには残さない。"""
+    out = {}
+    for part, url in us_lookup_urls(ids):
+        cached = {i: _en_titles.get(i) for i in part}
+        if all(v is not None for v in cached.values()):
+            out.update(cached)
+            continue
         try:
-            rs = fetch_json(f"{BASE}/lookup?" + urllib.parse.urlencode(
-                {"id": ",".join(map(str, part)), "country": "US"}))["results"]
+            data = fetch_json(url)
+            rs = data["results"]
         except Exception:  # noqa: BLE001
             break
-        if len(_en_titles) > 50000:
-            _en_titles.clear()
-        got = {r.get("trackId"): r.get("trackName") or "" for r in rs if r.get("wrapperType") == "track"}
-        for i in part:
-            _en_titles[i] = got.get(i, "")
-    return {i: _en_titles[i] for i in ids if _en_titles.get(i)}
+        got = {str(r.get("trackId")): r.get("trackName") for r in rs
+               if isinstance(r, dict) and r.get("wrapperType") == "track" and isinstance(r.get("trackName"), str)}
+        if not data.get("_from_device"):
+            if len(_en_titles) > 50000:
+                _en_titles.clear()
+            _en_titles.update({i: got.get(i, "") for i in part})
+        out.update({i: got.get(i, "") for i in part})
+    return {i: v for i, v in out.items() if v}
 
 
 def _songs(results):
@@ -189,7 +202,7 @@ def _songs(results):
     keys = []
     for r in tracks:
         a = _song_artist(r)
-        ks = [(a, t) for t in dict.fromkeys(song_title_norm(n) for n in (r.get("trackName"), en.get(r["trackId"])) if n) if t]
+        ks = [(a, t) for t in dict.fromkeys(song_title_norm(n) for n in (r.get("trackName"), en.get(str(r["trackId"]))) if n) if t]
         ks = ks or [("#", str(r["trackId"]))]
         for k in ks[1:]:
             parent[root(k)] = root(ks[0])

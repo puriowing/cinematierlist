@@ -455,3 +455,17 @@ class EnglishKeyTest(unittest.TestCase):
         self.assertEqual(itunes.song_title_norm("Let It Be (Apple Studio - Remastered)"), "letitbe")
         self.assertTrue(itunes.is_variant("Let It Be (Apple Studio - Remastered)"))
         self.assertNotEqual(itunes.song_title_norm("曲A (Cover - Remastered)"), "曲a")
+
+    def test_us_lookup_urls_digits_and_chunks(self):
+        urls = itunes.us_lookup_urls([3, "4", "x1", "4", 5] + list(range(100, 400)))
+        self.assertEqual(urls[0][1].split("&")[0], "https://itunes.apple.com/lookup?id=3%2C4%2C5%2C100" + "".join(f"%2C{i}" for i in range(101, 247)))
+        self.assertEqual([len(p) for p, _ in urls], [150, 150, 3])
+        self.assertTrue(all(u.endswith("&country=US") for _, u in urls))
+
+    def test_device_data_not_cached(self):
+        self.us = {1: "Let It Be"}
+        orig = itunes.fetch_json
+        itunes.fetch_json = lambda u: dict(orig(u), _from_device=True)
+        out = itunes._songs([_b(1, "レット・イット・ビー", "Let It Be", 500, 12)])
+        self.assertEqual(out[0]["keyTitle"], "Let It Be")
+        self.assertEqual(itunes._en_titles, {})

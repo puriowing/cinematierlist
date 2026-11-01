@@ -1247,7 +1247,11 @@
   // 同一作品かどうか。作品IDが両方にあればIDで決め、無ければタイトル＋公開年（±1年）で照合する。
   // 同名の別作品（リメイク等）を「登録済」と誤判定しないため、タイトルだけでは一致させない。
   function sameMovie(m, q, nt) {
-    if (q.itunesId && m.itunesId) return String(m.itunesId) === String(q.itunesId) || movieKey(m) === movieKey(q);
+    if (q.itunesId && m.itunesId) {
+      if (String(m.itunesId) === String(q.itunesId)) return true;
+      const qk = songKeys(q);
+      return songKeys(m).some((k) => qk.includes(k));
+    }
     if (q.filmarksId && m.filmarksId) return fidKey(m.filmarksId) === fidKey(q.filmarksId);
     if (q.eigaId && m.eigaId) return String(m.eigaId) === String(q.eigaId);
     if (q.tmdbId && m.tmdbId) return String(m.tmdbId) === String(q.tmdbId);
@@ -2379,6 +2383,11 @@
   function songTitleNorm(v) {
     const t = Array.from(String(v || "").normalize("NFKC").toLowerCase().slice(0, 400)).slice(0, 200).join("").trim();
     return t.replace(VERSION_TAG, "").replace(KEY_STRIP, "");
+  }
+
+  // 英語の曲名（keyTitle）でも日本の曲名でも、どちらかが同じなら同じ曲（keyTitle が無い前の登録分とも照合するため）
+  function songKeys(m) {
+    return [...new Set([movieKey(m), movieKey({ itunesId: m.itunesId, artist: m.artist, title: m.title })])];
   }
 
   function movieKey(m) {
@@ -4672,12 +4681,28 @@
     } catch (e) { return null; }
   }
 
+  // itunes.py の us_lookup_urls と同じ（同じ曲がカタカナ名・英語名に分かれるのを米国ストアの曲名でまとめる）
+  function usLookupUrls(results) {
+    const ids = [...new Set((results || []).filter((r) => r && r.wrapperType === "track" && r.kind === "song" && r.trackId)
+      .map((r) => String(r.trackId)))].filter((i) => /^\d+$/.test(i));
+    const out = [];
+    for (let n = 0; n < ids.length && out.length < 2; n += 150) {
+      out.push("https://itunes.apple.com/lookup?" + new URLSearchParams({ id: ids.slice(n, n + 150).join(","), country: "US" }));
+    }
+    return out;
+  }
+
   async function itunesFetch(path, appleUrl) {
     const raw = appleUrl ? await appleItunesJson(appleUrl) : null;
+    const rawMap = raw ? { [appleUrl]: raw } : null;
+    if (raw) {
+      const urls = usLookupUrls(raw.results);
+      (await Promise.all(urls.map(appleItunesJson))).forEach((j, i) => { if (j) rawMap[urls[i]] = j; });
+    }
     let res;
     try {
-      res = await fetch(path, raw ? { method: "POST", headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ raw: { [appleUrl]: raw } }) } : undefined);
+      res = await fetch(path, rawMap ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify({ raw: rawMap }) } : undefined);
     } catch (e) { throw new Error("NO_SERVER"); }
     if (!res.ok) throw new Error(res.status === 502 ? "FETCH_FAILED" : "HTTP_" + res.status);
     return res.json();

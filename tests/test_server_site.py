@@ -40,6 +40,7 @@ class SiteRoutesTest(unittest.TestCase):
         return json.loads(urllib.request.urlopen(req).read().decode())
 
     def test_itunes_uses_device_fetched_results(self):
+        server.itunes._en_titles.clear()
         calls = []
         self.addCleanup(setattr, server, "_fetch", server._fetch)
         server._fetch = lambda u, use_cache=True: calls.append(u) or json.dumps({"results": []})
@@ -47,12 +48,19 @@ class SiteRoutesTest(unittest.TestCase):
                  "artistName": "A", "collectionId": 9, "collectionName": "Al"}
         # app.js の appleItunesUrl と同じ組み立て（URLSearchParams の並び順）
         url = "https://itunes.apple.com/search?country=JP&lang=ja_jp&term=Y+Z&media=music&entity=song&limit=50"
-        r = self.post_itunes("/api/itunes/search?type=all&q=" + urllib.parse.quote("Y Z"), {"raw": {url: {"results": [track]}}})
-        self.assertEqual(r["songs"][0]["itunesId"], "7")
+        # app.js の usLookupUrls と同じ組み立て（米国ストアの曲名）
+        us = "https://itunes.apple.com/lookup?id=7&country=US"
+        us_data = {"results": [dict(track, trackName="Y (2009 Remaster)")]}
+        r = self.post_itunes("/api/itunes/search?type=all&q=" + urllib.parse.quote("Y Z"),
+                             {"raw": {url: {"results": [track]}, us: us_data}})
+        self.assertEqual((r["songs"][0]["itunesId"], r["songs"][0]["keyTitle"]), ("7", "Y"))
         self.assertEqual(calls, [])
+        self.assertEqual(server.itunes._en_titles.get("7"), None)  # 端末の結果は共有メモリに残さない
         url = "https://itunes.apple.com/lookup?country=JP&lang=ja_jp&id=3&entity=song&limit=200"
-        r = self.post_itunes("/api/itunes/artist?id=3", {"raw": {url: {"results": [track]}}})
+        r = self.post_itunes("/api/itunes/artist?id=3", {"raw": {url: {"results": [track]}, us: us_data}})
         self.assertEqual((r["songs"][0]["itunesId"], calls), ("7", []))
+        r = self.post_itunes("/api/itunes/artist?id=3", {"raw": {url: {"results": [track]}}})
+        self.assertEqual(calls, [us])  # 米国ストアの分が無ければサーバーが取得する
 
     def test_itunes_ignores_foreign_raw(self):
         calls = []

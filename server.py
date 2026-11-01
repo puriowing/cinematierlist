@@ -178,7 +178,7 @@ def _itunes_key(url):
 def _itunes_json(url):
     """端末がAppleから直接取得した結果があれば使う（回数制限は送信元ごとのため）。なければサーバーで取得。"""
     hit = (getattr(_itunes_raw, "map", None) or {}).get(_itunes_key(url))
-    return hit if hit is not None else json.loads(_fetch(url))
+    return dict(hit, _from_device=True) if hit is not None else json.loads(_fetch(url))
 
 
 def _parse_itunes_raw(raw):
