@@ -42,7 +42,7 @@ def song_title_norm(v):
     return _KEY_STRIP.sub("", VERSION_TAG.sub("", t))
 
 
-_VARIOUS = {"variousartists", "ヴァリアスアーティスト", "オムニバス", "various"}
+_VARIOUS = {"variousartists", "various", "va", "ヴァリアスアーティスト", "オムニバス"}
 
 
 _COMPILATION = re.compile(
@@ -59,8 +59,7 @@ def _album_text(name):
 
 
 def is_compilation(r):
-    ca, a = _norm(r.get("collectionArtistName")), _norm(r.get("artistName"))
-    if ca and ca != a and (ca in _VARIOUS or ca not in a):  # 「A feat. B」の曲が入った A のアルバムは除外しない
+    if _norm(r.get("collectionArtistName")) in _VARIOUS - {""}:
         return True
     t = _album_text(r.get("collectionName")).strip()
     if t.isdigit():  # 「1」のような数字だけのベスト盤。Adele「25」のような元のアルバムは曲数で見分ける
@@ -80,7 +79,7 @@ def _edition_level(t):
     return 1 if not _EDITION.search(re.sub(r"\bremaster(?:ed)?\b(?:\s*\d{4})?", "", t)) else 2
 
 
-def span_compilations(results):
+def span_compilations(results, min_tracks=2):
     """手元の曲データで、同じアルバムの曲の発売日が大きく離れていればベスト盤とみなす（「アンコール」「1」など名前で分からないもの）。
     3年超の開きで3曲以上、または6年超の開きで2曲以上。"""
     dates = {}
@@ -90,7 +89,8 @@ def span_compilations(results):
             dates.setdefault(cid, []).append(d)
     # 元のアルバムは新曲が同じ発売日に並ぶ（山下達郎「SOFTLY」）。同じ日付の曲が4割以上ならベスト盤とみなさない
     return {cid for cid, ds in dates.items()
-            if _span_over(min(ds), max(ds), len(ds)) and (len(ds) < 3 or max(map(ds.count, ds)) < 0.4 * len(ds))}
+            if len(ds) >= min_tracks and _span_over(min(ds), max(ds), len(ds))
+            and (len(ds) < 3 or max(map(ds.count, ds)) < 0.4 * len(ds))}
 
 
 def _span_over(lo, hi, n):
@@ -139,23 +139,23 @@ def search_songs(q, limit=30):
 
 
 def _albums(rows, cap, comps=()):
-    """ベスト盤・コンピは除き、エディション違いは1つ（無印を優先）にまとめる。rows は表示順。"""
+    """エディション違いを1つ（無印を優先）にまとめてから、ベスト盤・コンピを除く。rows は表示順。
+    comps は発売日の開きで見たベスト盤（3曲以上で判定したもの）。全部除かれるときは除かずに出す。"""
     groups, order = {}, []
     for r in rows:
-        if not r.get("collectionId") or _album_rank(r, comps)[0]:
+        if not r.get("collectionId"):
             continue
         k = (_norm(r.get("collectionArtistName") or r.get("artistName")), album_base(r.get("collectionName")))
         if k not in groups:
             order.append(k)
             groups[k] = []
         groups[k].append(r)
-    out = []
-    for k in order[:cap]:
-        r = min(groups[k], key=lambda x: (_album_rank(x)[2], x.get("trackCount") or 9999, x.get("collectionId") or 0))
-        out.append({"id": str(r["collectionId"]), "title": r.get("collectionName") or "",
-                    "artist": r.get("collectionArtistName") or r.get("artistName") or "",
-                    "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]})
-    return out
+    reps = [min(groups[k], key=lambda x: (_album_rank(x)[2], x.get("trackCount") or 9999, x.get("collectionId") or 0))
+            for k in order]
+    kept = [r for r in reps if not _album_rank(r, comps)[0]] or reps
+    return [{"id": str(r["collectionId"]), "title": r.get("collectionName") or "",
+             "artist": r.get("collectionArtistName") or r.get("artistName") or "",
+             "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]} for r in kept[:cap]]
 
 
 def _rank(groups, order):
@@ -180,8 +180,10 @@ def _derive(results):
         names = arts[aid]
         if i and len(names) < 2:  # 1曲だけ出てきたアーティスト（カバー等）は2番手以降に出さない
             break
-        artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n)))})
-    albums = _albums([albs[c][0] for c in _rank(albs, b_order)], 8, span_compilations(tracks))
+        artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n), n))})
+    # アルバムの年は、手元にある収録曲のうち一番新しい発売日（アルバムはシングルより後に出る）
+    rows = [dict(albs[c][0], releaseDate=max(x.get("releaseDate") or "" for x in albs[c])) for c in _rank(albs, b_order)]
+    albums = _albums(rows, 8, span_compilations(tracks, min_tracks=3))
     return artists, albums
 
 

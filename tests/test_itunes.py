@@ -290,3 +290,44 @@ class SpanCompilationTest(unittest.TestCase):
         rows = [_d(i, f"新曲{i}", "SOFTLY", 5, "2022-06-22", 15) for i in range(1, 6)] + \
                [_d(10 + i, f"シングル{i}", "SOFTLY", 5, d, 15) for i, d in enumerate(["2008-03-12", "2013-10-09", "2016-09-14", "2019-11-27"])]
         self.assertEqual(itunes.span_compilations(rows), set())
+
+
+class ReviewFixTest(unittest.TestCase):
+    def test_collection_artist_only_explicit_various(self):
+        self.assertFalse(itunes.is_compilation({"collectionName": "X", "artistName": "A", "collectionArtistName": "A & B"}))
+        self.assertFalse(itunes.is_compilation({"collectionName": "X", "artistName": "ヨルシカ", "collectionArtistName": "Yorushika"}))
+        for va in ["Various Artists", "V.A.", "VA", "ヴァリアス・アーティスト", "オムニバス", "Various"]:
+            self.assertTrue(itunes.is_compilation({"collectionName": "X", "artistName": "A", "collectionArtistName": va}), va)
+
+    def test_various_label_not_used_as_song_artist(self):
+        self.assertEqual(itunes._song_artist({"artistName": "歌手", "collectionArtistName": "V.A."}), "歌手")
+
+    def test_row_falls_back_when_all_filtered(self):
+        rows = [{"collectionId": 1, "collectionName": "Gold", "artistName": "Ryan Adams", "trackCount": 16}]
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Gold"])
+        rows.append({"collectionId": 2, "collectionName": "Heartbreaker", "artistName": "Ryan Adams", "trackCount": 15})
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Heartbreaker"])
+
+    def test_plain_not_dropped_while_deluxe_remains(self):
+        rows = [{"collectionId": 2, "collectionName": "Album (Deluxe Edition)", "artistName": "A", "trackCount": 20},
+                {"collectionId": 1, "collectionName": "Album", "artistName": "A", "trackCount": 10},
+                {"collectionId": 3, "collectionName": "Other", "artistName": "A", "trackCount": 10}]
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8, comps={1})], ["Other"])
+        self.assertEqual([a["title"] for a in itunes._albums(rows, 8)], ["Album", "Other"])
+
+    def test_two_track_spread_only_deprioritizes(self):
+        rows = [_d(1, "a", "盤", 5, "2005-01-01"), _d(2, "b", "盤", 5, "2015-01-01"),
+                _d(3, "a", "シングル", 6, "2005-01-01", 2)]
+        self.assertEqual({s["title"]: s["album"] for s in itunes._songs(rows)}["a"], "シングル")
+        _, albums = itunes._derive(rows)
+        self.assertIn("盤", [a["title"] for a in albums])
+
+    def test_album_year_is_latest_track(self):
+        rows = [_d(1, "a", "盤", 5, "2018-05-01"), _d(2, "b", "盤", 5, "2019-03-01")]
+        _, albums = itunes._derive(rows)
+        self.assertEqual(albums[0]["year"], "2019")
+
+    def test_artist_name_tiebreak_deterministic(self):
+        rows = [dict(TRACK, trackId=1, artistId=9, artistName="ab"), dict(TRACK, trackId=2, artistId=9, artistName="aa", trackName="x")]
+        self.assertEqual(itunes._derive(rows)[0][0]["name"], "aa")
+        self.assertEqual(itunes._derive(list(reversed(rows)))[0][0]["name"], "aa")
