@@ -4655,9 +4655,29 @@
     return copySongFields(s, { title: s.title, poster: s.poster || "", year: s.year || "" });
   }
 
-  async function itunesFetch(path) {
+  // Apple の回数制限は送信元ごとなので、端末から直接取得してサーバーには並べ替えだけ頼む。失敗したらサーバーが取得する
+  function appleItunesUrl(path, params) {
+    return "https://itunes.apple.com/" + path + "?" + new URLSearchParams({ country: "JP", lang: "ja_jp", ...params });
+  }
+
+  async function appleItunesJson(url) {
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 6000);
+      const res = await fetch(url, { signal: ctl.signal, credentials: "omit" }).finally(() => clearTimeout(timer));
+      if (!res.ok) return null;
+      const j = await res.json();
+      return j && Array.isArray(j.results) ? j : null;
+    } catch (e) { return null; }
+  }
+
+  async function itunesFetch(path, appleUrl) {
+    const raw = appleUrl ? await appleItunesJson(appleUrl) : null;
     let res;
-    try { res = await fetch(path); } catch (e) { throw new Error("NO_SERVER"); }
+    try {
+      res = await fetch(path, raw ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ raw: { [appleUrl]: raw } }) } : undefined);
+    } catch (e) { throw new Error("NO_SERVER"); }
     if (!res.ok) throw new Error(res.status === 502 ? "FETCH_FAILED" : "HTTP_" + res.status);
     return res.json();
   }
@@ -4683,7 +4703,8 @@
     let data;
     try {
       data = await withLoading(box, `「${q}」を検索中…`, () =>
-        itunesFetch(`/api/itunes/search?type=all&q=${encodeURIComponent(q)}`));
+        itunesFetch(`/api/itunes/search?type=all&q=${encodeURIComponent(q)}`,
+          appleItunesUrl("search", { term: q, media: "music", entity: "song", limit: 50 })));
     } catch (e) {
       if (req === itunesReq) status.textContent = itunesErrorText(e);
       return;
@@ -4761,7 +4782,8 @@
     let data;
     try {
       data = await withLoading(box, `「${label}」の曲を取得中…`, () =>
-        itunesFetch(`/api/itunes/${mode}?id=${encodeURIComponent(it.id)}`));
+        itunesFetch(`/api/itunes/${mode}?id=${encodeURIComponent(it.id)}`,
+          appleItunesUrl("lookup", mode === "artist" ? { id: it.id, entity: "song", limit: 200 } : { id: it.id, entity: "song" })));
     } catch (e) {
       if (req === itunesReq) status.textContent = itunesErrorText(e);
       return;

@@ -166,7 +166,33 @@ def _fetch(url, use_cache=True):
     return text
 
 
-itunes.fetch_json = lambda u: json.loads(_fetch(u))
+_itunes_raw = threading.local()
+ITUNES_RAW_MAX_BYTES = 4 * 1024 * 1024
+
+
+def _itunes_key(url):
+    p = urllib.parse.urlparse(url)
+    return (p.netloc.lower(), p.path, tuple(sorted(urllib.parse.parse_qsl(p.query))))
+
+
+def _itunes_json(url):
+    """端末がAppleから直接取得した結果があれば使う（回数制限は送信元ごとのため）。なければサーバーで取得。"""
+    hit = (getattr(_itunes_raw, "map", None) or {}).get(_itunes_key(url))
+    return hit if hit is not None else json.loads(_fetch(url))
+
+
+def _parse_itunes_raw(raw):
+    out = {}
+    if not isinstance(raw, dict):
+        return out
+    for url, data in list(raw.items())[:3]:
+        if (isinstance(url, str) and urllib.parse.urlparse(url).netloc.lower() == "itunes.apple.com"
+                and isinstance(data, dict) and isinstance(data.get("results"), list)):
+            out[_itunes_key(url)] = data
+    return out
+
+
+itunes.fetch_json = _itunes_json
 
 
 def _prefetch(urls):
@@ -2338,6 +2364,34 @@ class Handler(SimpleHTTPRequestHandler):
         u = next((v for v in users.values() if v.get("id") == uid), None)
         return bool(u) and (u.get("username") or "").lower() in ADMIN_USERS
 
+    def _h_itunes(self, parsed, raw=None):
+        if "itunes" not in SITE.get("features", []):
+            self._send_json({"error": "not found"}, 404)
+            return
+        qs = urllib.parse.parse_qs(parsed.query)
+        arg = lambda k: (qs.get(k) or [""])[0].strip()
+        _itunes_raw.map = _parse_itunes_raw(raw)
+        try:
+            kind = parsed.path.rsplit("/", 1)[1]
+            if kind == "search" and arg("type") == "all":
+                self._send_json(itunes.search_all(arg("q")) if arg("q") else {"songs": [], "artists": [], "albums": []})
+            elif kind == "search":
+                fn = {"artist": itunes.search_artists, "album": itunes.search_albums}.get(arg("type"), itunes.search_songs)
+                self._send_json({"results": fn(arg("q")) if arg("q") else []})
+            elif kind in ("artist", "album"):
+                if not arg("id"):
+                    self._send_json({"error": "id required"}, 400)
+                    return
+                fn = itunes.artist_songs if kind == "artist" else itunes.album_songs
+                self._send_json(fn(arg("id")))
+            else:
+                self._send_json({"error": "not found"}, 404)
+        except Exception as exc:  # noqa: BLE001
+            print("itunes error:", exc, file=sys.stderr)
+            self._send_json({"error": "itunes unavailable"}, 502)
+        finally:
+            _itunes_raw.map = None
+
     def _read_json_body(self):
         try:
             length = int(self.headers.get("Content-Length", 0) or 0)
@@ -2759,7 +2813,16 @@ class Handler(SimpleHTTPRequestHandler):
         self._send_private_json(_challenge_view(ch, pid, self._is_admin()))
 
     def do_POST(self):
-        path = urllib.parse.urlparse(self.path).path
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/api/itunes/"):
+            try:
+                length = int(self.headers.get("Content-Length", 0) or 0)
+            except ValueError:
+                length = 0
+            body = self._read_json_body() if 0 < length <= ITUNES_RAW_MAX_BYTES else None
+            self._h_itunes(parsed, (body or {}).get("raw") if isinstance(body, dict) else None)
+            return
         if path == "/api/challenge":
             self._h_challenge_create()
             return
@@ -2912,29 +2975,7 @@ class Handler(SimpleHTTPRequestHandler):
                  "results": []}, 410)
             return
         if parsed.path.startswith("/api/itunes/"):
-            if "itunes" not in SITE.get("features", []):
-                self._send_json({"error": "not found"}, 404)
-                return
-            qs = urllib.parse.parse_qs(parsed.query)
-            arg = lambda k: (qs.get(k) or [""])[0].strip()
-            try:
-                kind = parsed.path.rsplit("/", 1)[1]
-                if kind == "search" and arg("type") == "all":
-                    self._send_json(itunes.search_all(arg("q")) if arg("q") else {"songs": [], "artists": [], "albums": []})
-                elif kind == "search":
-                    fn = {"artist": itunes.search_artists, "album": itunes.search_albums}.get(arg("type"), itunes.search_songs)
-                    self._send_json({"results": fn(arg("q")) if arg("q") else []})
-                elif kind in ("artist", "album"):
-                    if not arg("id"):
-                        self._send_json({"error": "id required"}, 400)
-                        return
-                    fn = itunes.artist_songs if kind == "artist" else itunes.album_songs
-                    self._send_json(fn(arg("id")))
-                else:
-                    self._send_json({"error": "not found"}, 404)
-            except Exception as exc:  # noqa: BLE001
-                print("itunes error:", exc, file=sys.stderr)
-                self._send_json({"error": "itunes unavailable"}, 502)
+            self._h_itunes(parsed)
             return
         if parsed.path == "/api/filmarks/search":
             params = urllib.parse.parse_qs(parsed.query)

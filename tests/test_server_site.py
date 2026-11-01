@@ -34,6 +34,33 @@ class SiteRoutesTest(unittest.TestCase):
         r = json.loads(self.get("/api/itunes/search?q=X&type=song"))
         self.assertEqual(r["results"][0]["itunesId"], "1")
 
+    def post_itunes(self, p, body):
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{p}", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        return json.loads(urllib.request.urlopen(req).read().decode())
+
+    def test_itunes_uses_device_fetched_results(self):
+        calls = []
+        self.addCleanup(setattr, server, "_fetch", server._fetch)
+        server._fetch = lambda u, use_cache=True: calls.append(u) or json.dumps({"results": []})
+        track = {"wrapperType": "track", "kind": "song", "trackId": 7, "trackName": "Y", "artistId": 3,
+                 "artistName": "A", "collectionId": 9, "collectionName": "Al"}
+        # app.js の appleItunesUrl と同じ組み立て（URLSearchParams の並び順）
+        url = "https://itunes.apple.com/search?country=JP&lang=ja_jp&term=Y+Z&media=music&entity=song&limit=50"
+        r = self.post_itunes("/api/itunes/search?type=all&q=" + urllib.parse.quote("Y Z"), {"raw": {url: {"results": [track]}}})
+        self.assertEqual(r["songs"][0]["itunesId"], "7")
+        self.assertEqual(calls, [])
+        url = "https://itunes.apple.com/lookup?country=JP&lang=ja_jp&id=3&entity=song&limit=200"
+        r = self.post_itunes("/api/itunes/artist?id=3", {"raw": {url: {"results": [track]}}})
+        self.assertEqual((r["songs"][0]["itunesId"], calls), ("7", []))
+
+    def test_itunes_ignores_foreign_raw(self):
+        calls = []
+        self.addCleanup(setattr, server, "_fetch", server._fetch)
+        server._fetch = lambda u, use_cache=True: calls.append(u) or json.dumps({"results": []})
+        self.post_itunes("/api/itunes/album?id=5", {"raw": {"https://evil.example/lookup?country=JP&lang=ja_jp&id=5&entity=song": {"results": []}}})
+        self.assertEqual(len(calls), 1)
+
     def test_register_has_no_recovery_code(self):
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/auth/register",
                                      data=json.dumps({"username": "rc_test_user", "password": "secret123"}).encode(),
