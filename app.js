@@ -5521,7 +5521,26 @@
       const wish = visibleItems(state.watchlist || []).length;
       info.textContent =
         `鑑賞済み ${watched} 本 ＋ 未鑑賞 ${wish} 本 ＝ 合計 ${watched + wish} 本`;
+      const raw = (document.getElementById("listSearchInput")?.value || "").trim();
+      if (searchQuery && raw && watched + wish === 0) {
+        info.textContent = "並べた中には見つかりません";
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "btn btn-primary btn-sm list-search-add";
+        add.dataset.raw = "1";
+        add.textContent = `「${raw.length > 20 ? raw.slice(0, 20) + "…" : raw}」を追加する →`;
+        add.addEventListener("click", () => openAddWithQuery(raw));
+        info.append(" ", add);
+      }
     }
+  }
+
+  function openAddWithQuery(q) {
+    openAddModal();
+    switchTab("search");
+    if (!q) return;
+    document.getElementById("movieSearchInput").value = q;
+    doSearch();
   }
 
   function applyThemeFilter(rawValue) {
@@ -12442,13 +12461,8 @@
       e.preventDefault();
       const input = document.getElementById("quickAddInput");
       const q = input.value.trim();
-      openAddModal();
-      switchTab("search");
-      if (q) {
-        document.getElementById("movieSearchInput").value = q;
-        input.value = "";
-        doSearch();
-      }
+      if (q) input.value = "";
+      openAddWithQuery(q);
     });
     document.querySelectorAll("[data-open-tab]").forEach((b) =>
       b.addEventListener("click", () => {
