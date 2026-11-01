@@ -86,3 +86,55 @@ class RemasterTest(unittest.TestCase):
     def test_trailing_newline(self):
         self.assertEqual(itunes.song_title_norm("曲A (Remaster)\n"), "曲a")
         self.assertEqual(itunes.song_title_norm("  曲A - Remastered 2011 \n\t"), "曲a")
+
+
+def _t(tid, artist, aid, album, cid, name=None):
+    return dict(TRACK, trackId=tid, trackName=name or f"曲{tid}", artistName=artist, artistId=aid,
+                collectionName=album, collectionId=cid)
+
+
+class SearchAllTest(unittest.TestCase):
+    def setUp(self):
+        self.calls = []
+        orig = itunes.fetch_json
+        self.addCleanup(setattr, itunes, "fetch_json", orig)
+        self.responses = {}
+
+        def fake(url):
+            self.calls.append(url)
+            for k, v in self.responses.items():
+                if k in url:
+                    return {"results": v}
+            return {"results": []}
+        itunes.fetch_json = fake
+
+    def test_derives_from_one_fetch(self):
+        self.responses["entity=song"] = [
+            _t(1, "歌手B", 20, "アルバムY", 200), _t(2, "歌手A", 10, "アルバムX", 100),
+            _t(3, "歌手A", 10, "アルバムX", 100), _t(4, "歌手A feat. 歌手B", 10, "アルバムZ", 300),
+            _t(5, "Various Artists", 99, "ベスト", 400), _t(6, "歌手B", 20, "アルバムY", 200),
+            _t(7, "カバー歌手", 30, "カバー集", 500)]
+        r = itunes.search_all("q")
+        self.assertEqual(len(self.calls), 1)
+        self.assertIn("entity=song", self.calls[0])
+        self.assertEqual(r["artists"], [{"id": "10", "name": "歌手A"}, {"id": "20", "name": "歌手B"}])
+        self.assertEqual([a["id"] for a in r["albums"]], ["200", "100", "300", "400", "500"])
+        self.assertEqual(r["albums"][0]["title"], "アルバムY")
+        self.assertEqual(r["albums"][0]["poster"], "https://x/600x600bb.jpg")
+        self.assertEqual(len(r["songs"]), 7)
+        self.assertNotIn("artistId", r["songs"][0])
+
+    def test_caps(self):
+        self.responses["entity=song"] = [_t(i * 2 + k, f"歌手{i}", i, f"盤{i}", 1000 + i, name=f"曲{i}-{k}")
+                                         for i in range(1, 15) for k in (0, 1)]
+        r = itunes.search_all("q")
+        self.assertEqual((len(r["artists"]), len(r["albums"])), (3, 8))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_fallback_album_search_when_no_songs(self):
+        self.responses["entity=album"] = [{"collectionId": 7, "collectionName": "盤", "artistName": "歌手"}]
+        r = itunes.search_all("q")
+        self.assertEqual(len(self.calls), 2)
+        self.assertIn("entity=album", self.calls[1])
+        self.assertEqual(r["albums"][0]["id"], "7")
+        self.assertEqual(r["artists"], [])

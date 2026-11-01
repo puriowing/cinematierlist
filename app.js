@@ -64,7 +64,8 @@
     "ch-from", "ch-note", "ch-title", "cmt-text", "cmt-av", "tl-title", "tl-note", "tl-when", "tl-tier", "tl-poster-fb",
     "tl-todo-btn", "ta-poster-fb", "ta-badge", "tier-label-text", "to-name", "stat-rank-name", "stat-bar-label",
     "up-title", "nitaku-res-item", "nitaku-res-tier", "mp-hero-name", "person-cardname", "rh-note",
-    "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text", "song-artist"];
+    "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text", "song-artist",
+    "it-artist-name", "it-album-title", "it-album-sub"];
 
   function wHarvest(v, depth) {
     if (typeof v === "string") {
@@ -4637,17 +4638,13 @@
   }
 
   // =======================================================================
-  // 音楽版：iTunes から曲を追加（曲検索 / アーティストの曲 / アルバムの収録曲）
+  // 音楽版：iTunes から曲を追加（1回の検索で アーティスト・アルバム・曲 をまとめて表示）
   // =======================================================================
-  const ITUNES_PLACEHOLDER = {
-    song: "曲名・アーティスト名を入力（例: ケセラセラ）",
-    artist: "アーティスト名を入力（例: Mrs. GREEN APPLE）",
-    album: "アルバム名を入力（例: ANTENNA）",
-  };
-  let itunesMode = "song";
+  const ITUNES_PLACEHOLDER = "曲名・アーティスト名・アルバム名を入力（例: back number）";
   let itunesSongsList = [];
   let itunesSongsMode = "artist";
   let itunesReq = 0;
+  let itunesLastStatus = "";
 
   function songItem(s) {
     return copySongFields(s, { title: s.title, poster: s.poster || "", year: s.year || "" });
@@ -4666,84 +4663,88 @@
     return "検索に失敗しました: " + e.message;
   }
 
-  function applyItunesMode(mode) {
-    itunesMode = mode;
-    document.querySelectorAll("#itunesModeChips .role-chip").forEach((b) =>
-      b.classList.toggle("active", b.dataset.imode === mode));
-    const input = document.getElementById("movieSearchInput");
-    if (input) input.placeholder = ITUNES_PLACEHOLDER[mode];
-  }
-
-  function setItunesMode(mode) {
-    if (mode === itunesMode) return;
-    applyItunesMode(mode);
-    closeItunesSongs();
-    document.getElementById("searchResults").innerHTML = "";
-    document.getElementById("searchStatus").textContent = "";
-    if (document.getElementById("movieSearchInput").value.trim()) doSearch();
-  }
-
   function resetItunes() {
-    applyItunesMode("song");
     closeItunesSongs();
+    itunesLastStatus = "";
   }
 
   async function itunesSearch(q) {
-    const mode = itunesMode;
     const status = document.getElementById("searchStatus");
     const box = document.getElementById("searchResults");
     closeItunesSongs();
     const req = itunesReq;
-    status.textContent = "";
+    status.textContent = itunesLastStatus = "";
     box.innerHTML = "";
     let data;
     try {
       data = await withLoading(box, `「${q}」を検索中…`, () =>
-        itunesFetch(`/api/itunes/search?type=${mode}&q=${encodeURIComponent(q)}`));
+        itunesFetch(`/api/itunes/search?type=all&q=${encodeURIComponent(q)}`));
     } catch (e) {
       if (req === itunesReq) status.textContent = itunesErrorText(e);
       return;
     }
     if (req !== itunesReq) return;
-    const list = data.results || [];
-    if (!list.length) {
+    const songs = (data.songs || []).map(songItem);
+    const artists = data.artists || [];
+    const albums = data.albums || [];
+    if (!songs.length && !artists.length && !albums.length) {
       status.textContent = "見つかりませんでした。";
       return;
     }
-    if (mode === "song") {
-      status.textContent = `${list.length}曲見つかりました（タップで追加）`;
-      renderSearchResults(list.map(songItem));
-    } else {
-      status.textContent = `${list.length}件見つかりました（タップで曲の一覧へ）`;
-      renderItunesCandidates(mode, list);
-    }
+    if (songs.length) renderSearchResults(songs);
+    else box.innerHTML = "";
+    status.textContent = itunesLastStatus = songs.length
+      ? `${songs.length}曲見つかりました`
+      : "曲は見つかりませんでした。アルバムから選べます。";
+    renderItunesSections(box, artists, albums, songs.length);
   }
 
-  function renderItunesCandidates(mode, list) {
-    const wrap = document.getElementById("searchResults");
-    wrap.innerHTML = "";
-    list.forEach((it) => {
-      const card = document.createElement("div");
-      if (mode === "artist") {
-        card.className = "person-card";
+  function itunesSection(label, note) {
+    const sec = document.createElement("div");
+    sec.className = "it-sec";
+    sec.innerHTML = `<div class="it-sec-head">${label}${note ? `<small>${note}</small>` : ""}</div>`;
+    return sec;
+  }
+
+  function renderItunesSections(box, artists, albums, songCount) {
+    const frag = document.createDocumentFragment();
+    if (artists.length) {
+      const sec = itunesSection("🎤 アーティスト", "タップで曲の一覧へ");
+      const row = document.createElement("div");
+      row.className = "it-artists";
+      artists.forEach((a) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "it-artist";
+        btn.innerHTML = `<span aria-hidden="true">🎤</span><span class="it-artist-name">${escapeHtml(a.name)}</span><span class="it-go">›</span>`;
+        btn.addEventListener("click", () => loadItunesSongs("artist", a));
+        row.appendChild(btn);
+      });
+      sec.appendChild(row);
+      frag.appendChild(sec);
+    }
+    if (albums.length) {
+      const sec = itunesSection("💿 アルバム", "タップで収録曲へ");
+      const row = document.createElement("div");
+      row.className = "it-albums";
+      albums.forEach((al) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "it-album";
         card.innerHTML =
-          `<div class="person-photo person-photo-fb">🎤</div>` +
-          `<div class="person-cardname">${escapeHtml(it.name)}</div>` +
-          (it.genre ? `<div class="result-year">${escapeHtml(it.genre)}</div>` : "");
-      } else {
-        card.className = "result-card";
-        card.innerHTML =
-          (it.poster
-            ? `<img src="${escapeHtml(imgSrc(it.poster))}" alt="" loading="lazy" />`
-            : `<div class="result-fallback">💿</div>`) +
-          `<div class="result-meta">
-             <div class="result-title">${escapeHtml(it.title)}</div>
-             <div class="result-year">${escapeHtml([it.artist, it.year].filter(Boolean).join(" ・ "))}</div>
-           </div>`;
-      }
-      card.addEventListener("click", () => loadItunesSongs(mode, it));
-      wrap.appendChild(card);
-    });
+          (musicUrlOk("poster", al.poster)
+            ? `<img src="${escapeHtml(al.poster)}" alt="" loading="lazy" />`
+            : `<div class="it-album-fb">💿</div>`) +
+          `<span class="it-album-title">${escapeHtml(al.title)}</span>` +
+          `<span class="it-album-sub">${escapeHtml([al.year, al.artist].filter(Boolean).join(" ・ "))}</span>`;
+        card.addEventListener("click", () => loadItunesSongs("album", al));
+        row.appendChild(card);
+      });
+      sec.appendChild(row);
+      frag.appendChild(sec);
+    }
+    if (songCount && (artists.length || albums.length)) frag.appendChild(itunesSection("🎵 曲", "タップで追加"));
+    box.prepend(frag);
   }
 
   async function loadItunesSongs(mode, it) {
@@ -4815,6 +4816,8 @@
 
   function closeItunesSongs() {
     itunesReq++;
+    const st = document.getElementById("searchStatus");
+    if (st && !document.getElementById("itunesSongs").classList.contains("hidden")) st.textContent = itunesLastStatus;
     const songs = document.getElementById("itunesSongs");
     if (songs) songs.classList.add("hidden");
     const grid = document.getElementById("itunesGrid");
@@ -4835,10 +4838,7 @@
   }
 
   function wireItunes() {
-    document.getElementById("itunesModeChips").classList.remove("hidden");
-    applyItunesMode("song");
-    document.querySelectorAll("#itunesModeChips .role-chip").forEach((b) =>
-      b.addEventListener("click", () => setItunesMode(b.dataset.imode)));
+    document.getElementById("movieSearchInput").placeholder = ITUNES_PLACEHOLDER;
     document.getElementById("itunesBackBtn").addEventListener("click", closeItunesSongs);
     document.getElementById("itunesSelectAllBtn").addEventListener("click", toggleItunesSelectAll);
     document.getElementById("itunesAddBtn").addEventListener("click", bulkAddItunes);

@@ -2919,7 +2919,9 @@ class Handler(SimpleHTTPRequestHandler):
             arg = lambda k: (qs.get(k) or [""])[0].strip()
             try:
                 kind = parsed.path.rsplit("/", 1)[1]
-                if kind == "search":
+                if kind == "search" and arg("type") == "all":
+                    self._send_json(itunes.search_all(arg("q")) if arg("q") else {"songs": [], "artists": [], "albums": []})
+                elif kind == "search":
                     fn = {"artist": itunes.search_artists, "album": itunes.search_albums}.get(arg("type"), itunes.search_songs)
                     self._send_json({"results": fn(arg("q")) if arg("q") else []})
                 elif kind in ("artist", "album"):

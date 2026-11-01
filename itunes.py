@@ -58,6 +58,51 @@ def _songs(results):
 def search_songs(q, limit=30):
     return _songs(fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"])
 
+_VARIOUS = {"variousartists", "ヴァリアスアーティスト", "オムニバス", "various"}
+
+
+def _rank(groups, order):
+    return sorted(order, key=lambda k: (-len(groups[k]), order.index(k)))
+
+
+def _derive(results):
+    tracks = [r for r in results if r.get("wrapperType") == "track" and r.get("kind") == "song"]
+    arts, a_order, albs, b_order = {}, [], {}, []
+    for r in tracks:
+        aid, cid = r.get("artistId"), r.get("collectionId")
+        if aid and _norm(r.get("artistName")) not in _VARIOUS:
+            if aid not in arts:
+                a_order.append(aid)
+            arts.setdefault(aid, []).append(r.get("artistName") or "")
+        if cid:
+            if cid not in albs:
+                b_order.append(cid)
+            albs.setdefault(cid, []).append(r)
+    artists = []
+    for i, aid in enumerate(_rank(arts, a_order)[:3]):
+        names = arts[aid]
+        if i and len(names) < 2:  # 1曲だけ出てきたアーティスト（カバー等）は2番手以降に出さない
+            break
+        artists.append({"id": str(aid), "name": min(set(names), key=lambda n: (-names.count(n), len(n)))})
+    albums = []
+    for cid in _rank(albs, b_order)[:8]:
+        r = albs[cid][0]
+        albums.append({"id": str(cid), "title": r.get("collectionName") or "",
+                       "artist": r.get("collectionArtistName") or r.get("artistName") or "",
+                       "poster": _art(r), "year": (r.get("releaseDate") or "")[:4]})
+    return artists, albums
+
+
+def search_all(q, limit=50):
+    """曲検索1回で、曲・アーティスト・アルバムをまとめて返す。何も出ないときだけアルバム検索を1回足す。"""
+    rs = fetch_json(_url("search", term=q, media="music", entity="song", limit=limit))["results"]
+    songs = _songs(rs)
+    artists, albums = _derive(rs)
+    if not songs or (not artists and not albums):
+        albums = albums or search_albums(q, limit=8)
+    return {"songs": songs, "artists": artists, "albums": albums}
+
+
 def search_artists(q, limit=10):
     rs = fetch_json(_url("search", term=q, media="music", entity="musicArtist", limit=limit))["results"]
     return [{"id": str(r["artistId"]), "name": r.get("artistName") or "", "genre": r.get("primaryGenreName") or ""}
