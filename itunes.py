@@ -73,9 +73,16 @@ def album_base(name):
     return _norm(_EDITION_GROUP.sub("", _album_text(name)))
 
 
+def _edition_level(t):
+    """0=無印、1=リマスターだけ、2=Deluxe・2019 Mix などのエディション違い。"""
+    if not _EDITION.search(t):
+        return 0
+    return 1 if not _EDITION.search(re.sub(r"\bremaster(?:ed)?\b(?:\s*\d{4})?", "", t)) else 2
+
+
 def _album_rank(r):
     t = _album_text(r.get("collectionName"))
-    return (is_compilation(r), bool(_SECONDARY.search(t)), bool(_EDITION.search(t)))
+    return (is_compilation(r), bool(_SECONDARY.search(t)), _edition_level(t))
 
 
 def _pick_rank(r):

@@ -233,3 +233,7 @@ class OriginalAlbumTest(unittest.TestCase):
             {"wrapperType": "collection", "collectionId": 2, "collectionName": "Abbey Road (Remastered)", "artistName": "ビートルズ", "trackCount": 17},
             {"wrapperType": "collection", "collectionId": 3, "collectionName": "Abbey Road (2019 Mix)", "artistName": "ビートルズ", "trackCount": 17}]}
         self.assertEqual([a["id"] for a in itunes.search_albums("beatles")], ["2"])
+        itunes.fetch_json = lambda u: {"results": [
+            {"collectionId": 3, "collectionName": "Abbey Road (2019 Mix)", "artistName": "ビートルズ", "trackCount": 17},
+            {"collectionId": 2, "collectionName": "Abbey Road (Remastered)", "artistName": "ビートルズ", "trackCount": 19}]}
+        self.assertEqual([a["title"] for a in itunes.search_albums("x")], ["Abbey Road (Remastered)"])
