@@ -2375,10 +2375,9 @@ class Handler(SimpleHTTPRequestHandler):
             salt, h = _hash_pw(password)
             users[key] = {"id": uid, "username": username, "salt": salt,
                           "hash": h, "created": int(time.time())}
-            code = _set_recovery(users[key])
             _save_users(users)
             _pwv_cache[uid] = 0
-        self._send_private_json({"user": {"username": username, "hasRecovery": True}, "recoveryCode": code},
+        self._send_private_json({"user": {"username": username, "hasRecovery": False}},
                                 cookies=[_set_cookie(_make_token(uid))])
 
     def _user_by_uid(self, users, uid):

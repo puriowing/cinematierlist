@@ -1584,9 +1584,9 @@
         `<button id="authLogoutBtn" class="btn btn-danger">ログアウト</button>` +
         `</div>` +
         `<div class="pv-group acc-sec">` +
-        `<p class="pv-title">復旧コード<small class="${currentUser.hasRecovery ? "acc-ok" : "acc-warn"}">${currentUser.hasRecovery
-          ? `発行済み${currentUser.recoveryAt ? `（${new Date(currentUser.recoveryAt * 1000).toLocaleDateString("ja-JP")}）` : ""}` : "⚠ 未発行"}</small></p>` +
-        `<p class="pv-note">パスワードを忘れたときに、このコードで新しいパスワードを設定できます。${currentUser.hasRecovery ? "なくした場合は作り直してください（前のコードは使えなくなります）。" : "いまのうちに発行して保存しておきましょう。"}</p>` +
+        `<p class="pv-title">復旧コード<small class="${currentUser.hasRecovery ? "acc-ok" : ""}">${currentUser.hasRecovery
+          ? `発行済み${currentUser.recoveryAt ? `（${new Date(currentUser.recoveryAt * 1000).toLocaleDateString("ja-JP")}）` : ""}` : "未発行"}</small></p>` +
+        `<p class="pv-note">パスワードを忘れたときに、このコードで新しいパスワードを設定できます。${currentUser.hasRecovery ? "なくした場合は作り直してください（前のコードは使えなくなります）。" : "パスワードを忘れたときに備えたい方は、発行して保存しておいてください。"}</p>` +
         `<button type="button" id="accRecoveryBtn" class="btn ${currentUser.hasRecovery ? "btn-ghost" : "btn-primary"} btn-sm">${currentUser.hasRecovery ? "復旧コードを作り直す" : "復旧コードを発行する"}</button>` +
         `</div>` +
         `<details class="pv-group acc-sec acc-pw"><summary class="pv-title">パスワードを変更</summary>` +
@@ -1626,7 +1626,7 @@
       });
     } else if (authMode === "reset") {
       body.innerHTML =
-        `<p class="hint" style="margin-top:0">登録したときに表示された<b>復旧コード</b>で、新しいパスワードを設定します。</p>` +
+        `<p class="hint" style="margin-top:0">マイページで発行した<b>復旧コード</b>で、新しいパスワードを設定します。</p>` +
         `<form class="auth-form" data-noautosubmit>` +
         `<label class="field"><span>ユーザー名 または メールアドレス</span>` +
         `<input id="rsUser" type="text" autocomplete="username" maxlength="254" /></label>` +
@@ -12740,7 +12740,7 @@
     }
     const sum = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     sum("mpAccountSum", currentUser
-      ? (currentUser.hasRecovery ? `${currentUser.username} でログイン中` : "⚠ 復旧コードが未発行です（パスワードを忘れたときに必要）")
+      ? `${currentUser.username} でログイン中`
       : "ログインすると、ほかの端末でも同じリストを使えます");
     sum("mpProfileSum", name ? `表示名：${name}` : "表示名・生まれた年など");
     const themeName = { studio: "スタジオ", pop: "ポップ", classic: "クラシック" }[settings.theme] || "ポップ";

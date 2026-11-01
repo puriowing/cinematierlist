@@ -34,6 +34,14 @@ class SiteRoutesTest(unittest.TestCase):
         r = json.loads(self.get("/api/itunes/search?q=X&type=song"))
         self.assertEqual(r["results"][0]["itunesId"], "1")
 
+    def test_register_has_no_recovery_code(self):
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/auth/register",
+                                     data=json.dumps({"username": "rc_test_user", "password": "secret123"}).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        r = json.loads(urllib.request.urlopen(req).read().decode())
+        self.assertNotIn("recoveryCode", r)
+        self.assertFalse(r["user"]["hasRecovery"])
+
     def test_itunes_empty_id(self):
         for k in ("artist", "album"):
             with self.assertRaises(urllib.error.HTTPError) as c:
