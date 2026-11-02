@@ -137,6 +137,42 @@
     });
   }
 
+  const CLEARABLE = 'input[type="search"], #movieSearchInput, #seriesSearchInput, #collectionSearchInput, #personSearchInput, #socPasteInput, .theme-search';
+  function addClearBtn(input) {
+    if (input.dataset.clr || !input.parentNode) return;
+    input.dataset.clr = "1";
+    if (!input.placeholder) input.placeholder = " ";
+    const had = document.activeElement === input;
+    const pos = had ? input.selectionStart : null;
+    const wrap = document.createElement("span");
+    wrap.className = "clr-wrap";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "clr-btn";
+    b.tabIndex = -1;
+    b.setAttribute("aria-label", "入力を消す");
+    b.textContent = "×";
+    b.addEventListener("pointerdown", (e) => e.preventDefault());
+    b.addEventListener("click", () => {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      const cur = input.isConnected ? input : wrap.isConnected && wrap.querySelector("input");
+      if (cur) cur.focus();
+    });
+    wrap.appendChild(b);
+    if (had) { input.focus(); if (pos != null) try { input.setSelectionRange(pos, pos); } catch (e) {} }
+  }
+  function addClearBtns(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (root.matches(CLEARABLE)) addClearBtn(root);
+    root.querySelectorAll(CLEARABLE).forEach(addClearBtn);
+  }
+  addClearBtns(document.body);
+  new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach(addClearBtns)))
+    .observe(document.body, { subtree: true, childList: true });
+
   const COLLAPSE_ICON =
     '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
@@ -7444,6 +7480,7 @@
           : `<div class="theme-empty">該当なし</div>`) +
         `</div>`;
       const input = box.querySelector(".ap-search");
+      addClearBtn(input);
       input.addEventListener("input", () => {
         p.q = input.value;
         const pos = input.selectionStart;
