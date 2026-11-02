@@ -9171,3 +9171,6 @@ img.movie-poster.no-fade { transition: none !important; }
 .tier-sort-sub { font-size: 11px; font-weight: 700; color: var(--text-dim); margin: 8px 4px 2px; padding-top: 8px; border-top: 1px solid var(--border); }
 .tier-sort-menu .tier-sort-opt small { display: block; font-size: 11px; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
 .tier-sort-menu .tier-sort-opt:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 並び替えメニューの説明文は折り返して、ボタンの中におさめる */
+.tier-sort-menu .tier-sort-opt { white-space: normal; height: auto; min-height: 36px; text-align: left; justify-content: flex-start; flex-wrap: wrap; line-height: 1.4; padding-top: 7px; padding-bottom: 7px; }
+.tier-sort-menu .tier-sort-opt small { flex-basis: 100%; overflow-wrap: anywhere; }
