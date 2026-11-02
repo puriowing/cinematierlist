@@ -5148,6 +5148,9 @@
     if (rank) rank.classList.toggle("hidden", !hasFilter());
     const fbar = document.querySelector(".filter-bar");
     if (fbar) fbar.classList.toggle("has-filter", hasFilter());
+    // まだ1本も並べていないうちは「絞り込み・検索」を出さない（作品の追加と取り違えないように）
+    const ft = document.getElementById("filterToggleBtn");
+    if (ft) ft.classList.toggle("hidden", !allMovies().length && !hasFilter());
 
     const ch = document.getElementById("challengeCreateBtn");
     if (ch) {
