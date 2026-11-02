@@ -105,12 +105,12 @@ theme("y10", "年代", "2010年代ヒット", "配信とSNSから広がった10�
     ("菅田将暉", "さよならエレジー"), ("菅田将暉", "まちがいさがし"), ("ONE OK ROCK", "The Beginning"),
     ("宇多田ヒカル", "花束を君に"), ("安室奈美恵", "Hero"), ("西野カナ", "トリセツ"), ("秦基博", "ひまわりの約束"),
     ("LiSA", "紅蓮華"), ("嵐", "Troublemaker"), ("Mrs. GREEN APPLE", "青と夏"), ("サカナクション", "新宝島"),
-    ("[Alexandros]", "ワタリドリ"), ("星野源", "アイデア"), ("Perfume", "チョコレイト・ディスコ"),
-    ("平井堅", "ノンフィクション"), ("ゴールデンボンバー", "女々しくて"),
+    ("[Alexandros]", "ワタリドリ"), ("星野源", "アイデア"),
+    ("平井堅", "ノンフィクション"), ("YOASOBI", "夜に駆ける"), ("瑛人", "香水"),
 ])
 
 theme("y20", "年代", "2020年代ヒット", "ストリーミングとTikTok時代のヒット曲", [
-    ("YOASOBI", "夜に駆ける"), ("YOASOBI", "アイドル"), ("YOASOBI", "群青"), ("LiSA", "炎"), ("瑛人", "香水"),
+    ("YOASOBI", "アイドル"), ("YOASOBI", "群青"), ("LiSA", "炎"),
     ("Official髭男dism", "I LOVE..."), ("Official髭男dism", "Subtitle"), ("Official髭男dism", "ミックスナッツ"),
     ("優里", "ドライフラワー"), ("優里", "ベテルギウス"), ("Ado", "うっせぇわ"), ("Ado", "新時代"),
     ("NiziU", "Make you happy"), ("Creepy Nuts", "Bling-Bang-Bang-Born"), ("Creepy Nuts", "オトノケ"),
@@ -461,7 +461,7 @@ more("y80", [
     ("もんた&ブラザーズ", "ダンシング・オールナイト"), ("シャネルズ", "ランナウェイ"), ("イモ欽トリオ", "ハイスクールララバイ"),
     ("細川たかし", "北酒場"), ("大川栄策", "さざんかの宿"), ("石川さゆり", "天城越え"), ("テレサ・テン", "つぐない"),
     ("テレサ・テン", "時の流れに身をまかせ"), ("吉幾三", "雪國"), ("吉幾三", "俺ら東京さ行ぐだ"), ("小林旭", "熱き心に"),
-    ("欧陽菲菲", "ラヴ・イズ・オーヴァー"), ("来生たかお", "夢の途中"), ("薬師丸ひろ子", "探偵物語"), ("原田知世", "時をかける少女"),
+    ("来生たかお", "夢の途中"), ("薬師丸ひろ子", "探偵物語"), ("原田知世", "時をかける少女"),
     ("H2O", "想い出がいっぱい"), ("稲垣潤一", "ドラマティック・レイン"), ("杏里", "悲しみがとまらない"),
     ("REBECCA", "RASPBERRY DREAM"), ("BOØWY|BOOWY", "B・BLUE"), ("BOØWY|BOOWY", "ONLY YOU"),
     ("THE BLUE HEARTS", "TRAIN-TRAIN"), ("THE BLUE HEARTS", "人にやさしく"), ("尾崎豊", "I LOVE YOU"), ("尾崎豊", "卒業"),
@@ -521,11 +521,11 @@ more("y00", [
     ("サンボマスター", "世界はそれを愛と呼ぶんだぜ"), ("平原綾香", "Jupiter"), ("supercell", "君の知らない物語"),
     ("中島美嘉", "STARS"), ("コブクロ", "ここにしか咲かない花"), ("福山雅治", "虹"), ("MISIA", "逢いたくていま"),
     ("絢香", "I believe"), ("RADWIMPS", "有心論"), ("UVERworld", "D-tecnoLife"),
-    ("FLOW", "GO!!!"), ("ケツメイシ", "涙"), ("D-51", "NO MORE CRY"), ("FUNKY MONKEY BABYS", "ちっぽけな勇気"),
+    ("FLOW", "GO!!!"), ("いきものがかり", "じょいふる"), ("ゴールデンボンバー", "女々しくて"), ("D-51", "NO MORE CRY"), ("FUNKY MONKEY BABYS", "ちっぽけな勇気"),
 ])
 
 more("y10", [
-    ("AKB48", "フライングゲット"), ("KARA", "ミスター"), ("少女時代|Girls' Generation", "GENIE"), ("いきものがかり", "じょいふる"),
+    ("AKB48", "フライングゲット"),
     ("いきものがかり", "風が吹いている"), ("EXILE", "Rising Sun"), ("三代目 J SOUL BROTHERS from EXILE TRIBE|三代目 J Soul Brothers", "花火"),
     ("SEKAI NO OWARI", "スターライトパレード"), ("ゲスの極み乙女", "私以外私じゃないの"), ("きゃりーぱみゅぱみゅ", "つけまつける"),
     ("きゃりーぱみゅぱみゅ", "にんじゃりばんばん"), ("ももいろクローバーZ", "行くぜっ!怪盗少女"), ("ももいろクローバーZ", "Z伝説 〜終わりなき革命〜"),
@@ -548,7 +548,7 @@ more("y10", [
 more("y20", [
     ("YOASOBI", "怪物"), ("YOASOBI", "祝福"), ("YOASOBI", "勇者"), ("YOASOBI", "ハルジオン"), ("Ado", "踊"), ("Ado", "唱"),
     ("Ado", "私は最強"), ("Official髭男dism", "Cry Baby"), ("Official髭男dism", "Universe"), ("Official髭男dism", "アポトーシス"),
-    ("Vaundy", "踊り子"), ("Vaundy", "不可幸力"), ("King Gnu", "逆夢"), ("King Gnu", "カメレオン"), ("米津玄師", "Pale Blue"),
+    ("Vaundy", "踊り子"), ("King Gnu", "逆夢"), ("King Gnu", "カメレオン"), ("米津玄師", "Pale Blue"),
     ("米津玄師", "さよーならまたいつか!"), ("米津玄師", "地球儀"), ("米津玄師", "LADY"), ("あいみょん", "愛の花"),
     ("Mrs. GREEN APPLE", "Soranji"), ("Mrs. GREEN APPLE", "Magic"), ("Mrs. GREEN APPLE", "ビターバカンス"),
     ("Mrs. GREEN APPLE", "コロンブス"), ("Mrs. GREEN APPLE", "クスシキ"), ("Creepy Nuts", "のびしろ"), ("藤井風", "旅路"),
@@ -847,9 +847,13 @@ def _artist_ok(aliases, name):
     return False
 
 
+def _cache_path(url):
+    return os.path.join(CACHE, hashlib.sha256(url.encode()).hexdigest() + ".json")
+
+
 def fetch(url):
     os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, hashlib.sha256(url.encode()).hexdigest() + ".json")
+    path = _cache_path(url)
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -882,11 +886,16 @@ def _us_names(ids):
     return out
 
 
-def resolve(artist, title):
+def resolve(artist, title, cached_only=False):
+    """候補に合う曲を1つ選ぶ。cached_only=True のときは取得済みの検索結果だけを見て、合う曲をすべて返す。"""
     aliases = [a for a in artist.split("|") if a]
     terms = [(f"{aliases[0]} {title}", 25)] + ([(f"{aliases[1]} {title}", 25)] if len(aliases) > 1 else [])
     terms.append((f"{aliases[-1]} {title}", 100))
+    found = []
     for term, limit in terms:
+        url = itunes._url("search", term=term, media="music", entity="song", limit=limit)
+        if cached_only and not os.path.exists(_cache_path(url)):
+            continue
         rs = fetch(itunes._url("search", term=term, media="music", entity="song", limit=limit)).get("results", [])
         tracks = [r for r in rs if r.get("wrapperType") == "track" and r.get("kind") == "song" and r.get("trackId")]
         hits = [r for r in tracks if _artist_ok(aliases, r.get("artistName")) and _title_ok(title, r.get("trackName"))]
@@ -896,11 +905,30 @@ def resolve(artist, title):
                     if (_artist_ok(aliases, r.get("artistName")) or _artist_ok(aliases, us.get(str(r["trackId"]), ("", ""))[0]))
                     and (_title_ok(title, r.get("trackName")) or _title_ok(title, us.get(str(r["trackId"]), ("", ""))[1]))]
         hits = [r for r in hits if _original(r)]
+        if cached_only:
+            found += hits
+            continue
         if hits:
             comps = itunes.span_compilations(rs)
             return min(hits, key=lambda r: (not _exact(title, r.get("trackName")), bool(_LIVE.search(_n(r.get("collectionName")))))
                        + itunes._pick_rank(r, comps))
-    return None
+    return found if cached_only else None
+
+
+def in_decade(tid, r):
+    """年代テーマ（y70〜y20）で、曲の発売年がその年代に入っているか。"""
+    y, d = (r.get("releaseDate") or "")[:4], {"y70": 1970, "y80": 1980, "y90": 1990, "y00": 2000, "y10": 2010, "y20": 2020}[tid]
+    return y.isdigit() and d <= int(y) < d + 10
+
+
+def decade_version(tid, c, r):
+    """年代テーマでは、iTunes の版がベスト盤・再発などで年代外の年になっていれば、取得済みの結果から年代内の版を探す。"""
+    if in_decade(tid, r):
+        return r
+    alts = [x for x in resolve(c[0], c[1], cached_only=True) if in_decade(tid, x)]
+    if not alts:
+        return None
+    return min(alts, key=lambda x: (not _exact(c[1], x.get("trackName")),) + itunes._pick_rank(x))
 
 
 _JP_VER = re.compile(r"japanese\s*(?:ver|version)|日本語")
@@ -968,15 +996,27 @@ def main():
         if not rs:
             no_artist.append(a)
     en = itunes.english_titles([r["trackId"] for r in raw.values()] + [r["trackId"] for v in tops.values() for r in v])
-    themes = []
+    themes, swapped, blanked = [], [], []
     for tid, group, label, desc, songs in T:
         out, seen = [], set()
-        picks = [(raw.get((c[0], c[1])), c[2] if len(c) > 2 else "") for c in songs]
-        picks += [(r, "") for x in dict.fromkeys(ART.get(tid, [])) for r in tops.get(x, [])]
-        for r, note in picks:
+        picks = [(raw.get((c[0], c[1])), c[2] if len(c) > 2 else "", c) for c in songs]
+        picks += [(r, "", None) for x in dict.fromkeys(ART.get(tid, [])) for r in tops.get(x, [])]
+        for r, note, c in picks:
             if not r:
                 continue
+            blank_year = False
+            if group == "年代":
+                alt = decade_version(tid, c, r)
+                if alt is None:
+                    blank_year = True
+                elif alt is not r:
+                    swapped.append(f"{label}: {c[0]} / {c[1]} {(r.get('releaseDate') or '')[:4]} -> {(alt.get('releaseDate') or '')[:4]} {alt.get('collectionName')}")
+                    r = alt
+                    en.update(itunes.english_titles([r["trackId"]]))
             s = itunes._song(r, en)
+            if blank_year:
+                blanked.append(f"{label}: {c[0]} / {c[1]} ({s['year']})")
+                s["year"] = ""
             k = song_key(s)
             if k in seen:
                 continue
@@ -996,6 +1036,12 @@ def main():
     print("UNRESOLVED:", len(unresolved))
     for u in unresolved:
         print("  -", u)
+    print("YEAR SWAPPED:", len(swapped))
+    for x in swapped:
+        print("  -", x)
+    print("YEAR BLANKED:", len(blanked))
+    for x in blanked:
+        print("  -", x)
     print("ARTISTS WITHOUT SONGS:", len(no_artist))
     for a in no_artist:
         print("  -", a)
