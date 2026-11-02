@@ -65,7 +65,7 @@
     "tl-todo-btn", "ta-poster-fb", "ta-badge", "tier-label-text", "to-name", "stat-rank-name", "stat-bar-label",
     "up-title", "nitaku-res-item", "nitaku-res-tier", "mp-hero-name", "person-cardname", "rh-note",
     "tier-export-title", "ranking-export-title", "ranking-export-note", "filmo-name", "list-title-text", "song-artist",
-    "it-artist-name", "it-album-title", "it-album-sub"];
+    "it-artist-name", "it-album-title", "it-album-sub", "result-note", "it-theme"];
 
   function wHarvest(v, depth) {
     if (typeof v === "string") {
@@ -4762,6 +4762,11 @@
   }
 
   async function itunesSearch(q) {
+    document.getElementById("itunesThemes").classList.add("hidden");
+    try { await itunesSearchRun(q); } finally { syncItunesThemes(); }
+  }
+
+  async function itunesSearchRun(q) {
     const status = document.getElementById("searchStatus");
     const box = document.getElementById("searchResults");
     closeItunesSongs();
@@ -4857,13 +4862,91 @@
       return;
     }
     if (req !== itunesReq) return;
+    showItunesSongs(mode, (data.songs || []).map(songItem),
+      `${label}${mode === "album" && it.artist ? " / " + it.artist : ""}`);
+  }
+
+  function showItunesSongs(mode, list, label) {
     itunesSongsMode = mode;
-    itunesSongsList = (data.songs || []).map(songItem);
-    box.classList.add("hidden");
-    document.getElementById("itunesListName").textContent =
-      `${label}${mode === "album" && it.artist ? " / " + it.artist : ""}（全${itunesSongsList.length}曲）`;
+    itunesSongsList = list;
+    document.getElementById("searchResults").classList.add("hidden");
+    document.getElementById("itunesListName").textContent = `${label}（全${list.length}曲）`;
+    document.getElementById("itunesBackBtn").textContent = mode === "theme" ? "← テーマ一覧へ" : "← 検索結果へ";
     document.getElementById("itunesSongs").classList.remove("hidden");
+    syncItunesThemes();
     renderItunesGrid();
+  }
+
+  // テーマから選ぶ：年代・シーン・ジャンルなどで選んだ定番曲の一覧（music_themes.json）
+  const THEME_GROUPS = ["年代", "シーン", "ジャンル", "種別"];
+  let itunesThemes = null;
+  const itunesThemeSongs = new Map();
+
+  function syncItunesThemes() {
+    const wrap = document.getElementById("itunesThemes");
+    if (!wrap) return;
+    const songsOpen = !document.getElementById("itunesSongs").classList.contains("hidden");
+    const show = !songsOpen && !document.getElementById("searchResults").children.length;
+    wrap.classList.toggle("hidden", !show);
+    if (show && !itunesThemes) loadItunesThemes();
+  }
+
+  async function loadItunesThemes() {
+    itunesThemes = [];
+    try {
+      const res = await fetch("/api/music/themes");
+      if (!res.ok) throw new Error();
+      itunesThemes = ((await res.json()).themes || []).filter((t) => t.count > 0);
+    } catch (e) {
+      itunesThemes = null;
+      return;
+    }
+    renderItunesThemes();
+  }
+
+  function renderItunesThemes() {
+    const wrap = document.getElementById("itunesThemes");
+    wrap.innerHTML = `<div class="it-sec-head">🎯 テーマから選ぶ<small>タップで曲の一覧へ</small></div>`;
+    THEME_GROUPS.forEach((g) => {
+      const list = itunesThemes.filter((t) => t.group === g);
+      if (!list.length) return;
+      const row = document.createElement("div");
+      row.className = "it-theme-row";
+      row.innerHTML = `<span class="it-theme-group">${escapeHtml(g)}</span><div class="it-theme-chips"></div>`;
+      list.forEach((t) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "it-theme";
+        btn.title = t.description || "";
+        btn.textContent = t.label;
+        btn.addEventListener("click", () => openItunesTheme(t));
+        row.lastChild.appendChild(btn);
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  async function openItunesTheme(t) {
+    const status = document.getElementById("searchStatus");
+    const box = document.getElementById("searchResults");
+    const req = ++itunesReq;
+    status.textContent = "";
+    let data = itunesThemeSongs.get(t.id);
+    if (!data) {
+      try {
+        data = await withLoading(box, `「${t.label}」の曲を読み込み中…`, async () => {
+          const res = await fetch(`/api/music/themes/${encodeURIComponent(t.id)}`);
+          if (!res.ok) throw new Error("HTTP_" + res.status);
+          return res.json();
+        });
+      } catch (e) {
+        if (req === itunesReq) { status.textContent = "テーマの読み込みに失敗しました。"; syncItunesThemes(); }
+        return;
+      }
+      itunesThemeSongs.set(t.id, data);
+    }
+    if (req !== itunesReq) return;
+    showItunesSongs("theme", (data.songs || []).map((s) => Object.assign(songItem(s), s.note ? { note: s.note } : {})), t.label);
   }
 
   function renderItunesGrid() {
@@ -4873,7 +4956,10 @@
       grid.appendChild(makePickCard(s, {
         subtitle: itunesSongsMode === "album"
           ? s.artist || ""
-          : [s.album, s.year].filter(Boolean).join(" ・ "),
+          : itunesSongsMode === "theme"
+            ? [s.artist, s.year].filter(Boolean).join(" ・ ")
+            : [s.album, s.year].filter(Boolean).join(" ・ "),
+        note: s.note || "",
         onToggle: updateItunesPickUI,
       }));
     });
@@ -4921,6 +5007,7 @@
     const box = document.getElementById("searchResults");
     if (box) box.classList.remove("hidden");
     syncItunesActions();
+    syncItunesThemes();
   }
 
   function syncItunesActions() {
@@ -4937,6 +5024,15 @@
     document.getElementById("itunesBackBtn").addEventListener("click", closeItunesSongs);
     document.getElementById("itunesSelectAllBtn").addEventListener("click", toggleItunesSelectAll);
     document.getElementById("itunesAddBtn").addEventListener("click", bulkAddItunes);
+    const input = document.getElementById("movieSearchInput");
+    input.addEventListener("input", () => {
+      if (input.value.trim()) return;
+      closeItunesSongs();
+      document.getElementById("searchResults").innerHTML = "";
+      document.getElementById("searchStatus").textContent = itunesLastStatus = "";
+      syncItunesThemes();
+    });
+    syncItunesThemes();
   }
 
   // =======================================================================
@@ -7167,7 +7263,8 @@
         : `<div class="result-fallback">${has("itunes") ? "🎵" : "🎬"}</div>`) +
       `<div class="result-meta">
          <div class="result-title">${escapeHtml(f.title)}</div>
-         <div class="result-year">${escapeHtml(sub)}</div>
+         <div class="result-year">${escapeHtml(sub)}</div>${opts.note ? `
+         <div class="result-note">${escapeHtml(opts.note)}</div>` : ""}
        </div>` +
       (MEDIA_LABEL[f.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[f.media]}</div>` : "") +
       `<div class="pick-badge">${added ? "✓ 登録済" : "選ぶ"}</div>`;

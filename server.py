@@ -2289,9 +2289,24 @@ def _entry_ratings(raw, keys):
     return {k: round(v, 4) for k, v in r.items() if k in keys}
 
 
+def _load_music_themes():
+    """音楽版「テーマから選ぶ」の曲リスト（scripts/build_music_themes.py で作る）。起動時に1回だけ読む。"""
+    if "itunes" not in SITE.get("features", []):
+        return {}
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "music_themes.json"), encoding="utf-8") as f:
+            return {t["id"]: t for t in json.load(f).get("themes", []) if isinstance(t, dict) and t.get("id")}
+    except (OSError, ValueError) as exc:
+        print("music_themes.json:", exc, file=sys.stderr)
+        return {}
+
+
+MUSIC_THEMES = _load_music_themes()
+
+
 def _api_ttl(path):
     """外部サイトから集めた公開データの API は、ブラウザに再利用させる（秒）。"""
-    if path.startswith("/api/itunes/"):
+    if path.startswith("/api/itunes/") or path.startswith("/api/music/themes"):
         return 24 * 3600
     if path in ("/api/watch", "/api/filmarks/coming", "/api/filmarks/series_coming"):
         return 3 * 3600
@@ -2367,6 +2382,21 @@ class Handler(SimpleHTTPRequestHandler):
             users = _load_users()
         u = next((v for v in users.values() if v.get("id") == uid), None)
         return bool(u) and (u.get("username") or "").lower() in ADMIN_USERS
+
+    def _h_music_themes(self, tid):
+        if "itunes" not in SITE.get("features", []):
+            self._send_json({"error": "not found"}, 404)
+            return
+        if not tid:
+            self._send_json({"themes": [{"id": t["id"], "group": t.get("group", ""), "label": t.get("label", ""),
+                                         "description": t.get("description", ""), "count": len(t.get("songs") or [])}
+                                        for t in MUSIC_THEMES.values()]})
+            return
+        t = MUSIC_THEMES.get(tid)
+        if t:
+            self._send_json(t)
+        else:
+            self._send_json({"error": "not found"}, 404)
 
     def _h_itunes(self, parsed, raw=None):
         if "itunes" not in SITE.get("features", []):
@@ -2980,6 +3010,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/itunes/"):
             self._h_itunes(parsed)
+            return
+        if parsed.path == "/api/music/themes" or parsed.path.startswith("/api/music/themes/"):
+            self._h_music_themes(parsed.path[len("/api/music/themes"):].strip("/"))
             return
         if parsed.path == "/api/filmarks/search":
             params = urllib.parse.parse_qs(parsed.query)
