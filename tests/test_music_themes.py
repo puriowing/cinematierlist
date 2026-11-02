@@ -23,6 +23,11 @@ class MusicThemesJsonTest(unittest.TestCase):
             self.assertTrue(t["label"] and t["description"])
             self.assertGreaterEqual(len(t["songs"]), 10, t["label"])
 
+    def test_enough_songs(self):
+        small = {"graduation", "christmas"}
+        for t in load():
+            self.assertGreaterEqual(len(t["songs"]), 40 if t["id"] in small else 60, t["label"])
+
     def test_songs(self):
         for t in load():
             keys = set()

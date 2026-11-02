@@ -411,6 +411,402 @@ theme("kpop", "種別", "K-POP", "日本でも人気の韓国のヒット曲", [
 ])
 
 
+ART = {}  # id -> [(artist, 曲数)]
+
+
+def more(tid, songs):
+    next(t for t in T if t[0] == tid)[4].extend(songs)
+
+
+def artists(tid, n, names):
+    """そのジャンルを代表するアーティストの、人気上位 n 曲を加える（手で選んだ曲のあとに並ぶ）。"""
+    ART.setdefault(tid, []).extend((a, n) for a in names)
+
+
+more("y70", [
+    ("小柳ルミ子", "わたしの城下町"), ("天地真理", "水色の恋"), ("天地真理", "ひとりじゃないの"), ("堺正章", "さらば恋人"),
+    ("欧陽菲菲", "雨の御堂筋"), ("吉田拓郎", "旅の宿"), ("井上陽水", "傘がない"), ("ぴんからトリオ", "女のみち"),
+    ("森昌子", "せんせい"), ("麻丘めぐみ", "わたしの彼は左きき"), ("郷ひろみ", "男の子女の子"), ("野口五郎", "私鉄沿線"),
+    ("西城秀樹", "傷だらけのローラ"), ("森進一", "襟裳岬"), ("中条きよし", "うそ"), ("殿さまキングス", "なみだの操"),
+    ("山口百恵", "ひと夏の経験"), ("山口百恵", "秋桜"), ("山口百恵", "いい日旅立ち"), ("風", "22才の別れ"),
+    ("イルカ", "なごり雪"), ("小坂恭子", "想い出まくら"), ("岩崎宏美", "思秋期"),
+    ("ダウン・タウン・ブギウギ・バンド", "港のヨーコ・ヨコハマ・ヨコスカ"), ("細川たかし", "心のこり"),
+    ("研ナオコ", "かもめはかもめ"), ("狩人", "あずさ2号"), ("清水健太郎", "失恋レストラン"), ("高田みづえ", "硝子坂"),
+    ("榊原郁恵", "夏のお嬢さん"), ("原田真二", "てぃーんずぶるーす"), ("Char", "気絶するほど悩ましい"),
+    ("矢沢永吉", "時間よ止まれ"), ("サーカス", "Mr.サマータイム"), ("甲斐バンド", "HERO(ヒーローになる時、それは今)"),
+    ("甲斐バンド", "安奈"), ("松山千春", "大空と大地の中で"), ("ジュディ・オング", "魅せられて"), ("ゴダイゴ", "銀河鉄道999"),
+    ("竹内まりや", "SEPTEMBER"), ("オフコース", "さよなら"), ("桑名正博", "セクシャルバイオレットNo.1"), ("円広志", "夢想花"),
+    ("チェリッシュ", "てんとう虫のサンバ"), ("ペドロ&カプリシャス", "五番街のマリーへ"), ("アグネス・チャン", "ひなげしの花"),
+    ("浅田美代子", "赤い風船"), ("荒井由実", "卒業写真"), ("荒井由実", "中央フリーウェイ"), ("キャンディーズ", "年下の男の子"),
+    ("沢田研二", "危険なふたり"), ("加藤登紀子", "知床旅情"), ("藤圭子", "圭子の夢は夜ひらく"),
+    ("和田アキ子", "あの鐘を鳴らすのはあなた"), ("五木ひろし", "よこはま・たそがれ"), ("千昌夫", "北国の春"), ("八代亜紀", "舟唄"),
+    ("山本リンダ", "どうにもとまらない"), ("金井克子", "他人の関係"), ("松崎しげる", "愛のメモリー"),
+    ("ピンク・レディー", "S・O・S"), ("ピンク・レディー", "ウォンテッド (指名手配)"), ("杏里", "オリビアを聴きながら"),
+    ("クリスタルキング", "大都会"), ("岸田智史", "きみの朝"), ("ばんばひろふみ", "SACHIKO"), ("アリス", "冬の稲妻"),
+    ("内山田洋とクール・ファイブ", "東京砂漠"), ("小林幸子", "おもいで酒"), ("堺正章", "街の灯り"),
+    ("中村雅俊", "ふれあい"), ("海援隊", "贈る言葉"), ("グレープ|さだまさし", "精霊流し"), ("太田裕美", "九月の雨"),
+])
+
+more("y80", [
+    ("松田聖子", "風立ちぬ"), ("松田聖子", "白いパラソル"), ("松田聖子", "SWEET MEMORIES"), ("松田聖子", "天国のキッス"),
+    ("松田聖子", "渚のバルコニー"), ("中森明菜", "セカンド・ラブ"), ("中森明菜", "十戒 (1984)"), ("中森明菜", "ミ・アモーレ"),
+    ("小泉今日子", "渚のはいから人魚"), ("小泉今日子", "艶姿ナミダ娘"), ("河合奈保子", "スマイル・フォー・ミー"),
+    ("柏原芳恵", "春なのに"), ("早見優", "夏色のナンシー"), ("菊池桃子", "卒業 -GRADUATION-"), ("南野陽子", "はいからさんが通る"),
+    ("中山美穂", "WAKU WAKUさせて"), ("工藤静香", "MUGO・ん…色っぽい"), ("浅香唯", "C-Girl"), ("酒井法子", "夢冒険"),
+    ("おニャン子クラブ", "セーラー服を脱がさないで"), ("田原俊彦", "哀愁でいと"), ("田原俊彦", "抱きしめてTONIGHT"),
+    ("竹内まりや", "元気を出して"), ("竹内まりや", "プラスティック・ラブ"), ("竹内まりや", "不思議なピーチパイ"),
+    ("サザンオールスターズ", "チャコの海岸物語"), ("サザンオールスターズ", "ミス・ブランニュー・デイ"),
+    ("サザンオールスターズ", "みんなのうた"), ("中島みゆき", "ひとり上手"), ("長渕剛", "とんぼ"), ("長渕剛", "順子"),
+    ("松山千春", "長い夜"), ("オフコース", "Yes-No"), ("オフコース", "言葉にできない"),
+    ("もんた&ブラザーズ", "ダンシング・オールナイト"), ("シャネルズ", "ランナウェイ"), ("イモ欽トリオ", "ハイスクールララバイ"),
+    ("細川たかし", "北酒場"), ("大川栄策", "さざんかの宿"), ("石川さゆり", "天城越え"), ("テレサ・テン", "つぐない"),
+    ("テレサ・テン", "時の流れに身をまかせ"), ("吉幾三", "雪國"), ("吉幾三", "俺ら東京さ行ぐだ"), ("小林旭", "熱き心に"),
+    ("欧陽菲菲", "ラヴ・イズ・オーヴァー"), ("来生たかお", "夢の途中"), ("薬師丸ひろ子", "探偵物語"), ("原田知世", "時をかける少女"),
+    ("H2O", "想い出がいっぱい"), ("稲垣潤一", "ドラマティック・レイン"), ("杏里", "悲しみがとまらない"),
+    ("REBECCA", "RASPBERRY DREAM"), ("BOØWY|BOOWY", "B・BLUE"), ("BOØWY|BOOWY", "ONLY YOU"),
+    ("THE BLUE HEARTS", "TRAIN-TRAIN"), ("THE BLUE HEARTS", "人にやさしく"), ("尾崎豊", "I LOVE YOU"), ("尾崎豊", "卒業"),
+    ("尾崎豊", "OH MY LITTLE GIRL"), ("浜田省吾", "もうひとつの土曜日"), ("佐野元春", "SOMEDAY"), ("大江千里", "十人十色"),
+    ("米米CLUB", "浪漫飛行"), ("TM NETWORK", "SEVEN DAYS WAR"), ("ユニコーン", "大迷惑"), ("X JAPAN|X", "紅"),
+    ("チェッカーズ", "星屑のステージ"), ("安全地帯", "悲しみにさよなら"), ("久保田利伸", "Missing"), ("徳永英明", "輝きながら…"),
+    ("杉山清貴&オメガトライブ", "君のハートはマリンブルー"), ("1986 OMEGA TRIBE", "君は1000%"), ("本田美奈子", "1986年のマリリン"),
+    ("中原めいこ", "君たちキウイ・パパイア・マンゴーだね。"), ("石井明美", "CHA-CHA-CHA"),
+    ("Wink", "愛が止まらない 〜Turn It Into Love〜"), ("美空ひばり", "愛燦燦"), ("岩崎良美", "タッチ"),
+    ("TUBE", "シーズン・イン・ザ・サン"), ("ハウンド・ドッグ", "ff (フォルティシモ)"), ("アン・ルイス", "六本木心中"),
+    ("高橋真梨子", "桃色吐息"), ("岩崎宏美", "聖母たちのララバイ"), ("LOOK", "シャイニン・オン 君が哀しい"),
+    ("PERSONZ", "DEAR FRIENDS"), ("渡辺美里", "サマータイム ブルース"), ("中島みゆき", "悪女"),
+])
+
+more("y90", [
+    ("B'z", "ALONE"), ("B'z", "Easy Come, Easy Go!"), ("ZARD", "マイ フレンド"), ("DREAMS COME TRUE", "決戦は金曜日"),
+    ("Mr.Children", "CROSS ROAD"), ("Mr.Children", "シーソーゲーム 〜勇敢な恋の歌〜"), ("サザンオールスターズ", "真夏の果実"),
+    ("サザンオールスターズ", "涙のキッス"), ("サザンオールスターズ", "エロティカ・セブン"), ("サザンオールスターズ", "愛の言霊 〜Spiritual Message〜"),
+    ("TUBE", "あー夏休み"), ("槇原敬之", "もう恋なんてしない"), ("中山美穂&WANDS|中山美穂", "世界中の誰よりきっと"),
+    ("WANDS", "もっと強く抱きしめたなら"), ("T-BOLAN", "離したくはない"), ("DEEN", "このまま君だけを奪い去りたい"),
+    ("大黒摩季", "あなただけ見つめてる"), ("FIELD OF VIEW", "突然"), ("THE 虎舞竜|THE虎舞竜", "ロード"),
+    ("trf", "survival dAnce 〜no no cry more〜"), ("trf", "BOY MEETS GIRL"), ("globe", "FACE"), ("globe", "Feel Like dance"),
+    ("篠原涼子 with t.komuro|篠原涼子", "恋しさと せつなさと 心強さと"), ("Every Little Thing", "出逢った頃のように"),
+    ("SPEED", "my graduation"), ("SPEED", "Body & Soul"), ("GLAY", "誘惑"), ("GLAY", "BELOVED"),
+    ("L'Arc〜en〜Ciel|L'Arc-en-Ciel", "winter fall"), ("LUNA SEA", "ROSIER"), ("X JAPAN", "Tears"), ("JUDY AND MARY", "Over Drive"),
+    ("THE YELLOW MONKEY", "JAM"), ("ウルフルズ", "バンザイ 〜好きでよかった〜"), ("エレファントカシマシ", "今宵の月のように"),
+    ("奥田民生", "さすらい"), ("PUFFY", "アジアの純真"), ("PUFFY", "これが私の生きる道"), ("ゆず", "夏色"),
+    ("19", "あの紙ヒコーキ くもり空わって"), ("Kiroro", "長い間"), ("MISIA", "つつみ込むように…"), ("椎名林檎", "本能"),
+    ("aiko", "花火"), ("aiko", "カブトムシ"), ("スチャダラパー|小沢健二", "今夜はブギー・バック"), ("小沢健二", "ラブリー"),
+    ("EAST END×YURI|EAST END", "DA.YO.NE"), ("松任谷由実", "春よ、来い"), ("中島みゆき", "旅人のうた"),
+    ("中島みゆき", "空と君のあいだに"), ("シャ乱Q", "シングルベッド"), ("シャ乱Q", "ズルい女"), ("ポルノグラフィティ", "アポロ"),
+    ("the brilliant green", "There will be love there -愛のある場所-"), ("My Little Lover", "Hello, Again 〜昔からある場所〜"),
+    ("川本真琴", "1/2"), ("今井美樹", "PRIDE"), ("KinKi Kids", "硝子の少年"), ("KinKi Kids", "愛されるより愛したい"),
+    ("hide", "ピンク スパイダー"), ("CHARA", "やさしい気持ち"), ("UA", "情熱"), ("Cocco", "強く儚い者たち"),
+    ("松たか子", "明日、春が来たら"), ("LINDBERG", "今すぐKiss Me"), ("JITTERIN'JINN|ジッタリン・ジン", "夏祭り"),
+    ("たま", "さよなら人類"), ("徳永英明", "壊れかけのRadio"), ("玉置浩二", "田園"), ("福山雅治", "HELLO"),
+    ("B'z", "さまよえる蒼い弾丸"), ("T.M.Revolution", "HOT LIMIT"), ("Mr.Children", "終わりなき旅"),
+])
+
+more("y00", [
+    ("浜崎あゆみ", "M"), ("浜崎あゆみ", "Dearest"), ("宇多田ヒカル", "Can You Keep A Secret?"), ("宇多田ヒカル", "光"),
+    ("宇多田ヒカル", "Flavor Of Life"), ("倖田來未", "Butterfly"), ("倖田來未", "愛のうた"), ("EXILE", "Lovers Again"),
+    ("ケツメイシ", "夏の思い出"), ("平井堅", "楽園"), ("平井堅", "大きな古時計"), ("CHEMISTRY", "PIECES OF A DREAM"),
+    ("DREAMS COME TRUE", "何度でも"), ("Mr.Children", "HERO"), ("ZONE", "secret base 〜君がくれたもの〜"),
+    ("モーニング娘。", "恋愛レボリューション21"), ("モーニング娘。", "ザ☆ピ〜ス!"), ("松浦亜弥", "Yeah! めっちゃホリディ"),
+    ("Every Little Thing", "fragile"), ("Do As Infinity", "深い森"), ("ゆず", "栄光の架橋"), ("島谷ひとみ", "亜麻色の髪の乙女"),
+    ("元ちとせ", "ワダツミの木"), ("RUI|柴咲コウ", "月のしずく"), ("NANA starring MIKA NAKASHIMA|中島美嘉", "GLAMOROUS SKY"),
+    ("大塚愛", "プラネタリウム"), ("BoA", "LISTEN TO MY HEART"), ("BoA", "VALENTI"), ("鬼束ちひろ", "月光"),
+    ("aiko", "ボーイフレンド"), ("ポルノグラフィティ", "アゲハ蝶"), ("ポルノグラフィティ", "メリッサ"), ("ORANGE RANGE", "ロコローション"),
+    ("湘南乃風", "純恋歌"), ("MONGOL800", "小さな恋のうた"), ("YUI", "Good-bye days"), ("YUI", "again"),
+    ("レミオロメン", "3月9日"), ("BUMP OF CHICKEN", "車輪の唄"), ("ASIAN KUNG-FU GENERATION", "リライト"), ("嵐", "Happiness"),
+    ("嵐", "truth"), ("Perfume", "チョコレイト・ディスコ"), ("AKB48", "涙サプライズ!"), ("木村カエラ", "リルラ リルハ"),
+    ("YUKI", "JOY"), ("加藤ミリヤ×清水翔太|加藤ミリヤ", "Love Forever"), ("清水翔太", "HOME"), ("西野カナ", "君に会いたくなるから"),
+    ("JUJU", "やさしさで溢れるように"), ("秦基博", "鱗(うろこ)"), ("桑田佳祐", "白い恋人達"), ("桑田佳祐", "波乗りジョニー"),
+    ("SOUL'd OUT", "ウェカピポ"), ("m-flo", "come again"), ("Def Tech", "My Way"), ("HY", "AM11:00"), ("HY", "366日"),
+    ("いきものがかり", "気まぐれロマンティック"), ("東方神起", "どうして君を好きになってしまったんだろう?"),
+    ("サンボマスター", "世界はそれを愛と呼ぶんだぜ"), ("平原綾香", "Jupiter"), ("supercell", "君の知らない物語"),
+    ("中島美嘉", "STARS"), ("コブクロ", "ここにしか咲かない花"), ("福山雅治", "虹"), ("MISIA", "逢いたくていま"),
+    ("絢香", "I believe"), ("RADWIMPS", "有心論"), ("UVERworld", "D-tecnoLife"),
+    ("FLOW", "GO!!!"), ("ケツメイシ", "涙"), ("D-51", "NO MORE CRY"), ("FUNKY MONKEY BABYS", "ちっぽけな勇気"),
+])
+
+more("y10", [
+    ("AKB48", "フライングゲット"), ("KARA", "ミスター"), ("少女時代|Girls' Generation", "GENIE"), ("いきものがかり", "じょいふる"),
+    ("いきものがかり", "風が吹いている"), ("EXILE", "Rising Sun"), ("三代目 J SOUL BROTHERS from EXILE TRIBE|三代目 J Soul Brothers", "花火"),
+    ("SEKAI NO OWARI", "スターライトパレード"), ("ゲスの極み乙女", "私以外私じゃないの"), ("きゃりーぱみゅぱみゅ", "つけまつける"),
+    ("きゃりーぱみゅぱみゅ", "にんじゃりばんばん"), ("ももいろクローバーZ", "行くぜっ!怪盗少女"), ("ももいろクローバーZ", "Z伝説 〜終わりなき革命〜"),
+    ("乃木坂46", "君の名は希望"), ("乃木坂46", "シンクロニシティ"), ("欅坂46", "不協和音"), ("米津玄師", "アイネクライネ"),
+    ("米津玄師", "LOSER"), ("米津玄師", "ピースサイン"), ("米津玄師", "Flamingo"), ("米津玄師", "馬と鹿"),
+    ("あいみょん", "君はロックを聴かない"), ("あいみょん", "今夜このまま"), ("Official髭男dism", "ノーダウト"),
+    ("Official髭男dism", "宿命"), ("back number", "ハッピーエンド"), ("back number", "ヒロイン"), ("back number", "瞬き"),
+    ("back number", "HAPPY BIRTHDAY"), ("WANIMA", "やってみよう"), ("RADWIMPS", "スパークル"), ("ONE OK ROCK", "完全感覚Dreamer"),
+    ("Mr.Children", "足音 〜Be Strong"), ("福山雅治", "家族になろうよ"), ("星野源", "Family Song"), ("宇多田ヒカル", "道"),
+    ("三浦大知", "EXCITE"), ("Suchmos", "STAY TUNE"), ("西野カナ", "Darling"), ("西野カナ", "if"), ("miwa", "ヒカリへ"),
+    ("家入レオ", "サブリナ"), ("AAA", "恋音と雨空"), ("E-girls", "Follow Me"), ("Aimer", "カタオモイ"),
+    ("KANA-BOON", "シルエット"), ("SHISHAMO", "明日も"), ("サカナクション", "アイデンティティ"), ("サカナクション", "ミュージック"),
+    ("Little Glee Monster", "世界はあなたに笑いかけている"), ("高橋優", "福笑い"), ("DISH//", "猫"), ("Saucy Dog", "いつか"),
+    ("Uru", "プロローグ"), ("LiSA", "oath sign"), ("LiSA", "crossing field"), ("Linked Horizon", "紅蓮の弓矢"),
+    ("SEKAI NO OWARI", "RPG"), ("TK from 凛として時雨", "unravel"), ("Mrs. GREEN APPLE", "インフェルノ"),
+    ("Mrs. GREEN APPLE", "僕のこと"), ("King Gnu", "Prayer X"), ("ヨルシカ", "ただ君に晴れ"), ("DAOKO|米津玄師", "打上花火"),
+    ("SPYAIR", "イマジネーション"), ("MAN WITH A MISSION", "FLY AGAIN"), ("クリープハイプ", "栞"), ("ポルノグラフィティ", "THE DAY"),
+])
+
+more("y20", [
+    ("YOASOBI", "怪物"), ("YOASOBI", "祝福"), ("YOASOBI", "勇者"), ("YOASOBI", "ハルジオン"), ("Ado", "踊"), ("Ado", "唱"),
+    ("Ado", "私は最強"), ("Official髭男dism", "Cry Baby"), ("Official髭男dism", "Universe"), ("Official髭男dism", "アポトーシス"),
+    ("Vaundy", "踊り子"), ("Vaundy", "不可幸力"), ("King Gnu", "逆夢"), ("King Gnu", "カメレオン"), ("米津玄師", "Pale Blue"),
+    ("米津玄師", "さよーならまたいつか!"), ("米津玄師", "地球儀"), ("米津玄師", "LADY"), ("あいみょん", "愛の花"),
+    ("Mrs. GREEN APPLE", "Soranji"), ("Mrs. GREEN APPLE", "Magic"), ("Mrs. GREEN APPLE", "ビターバカンス"),
+    ("Mrs. GREEN APPLE", "コロンブス"), ("Mrs. GREEN APPLE", "クスシキ"), ("Creepy Nuts", "のびしろ"), ("藤井風", "旅路"),
+    ("BE:FIRST", "Shining One"), ("BE:FIRST", "Bye-Good-Bye"), ("Snow Man", "D.D."), ("SixTONES", "Imitation Rain"),
+    ("なにわ男子", "初心LOVE(うぶらぶ)"), ("King & Prince", "ichiban"), ("櫻坂46", "Nobody's fault"),
+    ("FRUITS ZIPPER", "わたしの一番かわいいところ"), ("CUTIE STREET", "かわいいだけじゃだめですか?"), ("マカロニえんぴつ", "なんでもないよ、"),
+    ("ヨルシカ", "春泥棒"), ("ずっと真夜中でいいのに。", "残機"), ("yama", "春を告げる"), ("キタニタツヤ", "青のすみか"),
+    ("Omoinotake", "幾億光年"), ("HANA", "Blue Jeans"), ("宇多田ヒカル", "One Last Kiss"), ("宇多田ヒカル", "君に夢中"),
+    ("星野源", "不思議"), ("LiSA", "明け星"), ("Aimer", "残響散歌"), ("緑黄色社会", "花になって"), ("優里", "ドライフラワー"),
+    ("back number", "アイラブユー"), ("SEKAI NO OWARI", "Habit"), ("BUMP OF CHICKEN", "SOUVENIR"), ("星野源", "喜劇"),
+    ("GEMN", "ファタール"), ("Ado", "ウタカタララバイ"), ("RADWIMPS", "すずめ"), ("RADWIMPS", "カナタハルカ"),
+    ("Mrs. GREEN APPLE", "ダンスホール"), ("Saucy Dog", "シンデレラボーイ"), ("MAN WITH A MISSION×milet|MAN WITH A MISSION", "絆ノ奇跡"),
+    ("ヨルシカ", "晴る"), ("Creepy Nuts", "Bling-Bang-Bang-Born"), ("Number_i", "INZM"), ("Vaundy", "花占い"),
+])
+
+more("drama", [
+    ("槇原敬之", "もう恋なんてしない"), ("中山美穂&WANDS|中山美穂", "世界中の誰よりきっと", "ドラマ『誰かが彼女を愛してる』"),
+    ("CHAGE and ASKA|CHAGE&ASKA", "YAH YAH YAH", "ドラマ『振り返れば奴がいる』"), ("福山雅治", "HELLO"),
+    ("中島みゆき", "麦の唄", "連続テレビ小説『マッサン』"), ("松任谷由実", "春よ、来い", "連続テレビ小説『春よ、来い』"),
+    ("DREAMS COME TRUE", "何度でも", "ドラマ『いま、会いにゆきます』"), ("DREAMS COME TRUE", "やさしいキスをして", "ドラマ『砂の器』"),
+    ("宇多田ヒカル", "Can You Keep A Secret?", "ドラマ『HERO』"), ("宇多田ヒカル", "SAKURAドロップス", "ドラマ『First Love』"),
+    ("宇多田ヒカル", "Prisoner Of Love", "ドラマ『ラスト・フレンズ』"), ("Mr.Children", "Sign", "ドラマ『オレンジデイズ』"),
+    ("Mr.Children", "HANABI", "ドラマ『コード・ブルー -ドクターヘリ緊急救命-』"), ("サザンオールスターズ", "涙のキッス", "ドラマ『ずっとあなたが好きだった』"),
+    ("サザンオールスターズ", "エロティカ・セブン", "ドラマ『悪魔のKISS』"), ("ZARD", "負けないで"),
+    ("B'z", "今夜月の見える丘に", "ドラマ『Beautiful Life』"), ("中島美嘉", "STARS", "ドラマ『傷だらけのラブソング』"),
+    ("竹内まりや", "カムフラージュ", "ドラマ『眠れる森』"), ("小田和正", "キラキラ", "ドラマ『恋ノチカラ』"), ("徳永英明", "壊れかけのRadio"),
+    ("長渕剛", "とんぼ", "ドラマ『とんぼ』"), ("小泉今日子", "あなたに会えてよかった", "ドラマ『パパとなっちゃん』"),
+    ("コブクロ", "流星", "ドラマ『流れ星』"), ("コブクロ", "桜", "ドラマ『Ns\'あおい』"), ("嵐", "truth", "ドラマ『魔王』"),
+    ("嵐", "Monster", "ドラマ『怪物くん』"), ("嵐", "Happiness", "ドラマ『山田太郎ものがたり』"),
+    ("嵐", "a Day in Our Life", "ドラマ『木更津キャッツアイ』"), ("KinKi Kids", "愛されるより愛したい", "ドラマ『ぼくらの勇気 未満都市』"),
+    ("TOKIO", "宙船", "ドラマ『マイ★ボス マイ★ヒーロー』"), ("山下智久", "抱いてセニョリータ", "ドラマ『クロサギ』"),
+    ("福山雅治", "虹", "ドラマ『WATER BOYS』"), ("絢香", "I believe", "ドラマ『輪舞曲-ロンド-』"),
+    ("星野源", "Family Song", "ドラマ『過保護のカホコ』"), ("星野源", "不思議", "ドラマ『着飾る恋には理由があって』"),
+    ("米津玄師", "馬と鹿", "ドラマ『ノーサイド・ゲーム』"), ("米津玄師", "さよーならまたいつか!", "連続テレビ小説『虎に翼』"),
+    ("back number", "HAPPY BIRTHDAY", "ドラマ『大恋愛〜僕を忘れる君と』"), ("back number", "アイラブユー", "ドラマ『オー！マイ・ボス！恋は別冊で』"),
+    ("Official髭男dism", "ノーダウト", "ドラマ『コンフィデンスマンJP』"), ("あいみょん", "今夜このまま", "ドラマ『獣になれない私たち』"),
+    ("あいみょん", "愛の花", "連続テレビ小説『らんまん』"), ("菅田将暉", "さよならエレジー", "ドラマ『トドメの接吻』"),
+    ("King Gnu", "カメレオン", "ドラマ『ミステリと言う勿れ』"), ("Uru", "あなたがいることで", "ドラマ『テセウスの船』"),
+    ("Uru", "プロローグ", "ドラマ『中学聖日記』"), ("MISIA", "逢いたくていま", "ドラマ『JIN-仁-』"),
+    ("玉置浩二", "田園", "ドラマ『コーチ』"), ("中村雅俊", "ふれあい", "ドラマ『われら青春!』"), ("中村雅俊", "俺たちの旅", "ドラマ『俺たちの旅』"),
+    ("岩崎宏美", "聖母たちのララバイ", "ドラマ『火曜サスペンス劇場』"), ("さだまさし", "北の国から〜遥かなる大地より〜", "ドラマ『北の国から』"),
+    ("海援隊", "贈る言葉", "ドラマ『3年B組金八先生』"), ("GReeeeN", "キセキ", "ドラマ『ROOKIES』"),
+    ("安室奈美恵", "Love Story", "ドラマ『私が恋愛できない理由』"), ("安室奈美恵", "Baby Don't Cry", "ドラマ『ヒミツの花園』"),
+    ("中島みゆき", "銀の龍の背に乗って", "ドラマ『Dr.コトー診療所』"), ("尾崎豊", "OH MY LITTLE GIRL", "ドラマ『この世の果て』"),
+    ("サザンオールスターズ", "愛の言霊 〜Spiritual Message〜"), ("中山美穂", "ただ泣きたくなるの"),
+])
+
+more("anime", [
+    ("大杉久美子", "ドラえもんのうた", "アニメ『ドラえもん』"), ("堀江美都子", "キャンディ キャンディ", "アニメ『キャンディ・キャンディ』"),
+    ("水木一郎", "マジンガーZ", "アニメ『マジンガーZ』"), ("熊倉一雄", "ゲゲゲの鬼太郎", "アニメ『ゲゲゲの鬼太郎』"),
+    ("宇野ゆう子", "サザエさん", "アニメ『サザエさん』"), ("ドリーミング", "アンパンマンのマーチ", "アニメ『それいけ!アンパンマン』"),
+    ("森口博子", "水の星へ愛をこめて", "アニメ『機動戦士Ζガンダム』"), ("池田鴻", "翔べ!ガンダム", "アニメ『機動戦士ガンダム』"),
+    ("TM NETWORK", "BEYOND THE TIME (メビウスの宇宙を越えて)", "映画『機動戦士ガンダム 逆襲のシャア』"),
+    ("岩崎良美", "タッチ", "アニメ『タッチ』"), ("クリスタルキング", "愛をとりもどせ!!", "アニメ『北斗の拳』"),
+    ("MAKE-UP", "ペガサス幻想", "アニメ『聖闘士星矢』"), ("DALI", "ムーンライト伝説", "アニメ『美少女戦士セーラームーン』"),
+    ("田村直美", "ゆずれない願い", "アニメ『魔法騎士レイアース』"), ("高橋洋子", "魂のルフラン", "映画『新世紀エヴァンゲリオン劇場版 シト新生』"),
+    ("fripSide", "only my railgun", "アニメ『とある科学の超電磁砲』"), ("ClariS", "コネクト", "アニメ『魔法少女まどか☆マギカ』"),
+    ("放課後ティータイム", "Cagayake!GIRLS", "アニメ『けいおん!』"), ("AKINO", "創聖のアクエリオン", "アニメ『創聖のアクエリオン』"),
+    ("T.M.Revolution", "INVOKE -インヴォーク-", "アニメ『機動戦士ガンダムSEED』"), ("松本梨香", "めざせポケモンマスター", "アニメ『ポケットモンスター』"),
+    ("和田光司", "Butter-Fly", "アニメ『デジモンアドベンチャー』"), ("SIAM SHADE", "1/3の純情な感情", "アニメ『るろうに剣心 -明治剣客浪漫譚-』"),
+    ("JUDY AND MARY", "そばかす", "アニメ『るろうに剣心 -明治剣客浪漫譚-』"), ("KANA-BOON", "シルエット", "アニメ『NARUTO -ナルト- 疾風伝』"),
+    ("Galileo Galilei", "青い栞", "アニメ『あの日見た花の名前を僕達はまだ知らない。』"), ("TK from 凛として時雨", "unravel", "アニメ『東京喰種トーキョーグール』"),
+    ("Linked Horizon", "心臓を捧げよ!", "アニメ『進撃の巨人』"), ("SPYAIR", "イマジネーション", "アニメ『ハイキュー!!』"),
+    ("ポルノグラフィティ", "THE DAY", "アニメ『僕のヒーローアカデミア』"), ("Mrs. GREEN APPLE", "インフェルノ", "アニメ『炎炎ノ消防隊』"),
+    ("キタニタツヤ", "青のすみか", "アニメ『呪術廻戦』"), ("YOASOBI", "怪物", "アニメ『BEASTARS』"),
+    ("BUMP OF CHICKEN", "SOUVENIR", "アニメ『SPY×FAMILY』"), ("星野源", "喜劇", "アニメ『SPY×FAMILY』"),
+    ("GEMN", "ファタール", "アニメ『【推しの子】』"), ("LiSA", "明け星", "アニメ『鬼滅の刃』無限列車編"),
+    ("MAN WITH A MISSION×milet|MAN WITH A MISSION", "絆ノ奇跡", "アニメ『鬼滅の刃』刀鍛冶の里編"), ("ヨルシカ", "晴る", "アニメ『葬送のフリーレン』"),
+    ("小松未歩", "謎", "アニメ『名探偵コナン』"), ("GARNET CROW", "Mysterious Eyes", "アニメ『名探偵コナン』"),
+    ("サンボマスター", "青春狂騒曲", "アニメ『NARUTO -ナルト-』"), ("ORANGE RANGE", "*〜アスタリスク〜", "アニメ『BLEACH』"),
+    ("ナイトメア", "the WORLD", "アニメ『DEATH NOTE』"), ("FLOW", "COLORS", "アニメ『コードギアス 反逆のルルーシュ』"),
+    ("May'n|中島愛", "ライオン", "アニメ『マクロスF』"), ("LiSA", "oath sign", "アニメ『Fate/Zero』"),
+    ("緑黄色社会", "花になって", "アニメ『薬屋のひとりごと』"), ("Mrs. GREEN APPLE", "クスシキ", "アニメ『薬屋のひとりごと』"),
+    ("BAAD", "君が好きだと叫びたい", "アニメ『SLAM DUNK』"), ("WANDS", "世界が終るまでは…", "アニメ『SLAM DUNK』"),
+    ("大黒摩季", "あなただけ見つめてる", "アニメ『SLAM DUNK』"), ("ZARD", "マイ フレンド", "アニメ『SLAM DUNK』"),
+    ("井上あずみ", "となりのトトロ", "映画『となりのトトロ』"), ("藤岡藤巻と大橋のぞみ", "崖の上のポニョ", "映画『崖の上のポニョ』"),
+    ("米良美一", "もののけ姫", "映画『もののけ姫』"), ("木村弓", "いつも何度でも", "映画『千と千尋の神隠し』"),
+    ("安田成美", "風の谷のナウシカ", "映画『風の谷のナウシカ』"), ("RADWIMPS", "なんでもないや", "映画『君の名は。』"),
+    ("RADWIMPS", "愛にできることはまだあるかい", "映画『天気の子』"), ("RADWIMPS", "すずめ", "映画『すずめの戸締まり』"),
+    ("宇多田ヒカル", "One Last Kiss", "映画『シン・エヴァンゲリオン劇場版』"), ("Official髭男dism", "Universe", "映画『映画ドラえもん のび太の宇宙小戦争 2021』"),
+    ("King Gnu", "逆夢", "映画『劇場版 呪術廻戦 0』"), ("Aimer", "朝が来る"),
+])
+
+more("movie", [
+    ("薬師丸ひろ子", "探偵物語", "映画『探偵物語』"), ("薬師丸ひろ子", "メイン・テーマ", "映画『メイン・テーマ』"),
+    ("ジョー山中", "人間の証明のテーマ", "映画『人間の証明』"), ("南佳孝", "スローなブギにしてくれ", "映画『スローなブギにしてくれ』"),
+    ("山崎まさよし", "One more time, One more chance", "映画『月とキャベツ』"), ("宇多田ヒカル", "誰かの願いが叶うころ", "映画『CASSHERN』"),
+    ("ORANGE RANGE", "花", "映画『いま、会いにゆきます』"), ("RUI|柴咲コウ", "月のしずく", "映画『黄泉がえり』"),
+    ("菅田将暉", "虹", "映画『STAND BY ME ドラえもん 2』"), ("ASIAN KUNG-FU GENERATION", "ソラニン", "映画『ソラニン』"),
+    ("西野カナ", "トリセツ", "映画『ヒロイン失格』"), ("Mrs. GREEN APPLE", "Soranji", "映画『ラーゲリより愛を込めて』"),
+    ("King Gnu", "逆夢", "映画『劇場版 呪術廻戦 0』"), ("Ado", "私は最強", "映画『ONE PIECE FILM RED』"),
+    ("Ado", "ウタカタララバイ", "映画『ONE PIECE FILM RED』"), ("RADWIMPS", "なんでもないや", "映画『君の名は。』"),
+    ("RADWIMPS", "スパークル", "映画『君の名は。』"), ("RADWIMPS", "グランドエスケープ", "映画『天気の子』"),
+    ("RADWIMPS", "カナタハルカ", "映画『すずめの戸締まり』"), ("宇多田ヒカル", "桜流し", "映画『ヱヴァンゲリヲン新劇場版：Q』"),
+    ("宇多田ヒカル", "Gold 〜また逢う日まで〜", "映画『キングダム 大将軍の帰還』"),
+    ("Official髭男dism", "Universe", "映画『映画ドラえもん のび太の宇宙小戦争 2021』"),
+    ("荒井由実", "やさしさに包まれたなら", "映画『魔女の宅急便』"), ("荒井由実", "ルージュの伝言", "映画『魔女の宅急便』"),
+    ("木村弓", "いつも何度でも", "映画『千と千尋の神隠し』"), ("米良美一", "もののけ姫", "映画『もののけ姫』"),
+    ("藤岡藤巻と大橋のぞみ", "崖の上のポニョ", "映画『崖の上のポニョ』"), ("井上あずみ", "君をのせて", "映画『天空の城ラピュタ』"),
+    ("井上あずみ", "さんぽ", "映画『となりのトトロ』"), ("安田成美", "風の谷のナウシカ", "映画『風の谷のナウシカ』"),
+    ("坂本龍一", "Merry Christmas Mr. Lawrence", "映画『戦場のメリークリスマス』"),
+    ("Bee Gees|ビー・ジーズ", "Stayin' Alive", "映画『サタデー・ナイト・フィーバー』"),
+    ("Simon & Garfunkel|サイモン&ガーファンクル", "Mrs. Robinson", "映画『卒業』"),
+    ("Simon & Garfunkel|サイモン&ガーファンクル", "The Sound of Silence", "映画『卒業』"),
+    ("B.J. Thomas|B・J・トーマス", "Raindrops Keep Fallin' on My Head", "映画『明日に向って撃て!』"),
+    ("Audrey Hepburn|オードリー・ヘプバーン", "Moon River", "映画『ティファニーで朝食を』"),
+    ("Judy Garland|ジュディ・ガーランド", "Over the Rainbow", "映画『オズの魔法使』"),
+    ("Gene Kelly|ジーン・ケリー", "Singin' in the Rain", "映画『雨に唄えば』"),
+    ("Bill Medley|ビル・メドレー", "(I've Had) The Time of My Life", "映画『ダーティ・ダンシング』"),
+    ("Berlin|ベルリン", "Take My Breath Away", "映画『トップガン』"), ("Kenny Loggins|ケニー・ロギンス", "Danger Zone", "映画『トップガン』"),
+    ("Bryan Adams|ブライアン・アダムス", "(Everything I Do) I Do It for You", "映画『ロビン・フッド』"),
+    ("Aerosmith|エアロスミス", "I Don't Want to Miss a Thing", "映画『アルマゲドン』"), ("Eminem|エミネム", "Lose Yourself", "映画『8 Mile』"),
+    ("Simple Minds|シンプル・マインズ", "Don't You (Forget About Me)", "映画『ブレックファスト・クラブ』"),
+    ("Elton John|エルトン・ジョン", "Can You Feel the Love Tonight", "映画『ライオン・キング』"),
+    ("Idina Menzel|イディナ・メンゼル", "Let It Go", "映画『アナと雪の女王』"),
+    ("Keala Settle|キアラ・セトル", "This Is Me", "映画『グレイテスト・ショーマン』"),
+    ("Justin Timberlake|ジャスティン・ティンバーレイク", "CAN'T STOP THE FEELING!", "映画『トロールズ』"),
+    ("Wiz Khalifa|ウィズ・カリファ", "See You Again", "映画『ワイルド・スピード SKY MISSION』"),
+    ("Adele|アデル", "Skyfall", "映画『007 スカイフォール』"), ("Billie Eilish|ビリー・アイリッシュ", "No Time To Die", "映画『007/ノー・タイム・トゥ・ダイ』"),
+    ("Billie Eilish|ビリー・アイリッシュ", "What Was I Made For?", "映画『バービー』"), ("Dua Lipa|デュア・リパ", "Dance The Night", "映画『バービー』"),
+    ("Post Malone|ポスト・マローン", "Sunflower", "映画『スパイダーマン:スパイダーバース』"),
+    ("Lionel Richie|ライオネル・リッチー", "Say You, Say Me", "映画『ホワイトナイツ/白夜』"),
+    ("Stevie Wonder|スティーヴィー・ワンダー", "I Just Called to Say I Love You", "映画『ウーマン・イン・レッド』"),
+    ("Phil Collins|フィル・コリンズ", "Against All Odds (Take a Look at Me Now)", "映画『カリブの熱い夜』"),
+    ("Sheena Easton|シーナ・イーストン", "For Your Eyes Only", "映画『007/ユア・アイズ・オンリー』"),
+    ("Duran Duran|デュラン・デュラン", "A View to a Kill", "映画『007/美しき獲物たち』"),
+    ("Paul McCartney & Wings|ポール・マッカートニー&ウイングス|Wings", "Live and Let Die", "映画『007/死ぬのは奴らだ』"),
+    ("Shirley Bassey|シャーリー・バッシー", "Goldfinger", "映画『007/ゴールドフィンガー』"),
+    ("The Righteous Brothers|ライチャス・ブラザーズ", "Unchained Melody", "映画『ゴースト/ニューヨークの幻』"),
+    ("Roy Orbison|ロイ・オービソン", "Oh, Pretty Woman", "映画『プリティ・ウーマン』"),
+    ("Bon Jovi|ボン・ジョヴィ|Jon Bon Jovi", "Blaze of Glory", "映画『ヤングガン2』"),
+    ("Will Smith|ウィル・スミス", "Men in Black", "映画『メン・イン・ブラック』"),
+    ("Coolio|クーリオ", "Gangsta's Paradise", "映画『デンジャラス・マインド/卒業の日まで』"),
+    ("Lady Gaga|レディー・ガガ", "Hold My Hand", "映画『トップガン マーヴェリック』"),
+    ("OneRepublic|ワンリパブリック", "I Ain't Worried", "映画『トップガン マーヴェリック』"),
+])
+
+more("graduation", [
+    ("菊池桃子", "卒業 -GRADUATION-"), ("ケツメイシ", "さくら"), ("河口恭吾", "桜"), ("イルカ", "なごり雪"),
+    ("SPEED", "my graduation"), ("Kiroro", "Best Friend"), ("AKB48", "桜の栞"), ("AKB48", "GIVE ME FIVE!"),
+    ("AKB48", "桜の花びらたち"), ("いきものがかり", "ありがとう"), ("ゆず", "友 〜旅立ちの時〜"), ("スピッツ", "チェリー"),
+    ("ロードオブメジャー", "大切なもの"), ("舟木一夫", "高校三年生"), ("ペギー葉山", "学生時代"), ("アンダーグラフ", "ツバサ"),
+    ("I WiSH", "明日への扉"), ("Mr.Children", "終わりなき旅"), ("岡本真夜", "TOMORROW"), ("Mrs. GREEN APPLE", "春愁"),
+    ("Vitamin C|ビタミンC", "Graduation (Friends Forever)"), ("Green Day|グリーン・デイ", "Good Riddance (Time of Your Life)"),
+    ("Wiz Khalifa|ウィズ・カリファ", "See You Again"), ("荒井由実", "卒業写真"),
+])
+
+more("summer", [
+    ("サザンオールスターズ", "HOTEL PACIFIC"), ("桑田佳祐", "波乗りジョニー"), ("TUBE", "SUMMER DREAM"),
+    ("大滝詠一", "カナリア諸島にて"), ("杉山清貴&オメガトライブ", "SUMMER SUSPICION"), ("松田聖子", "夏の扉"),
+    ("松田聖子", "渚のバルコニー"), ("早見優", "夏色のナンシー"), ("渡辺美里", "夏が来た!"), ("ZARD", "揺れる想い"),
+    ("森山直太朗", "夏の終わり"), ("RIP SLYME", "熱帯夜"), ("平井大", "Slow & Easy"), ("AKB48", "真夏のSounds good !"),
+    ("AKB48", "ポニーテールとシュシュ"), ("AKB48", "Everyday、カチューシャ"), ("真心ブラザーズ", "サマーヌード"),
+    ("Mr.Children", "君がいた夏は"), ("スピッツ", "夏が終わる"), ("スピッツ", "渚"),
+    ("三代目 J SOUL BROTHERS from EXILE TRIBE|三代目 J Soul Brothers", "花火"), ("cinnamons × evening cinema|cinnamons", "summertime"),
+    ("榊原郁恵", "夏のお嬢さん"), ("研ナオコ", "夏をあきらめて"), ("キャンディーズ", "暑中お見舞い申し上げます"),
+    ("山口百恵", "ひと夏の経験"), ("T.M.Revolution", "HOT LIMIT"), ("indigo la End", "夏夜のマジック"), ("YUI", "SUMMER SONG"),
+    ("吉田拓郎", "夏休み"), ("稲垣潤一", "夏のクラクション"), ("ケツメイシ", "夏の思い出"),
+    ("The Beach Boys|ビーチ・ボーイズ", "Surfin' U.S.A."), ("The Beach Boys|ビーチ・ボーイズ", "Kokomo"),
+    ("Bryan Adams|ブライアン・アダムス", "Summer of '69"), ("DJ Jazzy Jeff & The Fresh Prince|DJジャジー・ジェフ&ザ・フレッシュ・プリンス", "Summertime"),
+    ("Bananarama|バナナラマ", "Cruel Summer"), ("Taylor Swift|テイラー・スウィフト", "Cruel Summer"),
+    ("Katy Perry|ケイティ・ペリー", "California Gurls"), ("Harry Styles|ハリー・スタイルズ", "Watermelon Sugar"),
+    ("Lana Del Rey|ラナ・デル・レイ", "Summertime Sadness"), ("Don Henley|ドン・ヘンリー", "The Boys of Summer"),
+    ("Eddie Cochran|エディ・コクラン", "Summertime Blues"), ("Mungo Jerry|マンゴ・ジェリー", "In the Summertime"),
+    ("TUBE", "ガラスのメモリーズ"),
+])
+
+more("christmas", [
+    ("桑田佳祐", "白い恋人達"), ("DREAMS COME TRUE", "雪のクリスマス"), ("坂本龍一", "Merry Christmas Mr. Lawrence"),
+    ("Gene Autry|ジーン・オートリー", "Rudolph the Red-Nosed Reindeer"), ("Gene Autry|ジーン・オートリー", "Here Comes Santa Claus"),
+    ("Frank Sinatra|フランク・シナトラ", "Have Yourself a Merry Little Christmas"),
+    ("Burl Ives|バール・アイヴス", "A Holly Jolly Christmas"),
+    ("Taylor Swift|テイラー・スウィフト", "Christmas Tree Farm"), ("Ed Sheeran|エド・シーラン", "Merry Christmas"),
+    ("Shakin' Stevens|シェイキン・スティーヴンス", "Merry Christmas Everyone"), ("Wizzard|ウィザード", "I Wish It Could Be Christmas Everyday"),
+    ("Slade|スレイド", "Merry Xmas Everybody"), ("The Pogues|ポーグス", "Fairytale of New York"), ("Eartha Kitt|アーサ・キット", "Santa Baby"),
+    ("Chuck Berry|チャック・ベリー", "Run Rudolph Run"), ("The Ronettes|ロネッツ", "Sleigh Ride"),
+    ("Stevie Wonder|スティーヴィー・ワンダー", "Someday at Christmas"), ("Donny Hathaway|ダニー・ハサウェイ", "This Christmas"),
+    ("Elton John|エルトン・ジョン", "Step Into Christmas"), ("Queen|クイーン", "Thank God It's Christmas"),
+    ("Coldplay|コールドプレイ", "Christmas Lights"), ("Bing Crosby|ビング・クロスビー", "I'll Be Home for Christmas"),
+    ("Gwen Stefani|グウェン・ステファニー", "You Make It Feel Like Christmas"),
+    ("The Jackson 5|Jackson 5|ジャクソン5", "I Saw Mommy Kissing Santa Claus"),
+])
+
+artists("rock", 3, [
+    "THE BLUE HEARTS", "BOØWY|BOOWY", "X JAPAN", "LUNA SEA", "GLAY", "L'Arc〜en〜Ciel|L'Arc-en-Ciel", "B'z", "Mr.Children", "スピッツ",
+    "JUDY AND MARY", "THEE MICHELLE GUN ELEPHANT", "くるり", "NUMBER GIRL", "BUMP OF CHICKEN", "ASIAN KUNG-FU GENERATION",
+    "ELLEGARDEN", "ONE OK ROCK", "サカナクション", "[Alexandros]", "King Gnu", "WANIMA", "10-FEET", "MONGOL800", "東京事変",
+    "エレファントカシマシ", "ユニコーン", "THE YELLOW MONKEY", "RCサクセション", "フジファブリック", "RADWIMPS", "ストレイテナー",
+    "UVERworld", "SPYAIR", "マカロニえんぴつ", "Saucy Dog", "SUPER BEAVER", "クリープハイプ", "KANA-BOON", "凛として時雨",
+    "BLANKEY JET CITY", "ザ・クロマニヨンズ", "the pillows", "MAN WITH A MISSION", "Hi-STANDARD", "銀杏BOYZ", "back number",
+    "ポルノグラフィティ", "マキシマム ザ ホルモン", "SiM", "ゲスの極み乙女",
+])
+
+artists("idol", 3, [
+    "松田聖子", "中森明菜", "小泉今日子", "ピンク・レディー", "キャンディーズ", "山口百恵", "河合奈保子", "柏原芳恵", "早見優",
+    "菊池桃子", "南野陽子", "中山美穂", "工藤静香", "浅香唯", "酒井法子", "おニャン子クラブ", "Wink", "田原俊彦", "近藤真彦",
+    "西城秀樹", "郷ひろみ", "モーニング娘。", "松浦亜弥", "Berryz工房", "℃-ute", "アンジュルム", "AKB48", "SKE48", "NMB48",
+    "乃木坂46", "欅坂46", "櫻坂46", "日向坂46", "ももいろクローバーZ", "Perfume", "BABYMETAL", "でんぱ組.inc", "BiSH",
+    "=LOVE", "≠ME", "FRUITS ZIPPER", "CUTIE STREET", "超ときめき♡宣伝部", "嵐", "KinKi Kids", "King & Prince", "SixTONES",
+    "Snow Man", "なにわ男子", "Hey! Say! JUMP", "Kis-My-Ft2", "NEWS", "関ジャニ∞|SUPER EIGHT", "NiziU", "BE:FIRST", "JO1",
+])
+
+artists("hiphop", 3, [
+    "スチャダラパー", "EAST END×YURI", "KICK THE CAN CREW", "RIP SLYME", "Dragon Ash", "ケツメイシ", "m-flo", "KREVA",
+    "SOUL'd OUT", "Def Tech", "nobodyknows+", "RHYMESTER", "Creepy Nuts", "Awich", "ちゃんみな", "SEAMO", "千葉雄喜", "KOHH",
+    "BAD HOP", "Zeebra", "KING GIDDRA|キングギドラ", "ANARCHY", "AK-69", "般若", "SALU", "PUNPEE", "KID FRESINO", "舐達麻",
+    "JP THE WAVY", "¥ellow Bucks", "LEX", "Novel Core", "BIM", "STUTS", "唾奇", "SKY-HI", "HOME MADE 家族", "ET-KING",
+    "BUDDHA BRAND", "DOBERMAN INFINITY", "Daichi Yamamoto", "Tohji", "OZworld", "変態紳士クラブ", "LANA", "Elle Teresa",
+])
+
+artists("citypop", 3, [
+    "竹内まりや", "大貫妙子", "角松敏生", "杏里", "菊池桃子", "松原みき", "亜蘭知子", "吉田美奈子", "間宮貴子", "南佳孝",
+    "稲垣潤一", "杉山清貴&オメガトライブ", "1986 OMEGA TRIBE", "濱田金吾", "佐藤博", "当山ひとみ", "八神純子", "大橋純子",
+    "中原めいこ", "秋元薫", "松下誠", "寺尾聰", "大滝詠一", "鈴木茂", "須藤薫", "国分友里恵", "EPO", "山下達郎", "泰葉",
+    "Suchmos", "cero", "Nulbarich", "一十三十一", "KIRINJI|キリンジ", "土岐麻子", "流線形", "Yogee New Waves", "LUCKY TAPES",
+    "never young beach",
+])
+
+artists("netmusic", 4, [
+    "supercell", "ハチ", "DECO*27", "ピノキオピー", "じん", "wowaka", "kemu", "Orangestar", "ナユタン星人", "40mP", "みきとP",
+    "Neru", "YOASOBI", "Eve", "Ado", "ずっと真夜中でいいのに。", "ヨルシカ", "yama", "まふまふ", "そらる", "Kanaria", "稲葉曇",
+    "Chinozo", "いよわ", "柊キライ", "すりぃ", "煮ル果実", "ツミキ", "syudou", "なとり", "imase", "tuki.", "須田景凪",
+    "バルーン", "花譜", "キタニタツヤ", "Reol", "米津玄師", "Vaundy", "Tani Yuuki", "MARETU", "黒うさP",
+])
+
+artists("jpop", 3, [
+    "サザンオールスターズ", "松任谷由実", "荒井由実", "中島みゆき", "井上陽水", "山口百恵", "美空ひばり", "Mr.Children", "スピッツ", "B'z",
+    "DREAMS COME TRUE", "小田和正", "オフコース", "槇原敬之", "ZARD", "宇多田ヒカル", "椎名林檎", "福山雅治", "平井堅", "竹内まりや",
+    "松田聖子", "中森明菜", "玉置浩二", "安全地帯", "長渕剛", "尾崎豊", "浜田省吾", "矢沢永吉", "久保田利伸", "徳永英明", "GLAY",
+    "back number", "あいみょん", "米津玄師", "Official髭男dism", "星野源", "いきものがかり", "コブクロ", "ゆず", "aiko", "MISIA",
+    "秦基博", "吉田拓郎", "さだまさし", "Mrs. GREEN APPLE", "YOASOBI", "桑田佳祐", "坂本九",
+])
+
+artists("western", 3, [
+    "The Beatles|ビートルズ", "Queen|クイーン", "Michael Jackson|マイケル・ジャクソン", "Carpenters|カーペンターズ", "ABBA|アバ",
+    "Eagles|イーグルス", "Simon & Garfunkel|サイモン&ガーファンクル", "Elton John|エルトン・ジョン", "Stevie Wonder|スティーヴィー・ワンダー",
+    "Bee Gees|ビー・ジーズ", "Earth, Wind & Fire|アース・ウィンド・アンド・ファイアー", "Whitney Houston|ホイットニー・ヒューストン",
+    "Madonna|マドンナ", "Cyndi Lauper|シンディ・ローパー", "Bon Jovi|ボン・ジョヴィ", "Wham!|ワム!", "Mariah Carey|マライア・キャリー",
+    "Celine Dion|セリーヌ・ディオン", "Backstreet Boys|バックストリート・ボーイズ", "Oasis|オアシス", "Coldplay|コールドプレイ",
+    "Bruno Mars|ブルーノ・マーズ", "Taylor Swift|テイラー・スウィフト", "Ed Sheeran|エド・シーラン", "Adele|アデル",
+    "Lady Gaga|レディー・ガガ", "Maroon 5|マルーン5", "The Weeknd|ザ・ウィークエンド", "Billie Eilish|ビリー・アイリッシュ",
+    "Ariana Grande|アリアナ・グランデ", "Justin Bieber|ジャスティン・ビーバー", "The Rolling Stones|ザ・ローリング・ストーンズ|ローリング・ストーンズ",
+    "Led Zeppelin|レッド・ツェッペリン", "The Police|ポリス", "Billy Joel|ビリー・ジョエル", "Eric Clapton|エリック・クラプトン",
+    "Bob Marley & The Wailers|ボブ・マーリー&ザ・ウェイラーズ", "Prince|プリンス", "Avril Lavigne|アヴリル・ラヴィーン",
+    "Daft Punk|ダフト・パンク", "Dua Lipa|デュア・リパ", "Harry Styles|ハリー・スタイルズ", "Olivia Rodrigo|オリヴィア・ロドリゴ",
+    "Nirvana|ニルヴァーナ", "Guns N' Roses|ガンズ・アンド・ローゼズ", "Beyoncé|ビヨンセ", "Rihanna|リアーナ", "Katy Perry|ケイティ・ペリー",
+    "U2", "Sting|スティング", "David Bowie|デヴィッド・ボウイ", "Janet Jackson|ジャネット・ジャクソン",
+])
+
+artists("kpop", 4, [
+    "BTS", "BLACKPINK", "TWICE", "KARA", "少女時代|Girls' Generation", "BIGBANG", "東方神起", "EXO", "Red Velvet", "IU",
+    "SEVENTEEN", "Stray Kids", "ITZY", "IVE", "NewJeans", "LE SSERAFIM", "aespa", "(G)I-DLE|i-dle", "2NE1", "NCT 127",
+    "ENHYPEN", "TOMORROW X TOGETHER", "ATEEZ", "MAMAMOO", "BOYNEXTDOOR", "RIIZE", "ZEROBASEONE", "ILLIT", "BABYMONSTER",
+    "KISS OF LIFE", "NMIXX", "ROSÉ", "Jung Kook", "JENNIE", "Jimin", "SHINee", "SUPER JUNIOR", "2PM", "iKON",
+    "WINNER", "MONSTA X", "PSY|サイ", "TREASURE", "&TEAM", "KEP1ER",
+])
+
+
 def _n(v):
     return itunes._norm(v)
 
@@ -515,7 +911,37 @@ def _original(r):
     name = unicodedata.normalize("NFKC", r.get("trackName") or "").lower()
     if _LIVE.search(_n(r.get("collectionName"))) or re.search(r"edm|nonstop|non-stop|ノンストップ|dj", _n(r.get("collectionName"))) or re.search(r"first\s*take|remix|take\s*\d|reprise|dub\b|セルフカバー|self\s*cover", name):
         return False
+    if re.search(r"re-?record|new\s*recording|再録", name) or re.search(r"orchestra|philharmonic|管弦楽団|オーケストラ", _n(r.get("artistName")) + _n(r.get("collectionName"))):
+        return False
     return not itunes.is_variant(name) or bool(_JP_VER.search(name))
+
+
+_NOT_TOP = re.compile(r"karaoke|カラオケ|instrumental|インスト|\binst\b|off\s*vocal|オフボーカル|backing|伴奏|remix|リミックス|live|ライブ|ライヴ|acoustic|アコースティック|demo|デモ|session|edit\b|mix\)|ver\.|version|バージョン|short|tv\s*size|music\s*box|オルゴール|interlude|intro\b|outro\b|skit|メドレー|medley|sped\s*up|slowed|new\s*recording|re-?recording|再録|taylor's\s*version")
+
+
+def artist_top(artist, n):
+    """アーティスト名で曲を検索し、そのアーティスト名義の曲から人気の高いものを n 曲選ぶ。
+    検索結果の上位100件の中で、多くのアルバム（シングル・ベスト盤など）に入っている曲ほど代表曲とみなし、同数なら検索順。"""
+    aliases = [a for a in artist.split("|") if a]
+    names = {_n(a) for a in aliases}
+    for term in aliases:
+        rs = fetch(itunes._url("search", term=term, media="music", entity="song", attribute="artistTerm", limit=100)).get("results", [])
+        tracks = [r for r in rs if r.get("wrapperType") == "track" and r.get("kind") == "song" and r.get("trackId")
+                  and _n(r.get("artistName")) in names and _original(r)
+                  and not _NOT_TOP.search(unicodedata.normalize("NFKC", r.get("trackName") or "").lower())
+                  and not _NOT_TOP.search(unicodedata.normalize("NFKC", r.get("collectionName") or "").lower())]
+        groups, pos = {}, {}
+        for i, r in enumerate(tracks):
+            k = itunes.song_title_norm(r.get("trackName"))
+            if not k:
+                continue
+            groups.setdefault(k, []).append(r)
+            pos.setdefault(k, i)
+        if len(groups) >= min(n, 2):
+            comps = itunes.span_compilations(rs)
+            order = sorted(groups, key=lambda k: (-len({r.get("collectionId") for r in groups[k]}), pos[k]))
+            return [min(groups[k], key=lambda r: itunes._pick_rank(r, comps)) for k in order[:n]]
+    return []
 
 
 def song_key(s):
@@ -533,12 +959,21 @@ def main():
             raw[(a, t)] = r
         else:
             unresolved.append(f"{a} / {t}")
-    en = itunes.english_titles([r["trackId"] for r in raw.values()])
+    tops, no_artist = {}, []
+    todo_a = list(dict.fromkeys(x for v in ART.values() for x in v))
+    for i, (a, n) in enumerate(todo_a, 1):
+        rs = artist_top(a, n)
+        print(f"[artist {i}/{len(todo_a)}] {a}: " + " / ".join(r.get("trackName") or "" for r in rs), flush=True)
+        tops[(a, n)] = rs
+        if not rs:
+            no_artist.append(a)
+    en = itunes.english_titles([r["trackId"] for r in raw.values()] + [r["trackId"] for v in tops.values() for r in v])
     themes = []
     for tid, group, label, desc, songs in T:
         out, seen = [], set()
-        for c in songs:
-            r = raw.get((c[0], c[1]))
+        picks = [(raw.get((c[0], c[1])), c[2] if len(c) > 2 else "") for c in songs]
+        picks += [(r, "") for x in dict.fromkeys(ART.get(tid, [])) for r in tops.get(x, [])]
+        for r, note in picks:
             if not r:
                 continue
             s = itunes._song(r, en)
@@ -546,18 +981,24 @@ def main():
             if k in seen:
                 continue
             seen.add(k)
-            if len(c) > 2 and c[2]:
-                s["note"] = c[2]
+            if note:
+                s["note"] = note
             out.append(s)
         themes.append({"id": tid, "group": group, "label": label, "description": desc, "songs": out})
     with open(OUT, "w", encoding="utf-8") as f:
-        json.dump({"themes": themes}, f, ensure_ascii=False, indent=1)
-        f.write("\n")
+        f.write('{"themes": [\n')
+        for i, th in enumerate(themes):
+            head = json.dumps({k: v for k, v in th.items() if k != "songs"}, ensure_ascii=False)[:-1]
+            f.write(head + ', "songs": [\n' + ",\n".join(json.dumps(s, ensure_ascii=False) for s in th["songs"]) + "\n]}" + ("," if i < len(themes) - 1 else "") + "\n")
+        f.write("]}\n")
     for th in themes:
         print(f"{th['label']}: {len(th['songs'])}")
     print("UNRESOLVED:", len(unresolved))
     for u in unresolved:
         print("  -", u)
+    print("ARTISTS WITHOUT SONGS:", len(no_artist))
+    for a in no_artist:
+        print("  -", a)
 
 
 if __name__ == "__main__":
