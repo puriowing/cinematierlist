@@ -8437,11 +8437,12 @@
     const sync = () => {
       const seen = movieExists(q);
       const want = !seen && watchlistExists(q);
-      seenBtn.className = "btn btn-sm up-seen " + (seen ? "up-added" : "btn-ghost");
-      seenBtn.textContent = seen ? "✓ 観た（取り消す）" : "✓ 観た";
+      // 押す前は「＋」の枠線ボタン、押したあとは色つき＋チェックにして、状態を取り違えないように
+      seenBtn.className = "btn btn-sm up-seen " + (seen ? "up-on" : "btn-ghost up-off");
+      seenBtn.textContent = seen ? "✓ 観た（取り消す）" : "＋ 観た";
       seenBtn.title = seen ? "未分類から取り除きます" : "観た作品として未分類に追加します";
-      wantBtn.className = "btn btn-sm up-add " + (want ? "up-added" : "btn-primary");
-      wantBtn.textContent = want ? "🔖 観たい（解除する）" : "🔖 観たい";
+      wantBtn.className = "btn btn-sm up-add " + (want ? "up-on" : "btn-ghost up-off");
+      wantBtn.textContent = want ? "✓ 観たい（解除する）" : "＋ 観たい";
       wantBtn.title = want ? "観たいリストから外します" : "観たいリストに追加します";
       wantBtn.disabled = seen;
     };

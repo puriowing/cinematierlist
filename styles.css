@@ -9174,3 +9174,10 @@ img.movie-poster.no-fade { transition: none !important; }
 /* 並び替えメニューの説明文は折り返して、ボタンの中におさめる */
 .tier-sort-menu .tier-sort-opt { white-space: normal; height: auto; min-height: 36px; text-align: left; justify-content: flex-start; flex-wrap: wrap; line-height: 1.4; padding-top: 7px; padding-bottom: 7px; }
 .tier-sort-menu .tier-sort-opt small { flex-basis: 100%; overflow-wrap: anywhere; }
+
+/* これから公開：押す前（枠線・＋）と押したあと（色つき・✓）をはっきり分ける */
+.up-actions .up-off { background: transparent; border: 1.5px dashed var(--border); color: var(--text); }
+.up-actions .up-off:hover { border-color: var(--accent); color: var(--accent); }
+.up-actions .up-on,
+.up-actions .up-on:disabled { background: var(--accent); border: 1.5px solid var(--accent); color: #fff; opacity: 1; cursor: pointer; }
+.up-actions .up-add:disabled.up-off { opacity: 0.4; }
