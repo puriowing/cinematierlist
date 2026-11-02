@@ -5210,12 +5210,17 @@
     }
 
     const pop = document.createElement("div");
-    const asSheet = window.matchMedia("(max-width: 768px)").matches;
-    pop.className = "theme-panel" + (asSheet ? " theme-panel-sheet" : "");
+    // スマホは下から、パソコンは画面の中央に出す小さなページにする
+    const asSheet = true;
+    pop.className = "theme-panel theme-panel-sheet";
     pop.innerHTML =
       (asSheet
-        ? `<div class="theme-sheet-head"><b>${rankAfterPick ? "🏆 ランキングのテーマ" : "🎯 テーマで絞り込み"}</b><button type="button" class="theme-sheet-close">完了</button></div>`
+        ? `<div class="theme-sheet-head"><b>${rankAfterPick ? "🏆 ランキングのテーマ" : "🔍 絞り込み・検索"}</b><button type="button" class="theme-sheet-close">完了</button></div>`
         : "") +
+      (rankAfterPick ? "" :
+        `<div class="theme-list-search-wrap"><span class="tls-label">並べた作品から探す</span>` +
+        `<input class="theme-list-search" type="search" placeholder="🔍 タイトルで探す" autocomplete="off" value="${escapeHtml((document.getElementById("listSearchInput") || {}).value || "")}" /></div>` +
+        `<p class="tls-label tls-theme-label">テーマで絞り込み</p>`) +
       (rankAfterPick
         ? `<div class="theme-rank-cta"><span>順位をつけたいテーマを選んでください（複数選ぶと掛け合わせ）</span>` +
           `<button type="button" class="btn btn-primary btn-sm theme-rank-go">🏆 このテーマで並べる</button></div>`
@@ -5230,13 +5235,20 @@
         )
         .join("") +
       `</div>` +
-      `<input class="theme-search" type="text" placeholder="名前・年で絞り込み" />` +
+      `<input class="theme-search" type="text" placeholder="テーマを名前で探す（例：ジブリ、2024）" />` +
       `<div class="theme-options"></div>`;
 
     const search = pop.querySelector(".theme-search");
     const optionsWrap = pop.querySelector(".theme-options");
     const activeWrap = pop.querySelector(".theme-active");
     const mediaWrap = pop.querySelector(".theme-media");
+    const listSearch = pop.querySelector(".theme-list-search");
+    if (listSearch) listSearch.addEventListener("input", () => {
+      const main = document.getElementById("listSearchInput");
+      if (!main) return;
+      main.value = listSearch.value;
+      main.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     const rankGo = pop.querySelector(".theme-rank-go");
     if (rankGo) rankGo.addEventListener("click", () => {
       if (!hasFilter()) { toast("テーマを1つ以上選んでください"); return; }
@@ -12425,10 +12437,9 @@
 
     // 絞り込み・検索は、ふだんはしまっておき、ボタンで出す
     const ftBtn = document.getElementById("filterToggleBtn");
-    if (ftBtn) ftBtn.addEventListener("click", () => {
-      const fbar = ftBtn.closest(".filter-bar");
-      const open = fbar.classList.toggle("is-collapsed") === false;
-      ftBtn.setAttribute("aria-expanded", String(open));
+    if (ftBtn) ftBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openThemePanel(ftBtn);
     });
 
     // 登録作品のタイトル検索（テーマ絞り込みと併用可）
