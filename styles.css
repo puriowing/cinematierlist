@@ -9166,3 +9166,8 @@ img.movie-poster.no-fade { transition: none !important; }
   }
   .theme-panel-sheet .theme-options { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 }
+
+/* ティアの並び替え：ランキング順 */
+.tier-sort-sub { font-size: 11px; font-weight: 700; color: var(--text-dim); margin: 8px 4px 2px; padding-top: 8px; border-top: 1px solid var(--border); }
+.tier-sort-menu .tier-sort-opt small { display: block; font-size: 11px; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
+.tier-sort-menu .tier-sort-opt:disabled { opacity: 0.55; cursor: not-allowed; }

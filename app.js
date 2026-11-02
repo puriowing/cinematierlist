@@ -662,6 +662,20 @@
   }
 
   // ティア内の作品を一括で並べ替える（登録順 / あいうえお順）
+  // ランキングで順位がついた作品を順位どおりに前へ、順位のない作品はそのあとに今の並びのまま
+  function sortTierByRanking(tier, key) {
+    const order = (state.rankings || {})[key] || [];
+    const pos = new Map(order.map((id, i) => [id, i]));
+    const cur = new Map(tier.items.map((m, i) => [m.id, i]));
+    tier.items.sort((a, b) => {
+      const pa = pos.has(a.id) ? pos.get(a.id) : Infinity, pb = pos.has(b.id) ? pos.get(b.id) : Infinity;
+      return pa === pb ? cur.get(a.id) - cur.get(b.id) : pa - pb;
+    });
+    tier.sortMode = "rank:" + key;
+    saveState();
+    render();
+  }
+
   function sortTier(tier, mode) {
     if (!tier || !Array.isArray(tier.items)) return;
     ensureAddedStamps();
@@ -2169,6 +2183,39 @@
     mk("あいうえお順（タイトル）", "title");
     mk("製作年順（古い → 新しい）", "year");
     mk("製作年順（新しい → 古い）", "yearDesc");
+
+    // ランキング順：このティアの作品に順位をつけたランキングがあるときだけ選べる
+    const ids = new Set((tier.items || []).map((m) => m.id));
+    const ranked = Object.entries(state.rankings || {})
+      .map(([key, order]) => ({ key, order: Array.isArray(order) ? order : [], n: (Array.isArray(order) ? order : []).filter((id) => ids.has(id)).length }))
+      .filter((r) => r.n > 0)
+      .sort((a, b) => b.n - a.n || ((state.rankingTimes || {})[b.key] || 0) - ((state.rankingTimes || {})[a.key] || 0))
+      .slice(0, 6);
+    const head = document.createElement("div");
+    head.className = "tier-sort-sub";
+    head.textContent = "ランキング順";
+    pop.appendChild(head);
+    if (!ranked.length) {
+      const b = document.createElement("button");
+      b.className = "btn btn-ghost btn-sm tier-sort-opt";
+      b.disabled = true;
+      b.innerHTML = `🏆 ランキング順<small>このティアの作品に順位をつけたランキングがありません</small>`;
+      pop.appendChild(b);
+    }
+    ranked.forEach((r) => {
+      const { mode: m, filters } = parseRankKey(r.key);
+      const name = filters.length ? withFilters(filters, m, joinedFilterLabels) : "ランキング";
+      const b = document.createElement("button");
+      b.className = "btn btn-ghost btn-sm tier-sort-opt" + (tier.sortMode === "rank:" + r.key ? " current" : "");
+      b.innerHTML = `🏆 ${escapeHtml(name)}<small>${r.n}本に順位あり</small>`;
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeMoveMenu();
+        sortTierByRanking(tier, r.key);
+        toast(`「${tier.label}」を「${name}」ランキングの順に並び替えました`);
+      });
+      pop.appendChild(b);
+    });
 
     document.body.appendChild(pop);
     const r = anchorEl.getBoundingClientRect();
