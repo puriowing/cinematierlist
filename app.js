@@ -5146,6 +5146,8 @@
     if (clear) clear.classList.toggle("hidden", !hasFilter());
     const rank = document.getElementById("rankThemeBtn");
     if (rank) rank.classList.toggle("hidden", !hasFilter());
+    const fbar = document.querySelector(".filter-bar");
+    if (fbar) fbar.classList.toggle("has-filter", hasFilter());
 
     const ch = document.getElementById("challengeCreateBtn");
     if (ch) {
@@ -12421,11 +12423,21 @@
       closeThemePanel();
     });
 
+    // 絞り込み・検索は、ふだんはしまっておき、ボタンで出す
+    const ftBtn = document.getElementById("filterToggleBtn");
+    if (ftBtn) ftBtn.addEventListener("click", () => {
+      const fbar = ftBtn.closest(".filter-bar");
+      const open = fbar.classList.toggle("is-collapsed") === false;
+      ftBtn.setAttribute("aria-expanded", String(open));
+    });
+
     // 登録作品のタイトル検索（テーマ絞り込みと併用可）
     const searchInput = document.getElementById("listSearchInput");
     if (searchInput) {
       searchInput.addEventListener("input", (e) => {
         searchQuery = normTitle(e.target.value);
+        const fbar = document.querySelector(".filter-bar");
+        if (fbar) fbar.classList.toggle("has-search", !!e.target.value);
         zoneLimits.clear();
         render();
       });

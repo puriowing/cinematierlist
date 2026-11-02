@@ -9129,3 +9129,15 @@ img.movie-poster.no-fade { transition: none !important; }
   padding: 6px 10px; border-radius: 8px; cursor: pointer;
 }
 .te-danger-zone .te-delete:hover { background: color-mix(in srgb, #c0392b 10%, transparent); }
+
+/* 絞り込み・検索：ふだんはボタンだけ。絞り込み中・検索中はその内容を出したまま */
+.filter-bar.is-collapsed .filter-label,
+.filter-bar.is-collapsed:not(.has-search) #listSearchInput,
+.filter-bar.is-collapsed:not(.has-filter) #themeFilterBtn { display: none; }
+.filter-bar.is-collapsed:not(.has-filter):not(.has-search) { padding-top: 6px; padding-bottom: 6px; }
+.filter-toggle .ft-arrow { display: inline-block; transition: transform 0.2s; font-size: 11px; }
+.filter-bar:not(.is-collapsed) .filter-toggle .ft-arrow { transform: rotate(180deg); }
+.filter-bar:not(.is-collapsed) .filter-toggle { color: var(--accent); border-color: var(--accent); }
+.filter-bar .share-theme-btn { margin-left: auto; }
+.filter-bar .filter-toggle { flex: 0 0 auto !important; width: auto !important; }
+.filter-bar.is-collapsed:not(.has-filter):not(.has-search) { background: transparent; border-color: transparent; box-shadow: none; padding-left: 0; padding-right: 0; margin-bottom: 6px; }
