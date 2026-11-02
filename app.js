@@ -4474,14 +4474,14 @@
   // 「人物でまとめて」でランダム提示する候補（俳優・監督ミックス）
   const PEOPLE_SUGGESTIONS = [
     "トム・クルーズ", "レオナルド・ディカプリオ", "ブラッド・ピット", "ロバート・デ・ニーロ",
-    "トム・ハンクス", "デンゼル・ワシントン", "ホアキン・フェニックス", "キアヌ・リーブス",
+    "トム・ハンクス", "デンゼル・ワシントン", "ホアキン・フェニックス", "キアヌ・リーヴス",
     "メリル・ストリープ", "スカーレット・ヨハンソン", "ナタリー・ポートマン", "エマ・ストーン",
     "ティモシー・シャラメ", "ライアン・ゴズリング", "ヒュー・ジャックマン", "ジョニー・デップ",
-    "クリスチャン・ベール", "ジェイク・ギレンホール", "アン・ハサウェイ",
+    "クリスチャン・ベイル", "ジェイク・ギレンホール", "アン・ハサウェイ",
     "クリストファー・ノーラン", "スティーヴン・スピルバーグ", "クエンティン・タランティーノ",
     "マーティン・スコセッシ", "リドリー・スコット", "デヴィッド・フィンチャー", "ティム・バートン",
     "ウェス・アンダーソン", "ドゥニ・ヴィルヌーヴ", "グレタ・ガーウィグ",
-    "宮﨑駿", "黒澤明", "是枝裕和", "北野武", "山田洋次", "細田守", "新海誠", "濱口竜介",
+    "宮崎駿", "黒澤明", "是枝裕和", "北野武", "山田洋次", "細田守", "新海誠", "濱口竜介",
     "岩井俊二", "庵野秀明", "三谷幸喜", "役所広司", "阿部寛", "菅田将暉", "岡田准一", "佐藤健",
     "大泉洋", "堤真一", "妻夫木聡", "西島秀俊", "綾瀬はるか", "新垣結衣", "石原さとみ",
     "広瀬すず", "有村架純", "松たか子", "宮沢りえ", "三船敏郎", "高倉健",
@@ -4533,8 +4533,13 @@
       status.textContent = "該当する人物が見つかりませんでした。";
       return;
     }
-    return loadFilmography(list[0]);
+    const hit = list.find((p) => personNorm(p.name) === personNorm(name));
+    if (hit) return loadFilmography(hit);
+    status.textContent = `${list.length}人見つかりました（クリックで作品一覧へ）`;
+    renderPersonResults(list);
   }
+
+  const personNorm = (v) => String(v || "").replace(/[\s・･=＝.．]/g, "").replace(/ヴ/g, "ブ").replace(/﨑/g, "崎").toLowerCase();
 
   async function searchPerson() {
     const input = document.getElementById("personSearchInput");
@@ -4571,6 +4576,8 @@
   }
 
   function renderPersonResults(list) {
+    const q = personNorm(document.getElementById("personSearchInput").value);
+    list = [...list.filter((p) => personNorm(p.name) === q), ...list.filter((p) => personNorm(p.name) !== q)];
     const wrap = document.getElementById("personResults");
     wrap.innerHTML = "";
     list.forEach((p) => {
