@@ -2184,38 +2184,33 @@
     mk("製作年順（古い → 新しい）", "year");
     mk("製作年順（新しい → 古い）", "yearDesc");
 
-    // ランキング順：このティアの作品に順位をつけたランキングがあるときだけ選べる
+    // ランキング順：いま絞り込んでいるテーマのランキングがあり、このティアの作品に順位がついているときだけ選べる
     const ids = new Set((tier.items || []).map((m) => m.id));
-    const ranked = Object.entries(state.rankings || {})
-      .map(([key, order]) => ({ key, order: Array.isArray(order) ? order : [], n: (Array.isArray(order) ? order : []).filter((id) => ids.has(id)).length }))
-      .filter((r) => r.n > 0)
-      .sort((a, b) => b.n - a.n || ((state.rankingTimes || {})[b.key] || 0) - ((state.rankingTimes || {})[a.key] || 0))
-      .slice(0, 6);
+    const key = rankKey();
+    const order = key && Array.isArray((state.rankings || {})[key]) ? state.rankings[key] : [];
+    const n = order.filter((id) => ids.has(id)).length;
     const head = document.createElement("div");
     head.className = "tier-sort-sub";
     head.textContent = "ランキング順";
     pop.appendChild(head);
-    if (!ranked.length) {
-      const b = document.createElement("button");
-      b.className = "btn btn-ghost btn-sm tier-sort-opt";
-      b.disabled = true;
-      b.innerHTML = `🏆 ランキング順<small>このティアの作品に順位をつけたランキングがありません</small>`;
-      pop.appendChild(b);
-    }
-    ranked.forEach((r) => {
-      const { mode: m, filters } = parseRankKey(r.key);
-      const name = filters.length ? withFilters(filters, m, joinedFilterLabels) : "ランキング";
-      const b = document.createElement("button");
-      b.className = "btn btn-ghost btn-sm tier-sort-opt" + (tier.sortMode === "rank:" + r.key ? " current" : "");
-      b.innerHTML = `🏆 ${escapeHtml(name)}<small>${r.n}本に順位あり</small>`;
-      b.addEventListener("click", (e) => {
+    const rb = document.createElement("button");
+    rb.className = "btn btn-ghost btn-sm tier-sort-opt" + (key && tier.sortMode === "rank:" + key ? " current" : "");
+    if (key && n) {
+      const name = themeFilterName();
+      rb.innerHTML = `🏆 「${escapeHtml(name)}」ランキング順<small>${n}本に順位あり</small>`;
+      rb.addEventListener("click", (e) => {
         e.stopPropagation();
         closeMoveMenu();
-        sortTierByRanking(tier, r.key);
+        sortTierByRanking(tier, key);
         toast(`「${tier.label}」を「${name}」ランキングの順に並び替えました`);
       });
-      pop.appendChild(b);
-    });
+    } else {
+      rb.disabled = true;
+      rb.innerHTML = `🏆 ランキング順<small>${!key
+        ? "テーマで絞り込むと、そのテーマのランキング順で並べられます"
+        : `「${escapeHtml(themeFilterName())}」のランキングで、このティアの作品にまだ順位がついていません`}</small>`;
+    }
+    pop.appendChild(rb);
 
     document.body.appendChild(pop);
     const r = anchorEl.getBoundingClientRect();
