@@ -732,9 +732,21 @@
     render();
   }
 
+  let wlPruneKey = "";
+  function pruneWatchlist() {
+    const wl = state.watchlist;
+    if (!Array.isArray(wl) || !wl.length) return;
+    const key = allMovies().length + ":" + wl.length;
+    if (key === wlPruneKey) return;
+    wlPruneKey = key;
+    const keep = wl.filter((m) => !movieExists(m));
+    if (keep.length !== wl.length) state.watchlist = keep;
+  }
+
   function render() {
     saveViewState();
     ensureAddedStamps();
+    pruneWatchlist();
     refreshWordKeep();
     updateTitleDisplay();
     renderTiers();
