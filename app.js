@@ -1870,7 +1870,10 @@
       sw("kinPublic", pv.kinPublic === true, "同じ作品を偏愛・思い出登録している人に、名前を表示する") + `</div>` +
       `<div class="pv-group"><p class="pv-title">似ている人<small>${pv.simPublic ? "表示中" : "非表示"}</small></p>` +
       `<p class="pv-note">「みんな」の「似ている人」で、好みが似ている人に表示名と一致度が表示されます。オンにした人どうしだけが見られます。</p>` +
-      sw("simPublic", pv.simPublic === true, "好みが似ている人に、名前を表示する") + `</div>`;
+      sw("simPublic", pv.simPublic === true, "好みが似ている人に、名前を表示する") + `</div>` +
+      `<div class="pv-group"><p class="pv-title">最上位に入れた人<small>${pv.topPublic ? "表示中" : "非表示"}</small></p>` +
+      `<p class="pv-note">作品ごとの「みんなのティア」で、その作品を一番上のティアに入れている人として表示名が出ます。オンにした人どうしだけが見られます。</p>` +
+      sw("topPublic", pv.topPublic === true, "最上位に入れた作品で、名前を表示する") + `</div>`;
 
     const psum = document.getElementById("mpPrivacySum");
     if (psum) psum.textContent = [d.community ? "みんなのティアに参加中" : "みんなのティアに不参加",
@@ -2586,6 +2589,37 @@
       (kin.people.some((p) => p.demo) ? `<p class="soc-demo-note">※ デモ表示（仮のユーザー）です。</p>` : "") + `</section>`;
   }
 
+  function topHtml(top) {
+    if (!top) return "";
+    const head = `<section class="comm-sec"><h4 class="soc-h">👑 この作品を最上位に入れた人</h4>`;
+    if (top.status === "need_login") return head + `<div class="kin-empty"><p>ログインすると、この作品を最上位に入れた人がわかります。</p></div></section>`;
+    if (top.status === "need_optin") return head + `<div class="kin-empty"><p>マイページの公開設定で「最上位に入れた人」をオンにすると、同じくオンにしている人どうしで名前が見えるようになります。</p>` +
+      `<button type="button" class="btn btn-primary btn-sm kin-optin-btn">公開設定を開く</button></div></section>`;
+    if (!top.people.length) return head + `<div class="kin-empty"><p>まだ見つかりません。この作品を最上位に入れた人が現れると、ここに表示されます。</p></div></section>`;
+    return head + `<div class="kin-list">` + top.people.map((p, i) =>
+      `<div class="kin-item"><span class="cmt-av">${escapeHtml((p.name || "?").slice(0, 1))}</span>` +
+      `<div class="kin-main"><b>${escapeHtml(p.name || "名無しさん")}</b></div>` +
+      (p.share ? `<button type="button" class="btn btn-ghost btn-sm top-cmp" data-i="${i}">好みを比べる</button>` : "") +
+      `</div>`).join("") + `</div>` +
+      (top.people.some((p) => p.demo) ? `<p class="soc-demo-note">※ デモ表示（仮のユーザー）です。</p>` : "") + `</section>`;
+  }
+
+  function wireTop(top) {
+    document.querySelectorAll("#commContent .kin-optin-btn").forEach((b) => b.addEventListener("click", () => {
+      closeModal("commModal");
+      openMyPage();
+      const d = document.getElementById("mpPrivacy");
+      if (d) d.open = true;
+    }));
+    document.querySelectorAll("#commContent .top-cmp").forEach((b) => b.addEventListener("click", () => {
+      const p = top && top.people[Number(b.dataset.i)];
+      if (!p || !p.share) return;
+      closeModal("commModal");
+      openSocial("friends");
+      runCompare(p.share);
+    }));
+  }
+
   function wireKin(kin) {
     const opt = document.getElementById("kinOptin");
     if (opt) opt.addEventListener("click", () => {
@@ -2705,11 +2739,13 @@
       `<section class="comm-sec"><h4 class="soc-h">📊 みんながどのティアに入れたか</h4><div class="comm-dist">${dist}</div>` +
       `<p class="pv-note">ティアの段数は人それぞれなので、一番上のティア＝最上位、一番下＝最下位として5段階にそろえています。</p></section>` +
       extrasHtml(movie, d.extras) +
+      topHtml(d.top) +
       kinHtml(movie, d.kin) +
       commentsHtml(movie, d.comments || []) +
       (also ? `<section class="comm-sec"><h4 class="soc-h">💡 この作品が好きな人は、こんな作品も好き</h4><div class="comm-also">${also}</div></section>` : "") +
       (d.demo ? `<p class="soc-demo-note">※ デモ表示（仮のデータ）を含みます。実際のティアが集まると入れ替わります。</p>` : "");
     wireKin(d.kin);
+    wireTop(d.top);
     box.querySelectorAll(".comm-also-add").forEach((b) => b.addEventListener("click", () => {
       const m = d.also[Number(b.dataset.i)];
       const mv = { title: m.title, poster: m.poster || "", year: m.year || "" };
@@ -3697,8 +3733,144 @@
     const watchField = $("infoWatchField");
     if (watchField) watchField.classList.toggle("hidden", !has("watch"));
     renderInfoPreview(movie);
+    loadSynopsis(movie);
     openModal("movieInfoModal");
     if (has("watch")) loadWatchOptions(movie);
+  }
+
+  const filmDetailCache = new Map();
+  async function fetchFilmDetail(fid) {
+    fid = String(fid || "");
+    if (!fid) return null;
+    if (!filmDetailCache.has(fid)) {
+      filmDetailCache.set(fid, fetch("/api/filmarks/details?full=1&ids=" + encodeURIComponent(fid))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => (d && d.results && d.results[fid]) || null)
+        .catch(() => null));
+    }
+    const v = await filmDetailCache.get(fid);
+    if (!v) filmDetailCache.delete(fid);
+    return v;
+  }
+
+  function fillSynopsis(textEl, moreBtn, text) {
+    textEl.textContent = text;
+    textEl.classList.add("is-clamped");
+    moreBtn.classList.add("hidden");
+    requestAnimationFrame(() => {
+      if (textEl.scrollHeight > textEl.clientHeight + 2) moreBtn.classList.remove("hidden");
+    });
+    moreBtn.onclick = () => { textEl.classList.remove("is-clamped"); moreBtn.classList.add("hidden"); };
+  }
+
+  async function loadSynopsis(movie) {
+    const field = document.getElementById("infoSynopsisField");
+    if (!field) return;
+    field.classList.add("hidden");
+    if (!has("filmarks") || !movie.filmarksId) return;
+    const reqId = movie.id;
+    const d = await fetchFilmDetail(movie.filmarksId);
+    if (infoMovieId !== reqId || !d || !d.outline) return;
+    field.classList.remove("hidden");
+    fillSynopsis(document.getElementById("infoSynopsis"), document.getElementById("infoSynopsisMore"), d.outline);
+  }
+
+  // 追加画面の候補カード：長押し（右クリック）か ⓘ で作品の詳細を出す
+  let peekCard = null;
+  function openFilmPeek(card) {
+    const f = card && card._film;
+    if (!f) return;
+    peekCard = card;
+    const body = document.getElementById("filmPeekBody");
+    const added = card.classList.contains("result-added");
+    const picked = card.classList.contains("picked");
+    const date = f.date ? f.date.replace(/-/g, "/") : (f.year || "");
+    const actLabel = added ? "" : card.classList.contains("result-wl") ? "" : card.classList.contains("pick-card") && card._pickable === false
+      ? "追加する" : picked ? "選択をはずす" : "この作品を選ぶ";
+    body.innerHTML =
+      `<div class="peek-head">${f.poster ? `<img class="peek-poster" src="${escapeHtml(imgSrc(f.poster))}" alt="" />` : ""}` +
+      `<div class="peek-main"><p class="peek-title">${escapeHtml(f.title || "")}</p>` +
+      (date ? `<p class="peek-sub">${escapeHtml(date)}</p>` : "") +
+      `<div class="peek-meta"></div>` +
+      (added ? `<p class="peek-owned">✓ 登録済みの作品です</p>` : "") + `</div></div>` +
+      `<div class="peek-syn"><p class="info-synopsis is-clamped"></p><button type="button" class="btn btn-ghost btn-sm hidden">続きを読む</button></div>` +
+      `<div class="settings-actions">` +
+      (actLabel ? `<button type="button" class="btn btn-primary peek-act">${actLabel}</button>` : "") +
+      `<button type="button" class="btn btn-ghost" data-close="filmPeekModal">閉じる</button></div>`;
+    body.querySelector("[data-close]").addEventListener("click", () => closeModal("filmPeekModal"));
+    const act = body.querySelector(".peek-act");
+    if (act) act.addEventListener("click", () => { closeModal("filmPeekModal"); card.click(); });
+    openModal("filmPeekModal");
+    const meta = body.querySelector(".peek-meta");
+    const syn = body.querySelector(".peek-syn p");
+    const fid = f.filmarksId || (!f.tmdbId && !f.eigaId && /^\d+$/.test(String(f.id || "")) ? f.id : "");
+    if (!fid || has("itunes")) { body.querySelector(".peek-syn").remove(); return; }
+    syn.textContent = "作品情報を読み込んでいます…";
+    fetchFilmDetail(fid).then((d) => {
+      if (peekCard !== card) return;
+      if (!d) { syn.textContent = "作品情報を取得できませんでした。"; return; }
+      const row = (k, v) => (v ? `<p><span>${k}</span>${escapeHtml(v)}</p>` : "");
+      meta.innerHTML = row("監督", (d.directors || []).join("、")) + row("出演", (d.cast || []).slice(0, 5).join("、")) +
+        row("ジャンル", (d.genres || []).join("、")) + row("製作国", d.country || "");
+      if (d.outline) fillSynopsis(syn, body.querySelector(".peek-syn button"), d.outline);
+      else syn.textContent = "あらすじは登録されていません。";
+    });
+  }
+
+  function wireFilmPeek() {
+    let timer = null, startX = 0, startY = 0, fired = false;
+    const cardOf = (e) => {
+      const c = e.target.closest && e.target.closest(".result-card");
+      return c && c._film && c.closest("#addMovieModal") ? c : null;
+    };
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    document.addEventListener("pointerdown", (e) => {
+      const c = cardOf(e);
+      fired = false;
+      if (!c || e.button > 0) return;
+      startX = e.clientX; startY = e.clientY;
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        fired = true;
+        if (navigator.vibrate) try { navigator.vibrate(10); } catch (err) {}
+        openFilmPeek(c);
+      }, 480);
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > 10) cancel();
+    });
+    ["pointerup", "pointercancel"].forEach((t) => document.addEventListener(t, cancel));
+    document.addEventListener("scroll", cancel, true);
+    document.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest(".rc-info")) {
+        const c = cardOf(e);
+        e.stopPropagation();
+        e.preventDefault();
+        if (c) openFilmPeek(c);
+        return;
+      }
+      if (fired && cardOf(e)) { e.stopPropagation(); e.preventDefault(); }
+      fired = false;
+    }, true);
+    document.addEventListener("contextmenu", (e) => {
+      const c = cardOf(e);
+      if (!c) return;
+      e.preventDefault();
+      cancel();
+      if (!fired) openFilmPeek(c);
+      fired = true;
+    });
+  }
+
+  function addPeekBtn(card) {
+    if (has("itunes")) return;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "rc-info";
+    b.setAttribute("aria-label", "作品の詳細");
+    b.textContent = "i";
+    (card.querySelector(".result-meta") || card).appendChild(b);
   }
 
   function renderInfoPreview(movie) {
@@ -7323,6 +7495,7 @@
        </div>` +
       (MEDIA_LABEL[f.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[f.media]}</div>` : "") +
       `<div class="pick-badge">${added ? "✓ 登録済" : "選ぶ"}</div>`;
+    addPeekBtn(card);
     if (!added) {
       card.addEventListener("click", () => {
         card.classList.toggle("picked");
@@ -12383,6 +12556,9 @@
          </div>` +
         (MEDIA_LABEL[r.media] ? `<div class="movie-media-badge">${MEDIA_LABEL[r.media]}</div>` : "") +
         (owned || wanted ? `<div class="pick-badge">${owned ? "✓ 登録済" : "🔖 観たい"}</div>` : "");
+      card._film = r;
+      card._pickable = false;
+      addPeekBtn(card);
       card.addEventListener("click", () => {
         const movie = { title: r.title, poster: r.poster || "", year: r.year || "" };
         if (r.tmdbId) movie.tmdbId = r.tmdbId;
@@ -12724,6 +12900,8 @@
     });
 
     document.getElementById("tierAnalysisSaveBtn").addEventListener("click", saveTierAnalysisPng);
+
+    wireFilmPeek();
 
     // modal close buttons + overlay click
     document.querySelectorAll("[data-close]").forEach((b) =>

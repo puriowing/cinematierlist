@@ -384,6 +384,8 @@ def filmarks_release_year(year, start=1, pages=3):
             url += f"&page={page}"
         try:
             items = _parse_filmarks_year_list(_fetch(url), py)
+            for i, it in enumerate(items):
+                it["_rank"] = (page - 1) * 36 + i
             return (py, page, items, "ok")
         except urllib.error.HTTPError as exc:
             if exc.code in (404, 410):
@@ -421,7 +423,10 @@ def filmarks_release_year(year, start=1, pages=3):
                 "date": date,
                 "poster": it["poster"],
                 "url": it["url"],
+                "_rank": it.get("_rank", 0),
             })
+    # 製作年ごとの人気順を混ぜて並べる（遅れ公開作が後ろにまとまって「人気作の山」が2つできないように）
+    results.sort(key=lambda r: r.pop("_rank"))
     return results, main_has_more
 
 
@@ -874,6 +879,12 @@ def _names(seq):
     return out
 
 
+def _outline(ld):
+    import html as _html
+    t = ld.get("outline") or ld.get("description") or ""
+    return _html.unescape(t).strip()[:1200] if isinstance(t, str) else ""
+
+
 def filmarks_movie_details(movie_id):
     """Filmarks 作品ページから監督・キャスト・製作国・ジャンル・公開年を取得する。
     返り値: {directors, cast, year, country, jp, anime, genres, genreIds, rating, ratingCount}"""
@@ -917,7 +928,8 @@ def filmarks_movie_details(movie_id):
     return {"directors": directors, "cast": cast, "year": year,
             "country": country, "jp": jp, "anime": anime,
             "genres": genres, "genreIds": gids,
-            "rating": rating, "ratingCount": rating_count}
+            "rating": rating, "ratingCount": rating_count,
+            "outline": _outline(ld), "date": rd[:10] if re.match(r"\d{4}-\d{2}-\d{2}", rd) else ""}
 
 
 def _series_details(html_text, media, empty):
@@ -946,7 +958,8 @@ def _series_details(html_text, media, empty):
             "country": countries[0] if countries else "", "jp": "日本" in countries,
             "anime": media == "anime", "genres": genres, "genreIds": [],
             "rating": rating, "ratingCount": rating_count, "media": media,
-            "seriesTitle": ((ld.get(media + "Series") or {}).get("title") or "").strip()}
+            "seriesTitle": ((ld.get(media + "Series") or {}).get("title") or "").strip(),
+            "outline": _outline(ld)}
 
 
 def batch_filmarks_details(ids):
@@ -1825,9 +1838,9 @@ def _compare(friend_ratings, mine):
             "recs": [item(k) for k in recs[:24]]}
 
 
-PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic", "kinPublic", "simPublic")
+PRIVACY_KEYS = ("cmpBoth", "cmpSplit", "cmpRecs", "tlWhere", "tlWith", "tlNote", "cmtPublic", "kinPublic", "simPublic", "topPublic")
 # これまで本人だけのメモ・印として付けてきたため、コメントの公開と「同じ偏愛・思い出の人」「似ている人」への表示は本人が選ぶまでオフ
-PRIVACY_OFF_BY_DEFAULT = {"cmtPublic", "kinPublic", "simPublic"}
+PRIVACY_OFF_BY_DEFAULT = {"cmtPublic", "kinPublic", "simPublic", "topPublic"}
 
 
 def _privacy(u):
@@ -1938,6 +1951,33 @@ def _movie_kin(key, uid):
         if len(people) >= 50:
             break
     return {"status": "ok", "people": people}
+
+
+def _movie_top(key, uid):
+    """この作品を最上位ティアに入れている人（お互いに「表示する」を選んだ人どうしだけ）。"""
+    users = _load_users()
+    me_u = next((u for u in users.values() if u.get("id") == uid), None) if uid else None
+    if not me_u:
+        return {"status": "need_login", "people": []}
+    if not _privacy(me_u)["topPublic"]:
+        return {"status": "need_optin", "people": []}
+    people = []
+    for u in users.values():
+        if u.get("id") == uid or u.get("community") is False or not _privacy(u)["topPublic"]:
+            continue
+        if (_ratings_cache.get(u["id"]) or {}).get(key, -1) < 0.9999:
+            continue
+        people.append({"name": _display_name(u), "share": u.get("share") or ""})
+        if len(people) >= 50:
+            break
+    return {"status": "ok", "people": people}
+
+
+def _demo_top(key):
+    import random
+    rng = random.Random(hashlib.sha256(("demo-top:" + key).encode("utf-8")).hexdigest())
+    idx = rng.sample(range(len(DEMO_NAMES)), rng.randint(2, 6))
+    return [{"name": DEMO_NAMES[i], "share": "demo-%02d" % i if i < DEMO_FRIENDS else "", "demo": True} for i in idx]
 
 
 def _demo_kin(key):
@@ -2704,8 +2744,11 @@ class Handler(SimpleHTTPRequestHandler):
             comments = _movie_comments(key, exclude_uid=uid)
             extras = _movie_extras(key, exclude_uid=uid)
             kin = _movie_kin(key, uid)
+            top = _movie_top(key, uid)
         if kin["status"] == "ok" and not kin["people"] and DEMO_SOCIAL:
             kin["people"] = _demo_kin(key)
+        if top["status"] == "ok" and not top["people"] and DEMO_SOCIAL and (a.get("hist") or [0])[0] > 0:
+            top["people"] = _demo_top(key)
         if not extras and DEMO_SOCIAL:
             extras = _demo_extras(key)
         if not comments and DEMO_SOCIAL:
@@ -2713,7 +2756,7 @@ class Handler(SimpleHTTPRequestHandler):
             demo = True
         res = {"agg": a, "rank": rank, "total": len(avgs) + 1, "also": [x for x in also if x.get("title")],
                "comments": comments, "demo": demo or bool(extras and extras.get("demo")), "min": COMMUNITY_MIN,
-               "extras": _extras_public(extras, self._is_admin()) if extras else None, "kin": kin}
+               "extras": _extras_public(extras, self._is_admin()) if extras else None, "kin": kin, "top": top}
         if not self._is_admin():
             res["agg"] = {kk: vv for kk, vv in a.items() if kk != "count"}
         self._send_private_json(res)
@@ -3229,7 +3272,12 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_json({"error": "no_ids", "results": {}}, 400)
                 return
             try:
-                self._send_json({"results": batch_filmarks_details(ids)})
+                results = batch_filmarks_details(ids)
+                if (params.get("full") or [""])[0] != "1":
+                    for det in results.values():
+                        if isinstance(det, dict):
+                            det.pop("outline", None)
+                self._send_json({"results": results})
             except Exception as exc:  # noqa: BLE001
                 self._send_json({"error": str(exc), "results": {}}, 502)
             return
