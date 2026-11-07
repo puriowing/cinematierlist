@@ -1236,6 +1236,10 @@
     if (previewAudio) return previewAudio;
     previewAudio = new Audio();
     previewAudio.preload = "none";
+    previewAudio.crossOrigin = "anonymous";
+    previewAudio.addEventListener("playing", () => {
+      if (pendingFadeIn) { pendingFadeIn = false; rampGain(1, FADE_IN); }
+    });
     ["play", "pause", "ended"].forEach((ev) => previewAudio.addEventListener(ev, syncPreviewButtons));
     previewAudio.addEventListener("ended", () => {
       if (playlist && previewAudio.dataset.src === playlistSong().previewUrl) playlistStep(1, true);
@@ -1254,8 +1258,46 @@
     return previewAudio;
   }
 
-  function playPreviewSrc(src) {
+  // 音量の上げ下げは Web Audio で行う（iPhone は audio.volume を変えられないため）
+  const FADE_IN = 1.2, FADE_OUT = 2, FADE_SKIP = 0.35;
+  let audioCtx = null, gainNode = null, pendingFadeIn = false, volTimer = 0, switchSeq = 0;
+  function ensureGain() {
+    if (gainNode) { if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {}); return; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      audioCtx = new Ctx();
+      const g = audioCtx.createGain();
+      audioCtx.createMediaElementSource(ensurePreviewAudio()).connect(g);
+      g.connect(audioCtx.destination);
+      gainNode = g;
+    } catch (e) { audioCtx = null; gainNode = null; }
+  }
+  function rampGain(v, sec) {
+    if (gainNode) {
+      const t = audioCtx.currentTime, g = gainNode.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      if (sec > 0) g.linearRampToValueAtTime(v, t + sec);
+      else g.setValueAtTime(v, t);
+      return;
+    }
     const a = ensurePreviewAudio();
+    clearInterval(volTimer);
+    if (!(sec > 0)) { a.volume = v; return; }
+    const from = a.volume, start = performance.now();
+    volTimer = setInterval(() => {
+      const k = Math.min(1, (performance.now() - start) / (sec * 1000));
+      a.volume = from + (v - from) * k;
+      if (k >= 1) clearInterval(volTimer);
+    }, 30);
+  }
+
+  function playPreviewSrc(src, fadeIn) {
+    const a = ensurePreviewAudio();
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    pendingFadeIn = !!fadeIn;
+    rampGain(fadeIn ? 0 : 1, 0);
     if (a.dataset.src !== src) {
       a.pause();
       a.dataset.src = src;
@@ -1271,7 +1313,7 @@
     if (previewPlaying(src)) { previewAudio.pause(); return; }
     if (playlist && playlistSong().previewUrl !== src) {
       const i = playlist.queue.findIndex((m) => m.previewUrl === src);
-      if (i >= 0) { playlist.idx = i; playlist.fails = 0; playPlaylistSong(); return; }
+      if (i >= 0) { playlist.idx = i; playlist.fails = 0; playPlaylistSong(previewAudio && !previewAudio.paused ? FADE_SKIP : 0); return; }
       closePlaylist(true);
     }
     playPreviewSrc(src);
@@ -1297,21 +1339,32 @@
   function startTierPlaylist(tier) {
     const songs = tier.items.filter((m) => musicUrlOk("previewUrl", m.previewUrl));
     if (!songs.length) { toast("このティアには試聴できる曲がありません"); return; }
-    playlist = { tierId: tier.id, label: tier.label, color: tier.color, pool: songs, queue: shuffled(songs), idx: 0, fails: 0 };
-    playPlaylistSong();
+    ensureGain();
+    const wasPlaying = !!(previewAudio && !previewAudio.paused);
+    playlist = { tierId: tier.id, label: tier.label, color: tier.color, pool: songs, queue: shuffled(songs), idx: 0, fails: 0, fadingOut: false };
+    playPlaylistSong(wasPlaying ? FADE_SKIP : 0);
   }
-  function playPlaylistSong() {
+  // fadeSec を指定すると、今の曲を小さくしてから次の曲に切り替える
+  function playPlaylistSong(fadeSec) {
     const m = playlistSong();
-    playPreviewSrc(m.previewUrl);
     setMediaSession(m);
     paintPlayer();
+    const tok = ++switchSeq;
+    const go = () => {
+      if (tok !== switchSeq || !playlist) return;
+      playlist.fadingOut = false;
+      playPreviewSrc(m.previewUrl, true);
+    };
+    if (fadeSec > 0) { rampGain(0, fadeSec); setTimeout(go, fadeSec * 1000); }
+    else go();
   }
   function playlistStep(dir, auto) {
     if (!playlist) return;
     if (!auto) playlist.fails = 0;
     if (dir < 0 && previewAudio && previewAudio.currentTime > 3) {
+      playlist.fadingOut = false;
       previewAudio.currentTime = 0;
-      playPreviewSrc(playlistSong().previewUrl);
+      playPreviewSrc(playlistSong().previewUrl, true);
       return;
     }
     let i = playlist.idx + dir;
@@ -1325,11 +1378,16 @@
       i = 0;
     }
     playlist.idx = i;
-    playPlaylistSong();
+    playPlaylistSong(!auto && previewAudio && !previewAudio.paused ? FADE_SKIP : 0);
   }
   function closePlaylist(keepAudio) {
     playlist = null;
-    if (!keepAudio) stopPreview();
+    switchSeq++;
+    if (!keepAudio && previewAudio && !previewAudio.paused) {
+      const src = previewAudio.dataset.src, tok = switchSeq;
+      rampGain(0, 0.5);
+      setTimeout(() => { if (tok === switchSeq && previewAudio.dataset.src === src) stopPreview(); }, 500);
+    }
     if ("mediaSession" in navigator) {
       try { navigator.mediaSession.metadata = null; } catch (e) {}
     }
@@ -1365,11 +1423,16 @@
       if (!playlist) return;
       const src = playlistSong().previewUrl;
       if (previewPlaying(src)) previewAudio.pause();
-      else playPreviewSrc(src);
+      else { playlist.fadingOut = false; playPreviewSrc(src, true); }
     });
     document.body.appendChild(playerEl);
     ensurePreviewAudio().addEventListener("timeupdate", () => {
       if (!playlist || !previewAudio.duration) return;
+      const left = previewAudio.duration - previewAudio.currentTime;
+      if (!playlist.fadingOut && left <= FADE_OUT && previewAudio.dataset.src === playlistSong().previewUrl) {
+        playlist.fadingOut = true;
+        rampGain(0, Math.max(0.1, left));
+      }
       playerEl.querySelector(".tp-bar-fill").style.width = Math.min(100, (previewAudio.currentTime / previewAudio.duration) * 100) + "%";
     });
   }
