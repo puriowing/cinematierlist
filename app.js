@@ -848,6 +848,7 @@
         `<span class="tier-count">${visibleItems(tier.items).length}</span>` +
         `<button class="tier-sort" title="このティアを並び替え（登録順 / あいうえお順）">↕</button>` +
         `<button class="tier-analyze" title="このティアを分析">📊</button>` +
+        (has("preview") ? `<button class="tier-shuffle${playlist && playlist.tierId === tier.id ? " is-playing" : ""}" data-tier-id="${escapeHtml(tier.id)}" title="このティアの曲をシャッフル再生" aria-label="このティアの曲をシャッフル再生">${PLAY_SVG}<span>シャッフル</span></button>` : "") +
         `<span class="tier-gear" title="ティアを編集">⚙</span>`;
       label.querySelector(".collapse-toggle").addEventListener("click", (e) => {
         e.stopPropagation();
@@ -861,6 +862,12 @@
       label.querySelector(".tier-analyze").addEventListener("click", (e) => {
         e.stopPropagation();
         openTierAnalysis(tier.id);
+      });
+      const shuf = label.querySelector(".tier-shuffle");
+      if (shuf) shuf.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (playlist && playlist.tierId === tier.id) { closePlaylist(); return; }
+        startTierPlaylist(tier);
       });
       label.addEventListener("click", () => openTierEditor(tier, label));
       row.appendChild(label);
@@ -1213,6 +1220,7 @@
   }
   function syncPreviewButtons() {
     document.querySelectorAll(".song-play").forEach(paintPreviewBtn);
+    if (playlist || (playerEl && !playerEl.classList.contains("hidden"))) paintPlayer();
   }
   // server.py の _music_url_ok と同じ許可リスト
   function musicUrlOk(kind, url) {
@@ -1224,31 +1232,174 @@
     return ["itunes.apple.com", "mzstatic.com"].some((d) => host === d || host.endsWith("." + d));
   }
 
-  function togglePreview(src) {
-    if (!musicUrlOk("previewUrl", src)) return;
-    if (!previewAudio) {
-      previewAudio = new Audio();
-      previewAudio.preload = "none";
-      ["play", "pause", "ended"].forEach((ev) => previewAudio.addEventListener(ev, syncPreviewButtons));
-      previewAudio.addEventListener("error", () => {
-        if (!previewAudio.dataset.src) return;
-        previewAudio.dataset.src = "";
-        syncPreviewButtons();
-        toast("試聴を再生できませんでした");
-      });
+  function ensurePreviewAudio() {
+    if (previewAudio) return previewAudio;
+    previewAudio = new Audio();
+    previewAudio.preload = "none";
+    ["play", "pause", "ended"].forEach((ev) => previewAudio.addEventListener(ev, syncPreviewButtons));
+    previewAudio.addEventListener("ended", () => {
+      if (playlist && previewAudio.dataset.src === playlistSong().previewUrl) playlistStep(1, true);
+    });
+    previewAudio.addEventListener("error", () => {
+      if (!previewAudio.dataset.src) return;
+      previewAudio.dataset.src = "";
+      if (playlist) {
+        playlist.fails++;
+        if (playlist.fails < Math.min(playlist.queue.length, 5)) { playlistStep(1, true); return; }
+        closePlaylist();
+      }
+      syncPreviewButtons();
+      toast("試聴を再生できませんでした");
+    });
+    return previewAudio;
+  }
+
+  function playPreviewSrc(src) {
+    const a = ensurePreviewAudio();
+    if (a.dataset.src !== src) {
+      a.pause();
+      a.dataset.src = src;
+      a.src = src;
     }
-    if (previewPlaying(src)) { previewAudio.pause(); return; }
-    if (previewAudio.dataset.src !== src) {
-      previewAudio.pause();
-      previewAudio.dataset.src = src;
-      previewAudio.src = src;
-    }
-    const p = previewAudio.play();
+    const p = a.play();
     if (p && p.catch) p.catch(() => {});
     syncPreviewButtons();
   }
+
+  function togglePreview(src) {
+    if (!musicUrlOk("previewUrl", src)) return;
+    if (previewPlaying(src)) { previewAudio.pause(); return; }
+    if (playlist && playlistSong().previewUrl !== src) {
+      const i = playlist.queue.findIndex((m) => m.previewUrl === src);
+      if (i >= 0) { playlist.idx = i; playlist.fails = 0; playPlaylistSong(); return; }
+      closePlaylist(true);
+    }
+    playPreviewSrc(src);
+  }
   function stopPreview() {
     if (previewAudio && !previewAudio.paused) previewAudio.pause();
+  }
+
+  // ---- ティアのシャッフル再生（30秒試聴を続けて流す） ----
+  let playlist = null;
+  let playerEl = null;
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function playlistSong() {
+    return playlist.queue[playlist.idx];
+  }
+  function startTierPlaylist(tier) {
+    const songs = tier.items.filter((m) => musicUrlOk("previewUrl", m.previewUrl));
+    if (!songs.length) { toast("このティアには試聴できる曲がありません"); return; }
+    playlist = { tierId: tier.id, label: tier.label, color: tier.color, pool: songs, queue: shuffled(songs), idx: 0, fails: 0 };
+    playPlaylistSong();
+  }
+  function playPlaylistSong() {
+    const m = playlistSong();
+    playPreviewSrc(m.previewUrl);
+    setMediaSession(m);
+    paintPlayer();
+  }
+  function playlistStep(dir, auto) {
+    if (!playlist) return;
+    if (!auto) playlist.fails = 0;
+    if (dir < 0 && previewAudio && previewAudio.currentTime > 3) {
+      previewAudio.currentTime = 0;
+      playPreviewSrc(playlistSong().previewUrl);
+      return;
+    }
+    let i = playlist.idx + dir;
+    if (i >= playlist.queue.length) {
+      const last = playlistSong();
+      let q = shuffled(playlist.pool);
+      if (q.length > 1 && q[0] === last) q.push(q.shift());
+      playlist.queue = q;
+      i = 0;
+    } else if (i < 0) {
+      i = 0;
+    }
+    playlist.idx = i;
+    playPlaylistSong();
+  }
+  function closePlaylist(keepAudio) {
+    playlist = null;
+    if (!keepAudio) stopPreview();
+    if ("mediaSession" in navigator) {
+      try { navigator.mediaSession.metadata = null; } catch (e) {}
+    }
+    paintPlayer();
+  }
+  function setMediaSession(m) {
+    if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
+    try {
+      const art = musicUrlOk("poster", m.poster) ? [{ src: m.poster, sizes: "600x600", type: "image/jpeg" }] : [];
+      navigator.mediaSession.metadata = new MediaMetadata({ title: m.title || "", artist: m.artist || "", album: m.album || "", artwork: art });
+      navigator.mediaSession.setActionHandler("nexttrack", () => playlistStep(1));
+      navigator.mediaSession.setActionHandler("previoustrack", () => playlistStep(-1));
+    } catch (e) {}
+  }
+  function buildPlayer() {
+    playerEl = document.createElement("div");
+    playerEl.className = "tier-player hidden";
+    playerEl.dataset.raw = "";
+    playerEl.innerHTML =
+      `<img class="tp-art" alt="" draggable="false">` +
+      `<div class="tp-meta"><div class="tp-top"><div class="tp-tier"></div><a class="tp-apple" target="_blank" rel="noopener">Apple Music で聴く</a></div><div class="tp-title"></div><div class="tp-artist"></div></div>` +
+      `<div class="tp-ctrls">` +
+      `<button type="button" class="tp-btn tp-prev" aria-label="前の曲" title="前の曲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h2v12H7zM20 6v12l-9-6z" fill="currentColor"/></svg></button>` +
+      `<button type="button" class="tp-btn tp-toggle" aria-label="一時停止" title="一時停止"></button>` +
+      `<button type="button" class="tp-btn tp-next" aria-label="次の曲" title="次の曲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6h2v12h-2zM4 6v12l9-6z" fill="currentColor"/></svg></button>` +
+      `</div>` +
+      `<button type="button" class="tp-btn tp-close" aria-label="閉じる" title="閉じる">✕</button>` +
+      `<div class="tp-bar"><div class="tp-bar-fill"></div></div>`;
+    playerEl.querySelector(".tp-prev").addEventListener("click", () => playlistStep(-1));
+    playerEl.querySelector(".tp-next").addEventListener("click", () => playlistStep(1));
+    playerEl.querySelector(".tp-close").addEventListener("click", () => closePlaylist());
+    playerEl.querySelector(".tp-toggle").addEventListener("click", () => {
+      if (!playlist) return;
+      const src = playlistSong().previewUrl;
+      if (previewPlaying(src)) previewAudio.pause();
+      else playPreviewSrc(src);
+    });
+    document.body.appendChild(playerEl);
+    ensurePreviewAudio().addEventListener("timeupdate", () => {
+      if (!playlist || !previewAudio.duration) return;
+      playerEl.querySelector(".tp-bar-fill").style.width = Math.min(100, (previewAudio.currentTime / previewAudio.duration) * 100) + "%";
+    });
+  }
+  function paintPlayer() {
+    if (!playlist) {
+      if (playerEl) playerEl.classList.add("hidden");
+      document.body.classList.remove("player-on");
+      document.querySelectorAll(".tier-shuffle.is-playing").forEach((b) => b.classList.remove("is-playing"));
+      return;
+    }
+    if (!playerEl) buildPlayer();
+    const m = playlistSong();
+    const on = previewPlaying(m.previewUrl);
+    playerEl.classList.remove("hidden");
+    document.body.classList.add("player-on");
+    const art = playerEl.querySelector(".tp-art");
+    if (musicUrlOk("poster", m.poster)) { art.src = m.poster; art.style.visibility = ""; }
+    else { art.removeAttribute("src"); art.style.visibility = "hidden"; }
+    const tierEl = playerEl.querySelector(".tp-tier");
+    tierEl.textContent = `${playlist.label} シャッフル ${playlist.idx + 1}/${playlist.queue.length}`;
+    playerEl.querySelector(".tp-title").textContent = m.title || "";
+    playerEl.querySelector(".tp-artist").textContent = m.artist || "";
+    const t = playerEl.querySelector(".tp-toggle");
+    t.innerHTML = on ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>` : PLAY_SVG;
+    t.setAttribute("aria-label", on ? "一時停止" : "再生");
+    t.title = on ? "一時停止" : "再生";
+    const apple = playerEl.querySelector(".tp-apple");
+    if (musicUrlOk("appleUrl", m.appleUrl)) { apple.href = m.appleUrl; apple.classList.remove("hidden"); }
+    else apple.classList.add("hidden");
+    document.querySelectorAll(".tier-shuffle").forEach((b) => b.classList.toggle("is-playing", b.dataset.tierId === playlist.tierId));
   }
   function buildPreviewBtn(item, cls) {
     const b = document.createElement("button");
